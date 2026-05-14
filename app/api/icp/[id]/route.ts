@@ -7,7 +7,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { data, error } = await supabase.from('icps').select().eq('id', id).single()
+  const { data, error } = await supabase.from('prospection_icps').select().eq('id', id).single()
   if (error) return NextResponse.json({ error: error.message }, { status: 404 })
   return NextResponse.json({ icp: data })
 }
@@ -20,7 +20,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   const body = await request.json()
   const { data, error } = await supabase
-    .from('icps')
+    .from('prospection_icps')
     .update({ ...body, updated_at: new Date().toISOString() })
     .eq('id', id)
     .select()

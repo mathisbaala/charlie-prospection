@@ -2,7 +2,7 @@
 create extension if not exists "uuid-ossp";
 
 -- Organizations (cabinets CGP)
-create table organizations (
+create table prospection_organizations (
   id uuid primary key default uuid_generate_v4(),
   name text not null,
   slug text unique not null,
@@ -13,9 +13,9 @@ create table organizations (
 );
 
 -- Organization members
-create table organization_members (
+create table prospection_organization_members (
   id uuid primary key default uuid_generate_v4(),
-  org_id uuid not null references organizations(id) on delete cascade,
+  org_id uuid not null references prospection_organizations(id) on delete cascade,
   user_id uuid not null references auth.users(id) on delete cascade,
   role text not null default 'member' check (role in ('owner', 'member')),
   created_at timestamptz not null default now(),
@@ -23,9 +23,9 @@ create table organization_members (
 );
 
 -- ICPs (Ideal Customer Profiles)
-create table icps (
+create table prospection_icps (
   id uuid primary key default uuid_generate_v4(),
-  org_id uuid not null references organizations(id) on delete cascade,
+  org_id uuid not null references prospection_organizations(id) on delete cascade,
   raw_description text not null,
   parsed_criteria jsonb not null default '{}',
   linkedin_queries jsonb not null default '[]',
@@ -35,10 +35,10 @@ create table icps (
 );
 
 -- Prospects
-create table prospects (
+create table prospection_prospects (
   id uuid primary key default uuid_generate_v4(),
-  org_id uuid not null references organizations(id) on delete cascade,
-  icp_id uuid references icps(id) on delete set null,
+  org_id uuid not null references prospection_organizations(id) on delete cascade,
+  icp_id uuid references prospection_icps(id) on delete set null,
   linkedin_url text not null,
   linkedin_data jsonb not null default '{}',
   enrichment_data jsonb not null default '{}',
@@ -53,10 +53,10 @@ create table prospects (
 );
 
 -- Signals
-create table signals (
+create table prospection_signals (
   id uuid primary key default uuid_generate_v4(),
-  prospect_id uuid not null references prospects(id) on delete cascade,
-  org_id uuid not null references organizations(id) on delete cascade,
+  prospect_id uuid not null references prospection_prospects(id) on delete cascade,
+  org_id uuid not null references prospection_organizations(id) on delete cascade,
   type text not null check (type in (
     'cession_entreprise', 'levee_fonds', 'creation_holding', 'transaction_immo',
     'nouveau_poste', 'installation_cabinet', 'post_linkedin', 'retraite_imminente',
@@ -72,10 +72,10 @@ create table signals (
 );
 
 -- Outreach messages
-create table outreach_messages (
+create table prospection_outreach_messages (
   id uuid primary key default uuid_generate_v4(),
-  prospect_id uuid not null references prospects(id) on delete cascade,
-  org_id uuid not null references organizations(id) on delete cascade,
+  prospect_id uuid not null references prospection_prospects(id) on delete cascade,
+  org_id uuid not null references prospection_organizations(id) on delete cascade,
   channel text not null check (channel in ('linkedin', 'email')),
   content text not null,
   signals_used jsonb not null default '[]',
@@ -85,61 +85,61 @@ create table outreach_messages (
 );
 
 -- RLS: activer sur toutes les tables
-alter table organizations enable row level security;
-alter table organization_members enable row level security;
-alter table icps enable row level security;
-alter table prospects enable row level security;
-alter table signals enable row level security;
-alter table outreach_messages enable row level security;
+alter table prospection_organizations enable row level security;
+alter table prospection_organization_members enable row level security;
+alter table prospection_icps enable row level security;
+alter table prospection_prospects enable row level security;
+alter table prospection_signals enable row level security;
+alter table prospection_outreach_messages enable row level security;
 
 -- Helper: org_ids de l'utilisateur courant
 create or replace function my_org_ids()
 returns setof uuid language sql security definer stable as $$
-  select org_id from organization_members where user_id = auth.uid()
+  select org_id from prospection_organization_members where user_id = auth.uid()
 $$;
 
--- RLS policies: organizations
+-- RLS policies: prospection_organizations
 create policy "members can view their org"
-  on organizations for select
+  on prospection_organizations for select
   using (id in (select my_org_ids()));
 
 create policy "owners can update their org"
-  on organizations for update
+  on prospection_organizations for update
   using (id in (
-    select org_id from organization_members
+    select org_id from prospection_organization_members
     where user_id = auth.uid() and role = 'owner'
   ));
 
--- RLS policies: organization_members
+-- RLS policies: prospection_organization_members
 create policy "members can view org members"
-  on organization_members for select
+  on prospection_organization_members for select
   using (org_id in (select my_org_ids()));
 
--- RLS policies: icps
+-- RLS policies: prospection_icps
 create policy "org members can manage icps"
-  on icps for all
+  on prospection_icps for all
   using (org_id in (select my_org_ids()));
 
--- RLS policies: prospects
+-- RLS policies: prospection_prospects
 create policy "org members can manage prospects"
-  on prospects for all
+  on prospection_prospects for all
   using (org_id in (select my_org_ids()));
 
--- RLS policies: signals
+-- RLS policies: prospection_signals
 create policy "org members can manage signals"
-  on signals for all
+  on prospection_signals for all
   using (org_id in (select my_org_ids()));
 
--- RLS policies: outreach_messages
+-- RLS policies: prospection_outreach_messages
 create policy "org members can manage outreach"
-  on outreach_messages for all
+  on prospection_outreach_messages for all
   using (org_id in (select my_org_ids()));
 
 -- Indexes
-create index idx_prospects_org_id on prospects(org_id);
-create index idx_prospects_crm_stage on prospects(org_id, crm_stage);
-create index idx_signals_prospect_id on signals(prospect_id);
-create index idx_signals_org_id on signals(org_id);
-create index idx_signals_org_unread on signals(org_id, read) where read = false;
-create index idx_outreach_org_id on outreach_messages(org_id);
-create index idx_outreach_prospect_id on outreach_messages(prospect_id);
+create index idx_prospection_prospects_org_id on prospection_prospects(org_id);
+create index idx_prospection_prospects_crm_stage on prospection_prospects(org_id, crm_stage);
+create index idx_prospection_signals_prospect_id on prospection_signals(prospect_id);
+create index idx_prospection_signals_org_id on prospection_signals(org_id);
+create index idx_prospection_signals_org_unread on prospection_signals(org_id, read) where read = false;
+create index idx_prospection_outreach_org_id on prospection_outreach_messages(org_id);
+create index idx_prospection_outreach_prospect_id on prospection_outreach_messages(prospect_id);

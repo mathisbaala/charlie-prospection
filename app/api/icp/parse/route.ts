@@ -14,7 +14,7 @@ export async function POST(request: Request) {
   }
 
   const { data: membership } = await supabase
-    .from('organization_members')
+    .from('prospection_organization_members')
     .select('org_id')
     .eq('user_id', user.id)
     .single()
@@ -24,7 +24,7 @@ export async function POST(request: Request) {
 
   // Check for existing active ICP
   const { data: existingIcp } = await supabase
-    .from('icps')
+    .from('prospection_icps')
     .select('id')
     .eq('org_id', membership.org_id)
     .eq('status', 'active')
@@ -34,7 +34,7 @@ export async function POST(request: Request) {
   if (existingIcp) {
     // Update existing
     ;({ data: icp, error } = await supabase
-      .from('icps')
+      .from('prospection_icps')
       .update({
         raw_description: description,
         parsed_criteria: criteria,
@@ -47,7 +47,7 @@ export async function POST(request: Request) {
   } else {
     // Insert new
     ;({ data: icp, error } = await supabase
-      .from('icps')
+      .from('prospection_icps')
       .insert({
         org_id: membership.org_id,
         raw_description: description,

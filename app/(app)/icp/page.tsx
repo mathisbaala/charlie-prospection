@@ -8,13 +8,13 @@ export default async function IcpPage() {
   let existingIcp = null
   if (user) {
     const { data: membership } = await supabase
-      .from('organization_members')
+      .from('prospection_organization_members')
       .select('org_id')
       .eq('user_id', user.id)
       .single()
     if (membership) {
       const { data } = await supabase
-        .from('icps')
+        .from('prospection_icps')
         .select()
         .eq('org_id', membership.org_id)
         .eq('status', 'active')

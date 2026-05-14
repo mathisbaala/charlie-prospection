@@ -18,7 +18,7 @@ export async function POST(request: Request) {
 
   // Check if user already has an org
   const { data: existing } = await supabase
-    .from('organization_members')
+    .from('prospection_organization_members')
     .select('org_id')
     .eq('user_id', user.id)
     .single()
@@ -36,14 +36,14 @@ export async function POST(request: Request) {
   )
 
   const { data: org, error: orgError } = await service
-    .from('organizations')
+    .from('prospection_organizations')
     .insert({ name: cabinetName, slug })
     .select()
     .single()
   if (orgError) return NextResponse.json({ error: orgError.message }, { status: 500 })
 
   const { error: memberError } = await service
-    .from('organization_members')
+    .from('prospection_organization_members')
     .insert({ org_id: org.id, user_id: user.id, role: 'owner' })
   if (memberError) return NextResponse.json({ error: memberError.message }, { status: 500 })
 
