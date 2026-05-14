@@ -139,5 +139,7 @@ create policy "org members can manage outreach"
 create index idx_prospects_org_id on prospects(org_id);
 create index idx_prospects_crm_stage on prospects(org_id, crm_stage);
 create index idx_signals_prospect_id on signals(prospect_id);
+create index idx_signals_org_id on signals(org_id);
 create index idx_signals_org_unread on signals(org_id, read) where read = false;
+create index idx_outreach_org_id on outreach_messages(org_id);
 create index idx_outreach_prospect_id on outreach_messages(prospect_id);
