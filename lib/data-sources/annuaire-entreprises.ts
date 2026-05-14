@@ -11,14 +11,18 @@ export interface AEDirigeant {
 export interface AEResult {
   siren: string
   nom_complet: string
+  nom_raison_sociale?: string
   activite_principale: string
   libelle_activite_principale?: string
   date_creation?: string
   tranche_effectif_salarie?: string
+  categorie_entreprise?: string // PME, ETI, GE
+  nature_juridique?: string
   siege: {
     adresse?: string
     code_postal?: string
-    commune?: string
+    commune?: string          // INSEE commune code (e.g. "75116")
+    libelle_commune?: string  // Display name (e.g. "PARIS")
     departement?: string
     latitude?: number
     longitude?: number

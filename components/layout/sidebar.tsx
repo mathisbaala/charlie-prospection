@@ -1,16 +1,14 @@
 'use client'
 import Link from 'next/link'
-import Image from 'next/image'
 import { usePathname } from 'next/navigation'
-import { Users, Zap, Kanban, MessageSquare, Settings, LogOut } from 'lucide-react'
+import { Search, Users, Kanban, MessageSquare, Settings, LogOut } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import { clsx } from 'clsx'
 
 const NAV_ITEMS = [
-  { href: '/prospects', label: 'Dashboard', icon: Users },
-  { href: '/icp', label: 'Prospects', icon: Zap },
-  { href: '/pipeline', label: 'Suivi', icon: Kanban },
+  { href: '/pipeline', label: 'Pipeline', icon: Kanban },
+  { href: '/prospects', label: 'Recherche', icon: Search },
+  { href: '/icp', label: 'ICP', icon: Users },
   { href: '/outreach', label: 'Contact', icon: MessageSquare },
 ]
 
@@ -25,72 +23,110 @@ export function Sidebar() {
   }
 
   return (
-    <aside className="w-60 min-h-screen flex flex-col" style={{ backgroundColor: '#1a1a1a' }}>
-      <div className="p-5 border-b" style={{ borderColor: '#2a2a2a' }}>
-        <div className="flex items-center gap-3">
-          <Image
-            src="/charlie-logo.png"
-            alt="Charlie"
-            width={36}
-            height={36}
-            className="object-contain"
-          />
-          <div>
-            <h1 className="font-semibold text-sm" style={{ color: '#E8DCC8' }}>Charlie</h1>
-            <p className="text-xs mt-0.5" style={{ color: '#8a7a6a' }}>Prospection</p>
-          </div>
-        </div>
+    <aside
+      className="flex flex-col"
+      style={{
+        width: 240,
+        minHeight: '100vh',
+        background: 'var(--color-surface)',
+        borderRight: '1px solid var(--color-border)',
+      }}
+    >
+      <div
+        className="flex items-center gap-2"
+        style={{ padding: '20px 20px 18px', borderBottom: '1px solid var(--color-border)' }}
+      >
+        <span
+          style={{
+            width: 10,
+            height: 10,
+            borderRadius: '50%',
+            background: 'var(--color-accent)',
+            flexShrink: 0,
+          }}
+        />
+        <span
+          className="font-display"
+          style={{
+            fontSize: 16,
+            fontWeight: 600,
+            color: 'var(--color-text)',
+            letterSpacing: '-0.01em',
+          }}
+        >
+          Charlie
+        </span>
+        <span style={{ color: 'var(--color-muted)', fontWeight: 300 }}>·</span>
+        <span style={{ color: 'var(--color-muted)', fontSize: 13 }}>Prospection</span>
       </div>
 
-      <nav className="flex-1 p-3 space-y-1">
+      <nav className="flex-1" style={{ padding: '12px 8px' }}>
         {NAV_ITEMS.map(({ href, label, icon: Icon }) => (
-          <Link
-            key={href}
-            href={href}
-            className={clsx(
-              'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors',
-              pathname.startsWith(href)
-                ? 'text-white'
-                : 'hover:text-white transition-colors'
-            )}
-            style={
-              pathname.startsWith(href)
-                ? { backgroundColor: '#C4A882', color: '#1a1a1a' }
-                : { color: '#8a7a6a' }
-            }
-          >
-            <Icon size={16} />
+          <NavLink key={href} href={href} active={pathname.startsWith(href)} Icon={Icon}>
             {label}
-          </Link>
+          </NavLink>
         ))}
       </nav>
 
-      <div className="p-3 space-y-1" style={{ borderTop: '1px solid #2a2a2a' }}>
-        <Link
+      <div style={{ padding: '8px', borderTop: '1px solid var(--color-border)' }}>
+        <NavLink
           href="/settings"
-          className={clsx(
-            'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors'
-          )}
-          style={
-            pathname.startsWith('/settings')
-              ? { backgroundColor: '#C4A882', color: '#1a1a1a' }
-              : { color: '#8a7a6a' }
-          }
+          active={pathname.startsWith('/settings')}
+          Icon={Settings}
         >
-          <Settings size={16} />
           Paramètres
-        </Link>
+        </NavLink>
         <button
           onClick={handleSignOut}
-          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors"
-          style={{ color: '#8a7a6a' }}
-          onMouseEnter={e => (e.currentTarget.style.color = '#E8DCC8')}
-          onMouseLeave={e => (e.currentTarget.style.color = '#8a7a6a')}
+          className="w-full flex items-center gap-3 transition-colors"
+          style={{
+            padding: '8px 12px',
+            fontSize: 13,
+            color: 'var(--color-muted)',
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            borderRadius: 2,
+          }}
+          onMouseEnter={e => (e.currentTarget.style.color = 'var(--color-text)')}
+          onMouseLeave={e => (e.currentTarget.style.color = 'var(--color-muted)')}
         >
-          <LogOut size={16} />
+          <LogOut size={15} />
           Déconnexion
         </button>
       </div>
     </aside>
+  )
+}
+
+function NavLink({
+  href,
+  active,
+  Icon,
+  children,
+}: {
+  href: string
+  active: boolean
+  Icon: React.ElementType
+  children: React.ReactNode
+}) {
+  return (
+    <Link
+      href={href}
+      className="flex items-center gap-3 transition-colors"
+      style={{
+        padding: '8px 10px',
+        fontSize: 13,
+        fontWeight: active ? 600 : 400,
+        color: active ? 'var(--color-text)' : 'var(--color-muted)',
+        background: active ? 'var(--color-accent-dim)' : 'transparent',
+        borderLeft: active ? '2px solid var(--color-accent)' : '2px solid transparent',
+        borderRadius: 0,
+        marginBottom: 1,
+      }}
+    >
+      <Icon size={15} />
+      {children}
+    </Link>
   )
 }

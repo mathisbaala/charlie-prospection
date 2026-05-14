@@ -48,76 +48,188 @@ export function IcpBuilder({ initialIcp }: Props) {
   }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-8">
-      {/* Zone de texte principale */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <label className="block text-sm font-medium text-gray-700 mb-3">
-          Décrivez votre client idéal en langage naturel
-        </label>
+    <div style={{ maxWidth: 720 }} className="space-y-6">
+      <Card>
+        <Label>Décrivez votre client idéal en langage naturel</Label>
         <textarea
           value={description}
           onChange={e => setDescription(e.target.value)}
           rows={4}
-          className="w-full px-4 py-3 border border-gray-200 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          placeholder="Ex : Je cherche des médecins généralistes installés depuis moins de 5 ans en Île-de-France, avec un cabinet de groupe et une activité LinkedIn régulière..."
+          className="w-full mt-2"
+          placeholder="Ex : Je cherche des médecins généralistes installés depuis moins de 5 ans en Île-de-France, avec un cabinet de groupe et une activité LinkedIn régulière…"
+          style={{
+            background: 'var(--color-bg)',
+            color: 'var(--color-text)',
+            border: '1px solid var(--color-border)',
+            borderRadius: 2,
+            padding: '12px 14px',
+            fontSize: 14,
+            fontFamily: 'inherit',
+            resize: 'none',
+            outline: 'none',
+            lineHeight: 1.5,
+          }}
         />
-        <div className="flex items-center justify-between mt-3">
+        <div className="flex items-center justify-between mt-3 gap-4">
           <div className="flex gap-2 flex-wrap">
             {EXAMPLES.map(ex => (
               <button
                 key={ex}
                 onClick={() => setDescription(ex)}
-                className="text-xs text-indigo-600 hover:text-indigo-800 hover:underline"
+                style={{
+                  fontSize: 11,
+                  color: 'var(--color-muted)',
+                  background: 'transparent',
+                  border: 'none',
+                  padding: 0,
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                }}
+                onMouseEnter={e => (e.currentTarget.style.color = 'var(--color-accent)')}
+                onMouseLeave={e => (e.currentTarget.style.color = 'var(--color-muted)')}
               >
-                {ex.substring(0, 40)}…
+                {ex.substring(0, 38)}…
               </button>
             ))}
           </div>
           <button
             onClick={handleParse}
             disabled={!description.trim() || loading}
-            className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+            className="flex items-center gap-2 transition-opacity disabled:opacity-40"
+            style={{
+              background: 'var(--color-accent)',
+              color: '#fff',
+              padding: '9px 14px',
+              fontSize: 13,
+              fontWeight: 600,
+              borderRadius: 2,
+              border: 'none',
+              cursor: 'pointer',
+              flexShrink: 0,
+            }}
           >
             {loading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-            {loading ? 'Analyse...' : 'Analyser avec IA'}
+            {loading ? 'Analyse…' : 'Analyser avec IA'}
           </button>
         </div>
-        {error && <p className="text-sm text-red-600 mt-2">{error}</p>}
-      </div>
+        {error && (
+          <p className="text-sm mt-2" style={{ color: 'var(--color-error)' }}>
+            {error}
+          </p>
+        )}
+      </Card>
 
-      {/* Critères parsés */}
       {criteria && (
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <Card>
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-medium text-gray-900">Critères extraits</h3>
-            {saved && <span className="text-xs text-green-600 font-medium">✓ Sauvegardé</span>}
+            <SectionHeading>Critères extraits</SectionHeading>
+            {saved && (
+              <span
+                style={{
+                  fontSize: 11,
+                  fontWeight: 600,
+                  letterSpacing: '0.04em',
+                  color: 'var(--color-success)',
+                }}
+              >
+                ✓ Sauvegardé
+              </span>
+            )}
           </div>
           <CriteriaTags criteria={criteria} onChange={c => { setCriteria(c); setSaved(false) }} />
-        </div>
+        </Card>
       )}
 
-      {/* Requêtes LinkedIn générées */}
       {queries.length > 0 && (
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h3 className="font-medium text-gray-900 mb-3">Requêtes LinkedIn générées</h3>
-          <p className="text-sm text-gray-500 mb-4">
-            Ces requêtes seront utilisées par l'extension Chrome pour trouver vos prospects.
+        <Card>
+          <SectionHeading>Requêtes LinkedIn générées</SectionHeading>
+          <p className="text-sm mt-1 mb-4" style={{ color: 'var(--color-muted)' }}>
+            Ces requêtes seront utilisées par l&apos;extension Chrome pour trouver vos prospects.
           </p>
           <div className="space-y-2">
             {queries.map((q, i) => (
-              <div key={i} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                <span className="text-xs font-mono text-gray-400">#{i + 1}</span>
-                <code className="text-sm text-gray-700 flex-1">{q}</code>
+              <div
+                key={i}
+                className="flex items-center gap-3"
+                style={{
+                  padding: '10px 14px',
+                  background: 'var(--color-bg)',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: 2,
+                }}
+              >
+                <span
+                  className="font-mono"
+                  style={{ fontSize: 11, color: 'var(--color-muted)', minWidth: 20 }}
+                >
+                  #{i + 1}
+                </span>
+                <code style={{ fontSize: 13, color: 'var(--color-text)', flex: 1 }}>{q}</code>
               </div>
             ))}
           </div>
-          <div className="mt-4 p-4 bg-indigo-50 rounded-lg border border-indigo-100">
-            <p className="text-sm text-indigo-700">
-              <strong>Prochaine étape :</strong> Installez l'extension Chrome Charlie Prospection pour commencer à capturer les profils correspondants automatiquement.
+          <div
+            className="mt-4"
+            style={{
+              padding: 14,
+              background: 'var(--color-accent-dim)',
+              borderLeft: '2px solid var(--color-accent)',
+            }}
+          >
+            <p style={{ fontSize: 13, color: 'var(--color-text)' }}>
+              <strong style={{ fontWeight: 600 }}>Prochaine étape :</strong> installez l&apos;extension Chrome Charlie Prospection pour commencer à capturer les profils correspondants automatiquement.
             </p>
           </div>
-        </div>
+        </Card>
       )}
     </div>
+  )
+}
+
+function Card({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      style={{
+        background: 'var(--color-surface)',
+        border: '1px solid var(--color-border)',
+        borderRadius: 2,
+        padding: 24,
+      }}
+    >
+      {children}
+    </div>
+  )
+}
+
+function Label({ children }: { children: React.ReactNode }) {
+  return (
+    <label
+      className="block"
+      style={{
+        fontSize: 11,
+        fontWeight: 700,
+        letterSpacing: '0.08em',
+        textTransform: 'uppercase',
+        color: 'var(--color-muted)',
+      }}
+    >
+      {children}
+    </label>
+  )
+}
+
+function SectionHeading({ children }: { children: React.ReactNode }) {
+  return (
+    <h3
+      className="font-display"
+      style={{
+        fontSize: 18,
+        fontWeight: 600,
+        color: 'var(--color-text)',
+        letterSpacing: '-0.01em',
+      }}
+    >
+      {children}
+    </h3>
   )
 }

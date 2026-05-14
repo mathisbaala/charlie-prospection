@@ -35,3 +35,23 @@ export async function GET(request: Request) {
 
   return NextResponse.json({ prospects: data, total: count, page, per_page: perPage })
 }
+
+export async function DELETE() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const { data: membership } = await supabase
+    .from('prospection_organization_members')
+    .select('org_id')
+    .eq('user_id', user.id)
+    .single()
+  if (!membership) return NextResponse.json({ error: 'No organization' }, { status: 400 })
+
+  // Delete signals first (FK), then prospects
+  await supabase.from('prospection_signals').delete().eq('org_id', membership.org_id)
+  const { error } = await supabase.from('prospection_prospects').delete().eq('org_id', membership.org_id)
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  return NextResponse.json({ ok: true })
+}

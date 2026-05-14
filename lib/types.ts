@@ -5,7 +5,7 @@ export type SignalType =
   | 'cession_entreprise' | 'levee_fonds' | 'creation_holding' | 'transaction_immo'
   | 'nouveau_poste' | 'installation_cabinet' | 'post_linkedin' | 'retraite_imminente'
   | 'divorce' | 'succession' | 'augmentation_capital'
-export type SignalSource = 'bodacc' | 'sirene' | 'dvf' | 'rpps' | 'jo' | 'linkedin' | 'infogreffe'
+export type SignalSource = 'bodacc' | 'sirene' | 'dvf' | 'rpps' | 'jo' | 'linkedin' | 'infogreffe' | 'pappers'
 export type OutreachChannel = 'linkedin' | 'email'
 export type OutreachStatus = 'draft' | 'approved' | 'sent' | 'replied'
 export type IcpStatus = 'active' | 'paused'
@@ -111,6 +111,43 @@ export interface DvfTransaction {
   commune: string
 }
 
+export interface FinanceYear {
+  annee: number
+  chiffre_affaires?: number
+  resultat?: number
+  marge_brute?: number
+  excedent_brut_exploitation?: number
+  taux_marge_EBITDA?: number
+  taux_croissance_chiffre_affaires?: number
+  fonds_propres?: number
+  rentabilite_fonds_propres?: number
+  dettes_financieres?: number
+  capacite_autofinancement?: number
+  effectif?: number | null
+}
+
+export interface BeneficiaireEffectif {
+  nom?: string
+  prenom?: string
+  pourcentage_parts?: number
+  pourcentage_votes?: number
+  nationalite?: string
+  date_de_naissance?: string
+}
+
+export interface RppsData {
+  identifiant?: string
+  profession?: string
+  categorie_professionnelle?: string
+  mode_exercice?: string
+  type_activite_liberale?: string
+  savoir_faire?: string
+  cabinet_nom?: string
+  cabinet_commune?: string
+  cabinet_code_postal?: string
+  cabinet_adresse?: string
+}
+
 export interface ProspectEnrichmentData {
   // Identité dirigeant
   dirigeant_nom?: string
@@ -130,6 +167,23 @@ export interface ProspectEnrichmentData {
   code_postal?: string
   ville?: string
   departement?: string
+
+  // Pappers — finances & gouvernance
+  finances?: FinanceYear[]
+  chiffre_affaires_dernier?: number
+  resultat_dernier?: number
+  taux_marge_dernier?: number
+  fonds_propres_dernier?: number
+  capital_social?: number
+  beneficiaires_effectifs?: BeneficiaireEffectif[]
+  procedure_collective_en_cours?: boolean
+  date_immatriculation_rcs?: string
+  greffe?: string
+  numero_tva?: string
+  nb_etablissements?: number
+
+  // RPPS (professionnels de santé)
+  rpps?: RppsData
 
   // Signaux BODACC
   bodacc_events?: BodaccEvent[]

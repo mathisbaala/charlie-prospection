@@ -1,6 +1,14 @@
 import { getBodaccBySiren, classifyBodaccEvent } from '@/lib/data-sources/bodacc'
 import { getDvfByCommune } from '@/lib/data-sources/dvf'
-import type { BodaccEvent, DvfTransaction, ProspectEnrichmentData } from '@/lib/types'
+import { getPappersEnrichment } from '@/lib/data-sources/pappers'
+import { searchRpps, pickBestRppsMatch } from '@/lib/data-sources/rpps'
+import type {
+  BodaccEvent,
+  DvfTransaction,
+  FinanceYear,
+  ProspectEnrichmentData,
+  RppsData,
+} from '@/lib/types'
 import type { RawProspect } from '@/lib/prospect-search/engine'
 
 async function resolveCodeCommune(codePostal: string, ville: string): Promise<string> {
@@ -26,6 +34,17 @@ async function resolveCodeCommune(codePostal: string, ville: string): Promise<st
   }
 }
 
+// NAF codes for health professions — triggers RPPS enrichment
+function isHealthProfessional(codeNaf: string): boolean {
+  if (!codeNaf) return false
+  return (
+    codeNaf.startsWith('86.') ||
+    codeNaf.startsWith('86') ||
+    codeNaf.startsWith('87.') ||
+    codeNaf.startsWith('75.00') // vétérinaires
+  )
+}
+
 export async function enrichProspect(raw: RawProspect): Promise<ProspectEnrichmentData> {
   const enrichment: ProspectEnrichmentData = {
     dirigeant_nom: raw.dirigeant_nom,
@@ -43,51 +62,131 @@ export async function enrichProspect(raw: RawProspect): Promise<ProspectEnrichme
     ville: raw.ville,
     departement: raw.departement,
     linkedin_search_url: raw.linkedin_search_url,
-    sources_utilisees: ['annuaire_entreprises'],
+    sources_utilisees: [raw.source === 'pappers' ? 'pappers' : 'annuaire_entreprises'],
     enrichi_le: new Date().toISOString(),
   }
 
-  // Enrichissement BODACC
-  if (raw.siren) {
-    try {
-      const bodaccRecords = await getBodaccBySiren(raw.siren, 10)
-      if (bodaccRecords.length > 0) {
-        enrichment.bodacc_events = bodaccRecords.map((r): BodaccEvent => ({
-          id: r.id,
-          date: r.dateparution,
-          type: classifyBodaccEvent(r),
-          libelle: r.typeavis_lib ?? r.familleavis_lib ?? 'Annonce légale',
-          source: 'bodacc',
-        }))
-        enrichment.sources_utilisees?.push('bodacc')
-      }
-    } catch {
-      // BODACC unavailable, skip
+  // Resolve commune code once (used by DVF)
+  const codeCommunePromise = raw.code_postal
+    ? resolveCodeCommune(raw.code_postal, raw.ville)
+    : Promise.resolve('')
+
+  // Call all enrichment sources in parallel
+  const [bodaccResult, pappersResult, rppsResult, codeCommune] = await Promise.allSettled([
+    raw.siren ? getBodaccBySiren(raw.siren, 10) : Promise.resolve([]),
+    raw.siren ? getPappersEnrichment(raw.siren) : Promise.resolve(null),
+    isHealthProfessional(raw.code_naf) && raw.dirigeant_nom
+      ? searchRpps({
+          nom: raw.dirigeant_nom,
+          prenom: raw.dirigeant_prenom,
+          departement: raw.departement,
+          limit: 5,
+        })
+      : Promise.resolve([]),
+    codeCommunePromise,
+  ])
+
+  // ── BODACC ─────────────────────────────────────────────
+  if (bodaccResult.status === 'fulfilled' && bodaccResult.value.length > 0) {
+    enrichment.bodacc_events = bodaccResult.value.map((r): BodaccEvent => ({
+      id: r.id,
+      date: r.dateparution,
+      type: classifyBodaccEvent(r),
+      libelle: r.typeavis_lib ?? r.familleavis_lib ?? 'Annonce légale',
+      source: 'bodacc',
+    }))
+    enrichment.sources_utilisees?.push('bodacc')
+  }
+
+  // ── Pappers finances + gouvernance ─────────────────────
+  if (pappersResult.status === 'fulfilled' && pappersResult.value) {
+    const p = pappersResult.value
+    if (p.finances.length > 0) {
+      enrichment.finances = p.finances.slice(0, 5).map((f): FinanceYear => ({
+        annee: f.annee,
+        chiffre_affaires: f.chiffre_affaires,
+        resultat: f.resultat,
+        marge_brute: f.marge_brute,
+        excedent_brut_exploitation: f.excedent_brut_exploitation,
+        taux_marge_EBITDA: f.taux_marge_EBITDA,
+        taux_croissance_chiffre_affaires: f.taux_croissance_chiffre_affaires,
+        fonds_propres: f.fonds_propres,
+        rentabilite_fonds_propres: f.rentabilite_fonds_propres,
+        dettes_financieres: f.dettes_financieres,
+        capacite_autofinancement: f.capacite_autofinancement,
+        effectif: f.effectif,
+      }))
+      const last = enrichment.finances[0]
+      enrichment.chiffre_affaires_dernier = last.chiffre_affaires
+      enrichment.resultat_dernier = last.resultat
+      enrichment.taux_marge_dernier = last.taux_marge_EBITDA
+      enrichment.fonds_propres_dernier = last.fonds_propres
+    }
+    if (p.beneficiaires_effectifs.length > 0) {
+      enrichment.beneficiaires_effectifs = p.beneficiaires_effectifs.map(b => ({
+        nom: b.nom,
+        prenom: b.prenom,
+        pourcentage_parts: b.pourcentage_parts,
+        pourcentage_votes: b.pourcentage_votes,
+        nationalite: b.nationalite,
+        date_de_naissance: b.date_de_naissance,
+      }))
+    }
+    enrichment.procedure_collective_en_cours = p.procedure_collective_en_cours
+    enrichment.capital_social = p.capital
+    enrichment.date_immatriculation_rcs = p.date_immatriculation_rcs
+    enrichment.greffe = p.greffe
+    enrichment.numero_tva = p.numero_tva_intracommunautaire
+    enrichment.nb_etablissements = p.nb_etablissements
+    enrichment.sources_utilisees?.push('pappers_finances')
+  }
+
+  // ── RPPS (professionnels de santé) ─────────────────────
+  if (
+    rppsResult.status === 'fulfilled' &&
+    rppsResult.value.length > 0 &&
+    raw.dirigeant_nom &&
+    raw.dirigeant_prenom
+  ) {
+    const match = pickBestRppsMatch(rppsResult.value, raw.dirigeant_nom, raw.dirigeant_prenom)
+    if (match) {
+      const ea = match.exerciceActivite?.[0]
+      const se = match.situationExercice?.[0]
+      enrichment.rpps = {
+        identifiant: match.identifiant,
+        profession: ea?.libelleProfession ?? match.libelleProfession,
+        categorie_professionnelle: match.libelleCategorieProfessionnelle,
+        mode_exercice: ea?.libelleMode,
+        type_activite_liberale: ea?.libelleTypeActiviteLiberale,
+        savoir_faire: ea?.libelleSavoirFaire ?? se?.libelleSavoirFaire,
+        cabinet_nom: se?.raisonSociale,
+        cabinet_commune: se?.libelleCommune,
+        cabinet_code_postal: se?.codePostal,
+        cabinet_adresse: se?.adresseLigne1,
+      } satisfies RppsData
+      enrichment.sources_utilisees?.push('rpps')
     }
   }
 
-  // Enrichissement DVF
-  if (raw.code_postal) {
+  // ── DVF (transactions immobilières) ────────────────────
+  if (codeCommune.status === 'fulfilled' && codeCommune.value) {
     try {
-      const codeCommune = await resolveCodeCommune(raw.code_postal, raw.ville)
-      if (codeCommune) {
-        const dvfRecords = await getDvfByCommune(codeCommune, 300_000, 10)
-        if (dvfRecords.length > 0) {
-          enrichment.dvf_transactions = dvfRecords.map((r): DvfTransaction => ({
-            id: r.id_mutation,
-            date_mutation: r.date_mutation,
-            nature_mutation: r.nature_mutation,
-            valeur_fonciere: r.valeur_fonciere,
-            type_local: r.type_local ?? 'bien',
-            surface_reelle_bati: r.surface_reelle_bati,
-            adresse: `${r.adresse_numero ?? ''} ${r.adresse_voie ?? ''}`.trim(),
-            commune: r.nom_commune,
-          }))
-          const values = dvfRecords.map(r => r.valeur_fonciere).sort((a, b) => a - b)
-          const median = values[Math.floor(values.length / 2)] ?? 0
-          enrichment.patrimoine_immo_estime = median
-          enrichment.sources_utilisees?.push('dvf')
-        }
+      const dvfRecords = await getDvfByCommune(codeCommune.value, 300_000, 10)
+      if (dvfRecords.length > 0) {
+        enrichment.dvf_transactions = dvfRecords.map((r): DvfTransaction => ({
+          id: r.id_mutation,
+          date_mutation: r.date_mutation,
+          nature_mutation: r.nature_mutation,
+          valeur_fonciere: r.valeur_fonciere,
+          type_local: r.type_local ?? 'bien',
+          surface_reelle_bati: r.surface_reelle_bati,
+          adresse: `${r.adresse_numero ?? ''} ${r.adresse_voie ?? ''}`.trim(),
+          commune: r.nom_commune,
+        }))
+        const values = dvfRecords.map(r => r.valeur_fonciere).sort((a, b) => a - b)
+        const median = values[Math.floor(values.length / 2)] ?? 0
+        enrichment.patrimoine_immo_estime = median
+        enrichment.sources_utilisees?.push('dvf')
       }
     } catch {
       // DVF unavailable, skip

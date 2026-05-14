@@ -3,10 +3,10 @@ import type React from 'react'
 import { X, Building2, User, Users } from 'lucide-react'
 import type { ParsedIcpCriteria, TargetType } from '@/lib/types'
 
-const TARGET_TYPE_CONFIG: Record<TargetType, { label: string; color: string; Icon: React.ElementType }> = {
-  personne_morale: { label: 'Personne morale (entreprise)', color: 'bg-violet-100 text-violet-800', Icon: Building2 },
-  personne_physique: { label: 'Personne physique (individu)', color: 'bg-rose-100 text-rose-800', Icon: User },
-  both: { label: 'Personnes morales & physiques', color: 'bg-orange-100 text-orange-800', Icon: Users },
+const TARGET_TYPE_CONFIG: Record<TargetType, { label: string; Icon: React.ElementType }> = {
+  personne_morale: { label: 'Personne morale (entreprise)', Icon: Building2 },
+  personne_physique: { label: 'Personne physique (individu)', Icon: User },
+  both: { label: 'Personnes morales & physiques', Icon: Users },
 }
 
 const SIGNAL_LABELS: Record<string, string> = {
@@ -28,22 +28,61 @@ interface Props {
   onChange: (criteria: ParsedIcpCriteria) => void
 }
 
-function TagGroup({ label, items, color, onRemove }: {
+const tagStyle = (variant: 'default' | 'accent'): React.CSSProperties => ({
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 6,
+  padding: '4px 10px',
+  fontSize: 12,
+  fontWeight: 500,
+  borderRadius: 2,
+  background: variant === 'accent' ? 'var(--color-accent-dim)' : 'var(--color-bg)',
+  color: variant === 'accent' ? 'var(--color-accent)' : 'var(--color-text)',
+  border: `1px solid ${variant === 'accent' ? 'var(--color-accent)' : 'var(--color-border)'}`,
+})
+
+const removeBtnStyle: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  background: 'transparent',
+  border: 'none',
+  cursor: 'pointer',
+  padding: 0,
+  color: 'inherit',
+  opacity: 0.6,
+}
+
+const groupLabelStyle: React.CSSProperties = {
+  fontSize: 11,
+  fontWeight: 700,
+  letterSpacing: '0.08em',
+  textTransform: 'uppercase',
+  color: 'var(--color-muted)',
+  marginBottom: 8,
+}
+
+function TagGroup({
+  label,
+  items,
+  variant,
+  onRemove,
+}: {
   label: string
   items: string[]
-  color: string
+  variant: 'default' | 'accent'
   onRemove: (item: string) => void
 }) {
   if (!items.length) return null
   return (
     <div>
-      <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">{label}</p>
+      <p style={groupLabelStyle}>{label}</p>
       <div className="flex flex-wrap gap-2">
         {items.map(item => (
-          <span key={item} className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium ${color}`}>
+          <span key={item} style={tagStyle(variant)}>
             {SIGNAL_LABELS[item] ?? item}
-            <button onClick={() => onRemove(item)} className="hover:opacity-70">
-              <X size={12} />
+            <button onClick={() => onRemove(item)} style={removeBtnStyle} aria-label="Retirer">
+              <X size={11} />
             </button>
           </span>
         ))}
@@ -61,35 +100,45 @@ export function CriteriaTags({ criteria, onChange }: Props) {
   const targetConfig = criteria.target_type ? TARGET_TYPE_CONFIG[criteria.target_type] : null
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {targetConfig && (
         <div>
-          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Cible</p>
-          <div className="flex items-center gap-2">
-            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium ${targetConfig.color}`}>
-              <targetConfig.Icon size={12} />
-              {targetConfig.label}
-            </span>
+          <p style={groupLabelStyle}>Cible</p>
+          <span style={tagStyle('default')}>
+            <targetConfig.Icon size={12} />
+            {targetConfig.label}
             <button
               onClick={() => onChange({ ...criteria, target_type: undefined })}
-              className="text-gray-400 hover:text-gray-600"
+              style={removeBtnStyle}
+              aria-label="Retirer"
             >
-              <X size={12} />
+              <X size={11} />
             </button>
-          </div>
+          </span>
         </div>
       )}
-      <TagGroup label="Rôles" items={criteria.roles} color="bg-indigo-100 text-indigo-800" onRemove={v => remove('roles', v)} />
-      <TagGroup label="Secteurs" items={criteria.sectors} color="bg-blue-100 text-blue-800" onRemove={v => remove('sectors', v)} />
-      <TagGroup label="Localisations" items={criteria.locations} color="bg-green-100 text-green-800" onRemove={v => remove('locations', v)} />
-      <TagGroup label="Mots-clés" items={criteria.keywords} color="bg-gray-100 text-gray-700" onRemove={v => remove('keywords', v)} />
-      <TagGroup label="Signaux prioritaires" items={criteria.signal_priorities} color="bg-amber-100 text-amber-800" onRemove={v => remove('signal_priorities', v)} />
+      <TagGroup label="Rôles" items={criteria.roles} variant="default" onRemove={v => remove('roles', v)} />
+      <TagGroup label="Secteurs" items={criteria.sectors} variant="default" onRemove={v => remove('sectors', v)} />
+      <TagGroup label="Localisations" items={criteria.locations} variant="default" onRemove={v => remove('locations', v)} />
+      <TagGroup label="Mots-clés" items={criteria.keywords} variant="default" onRemove={v => remove('keywords', v)} />
+      <TagGroup
+        label="Signaux prioritaires"
+        items={criteria.signal_priorities}
+        variant="accent"
+        onRemove={v => remove('signal_priorities', v)}
+      />
       {criteria.patrimony_level && (
         <div>
-          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Niveau patrimonial</p>
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800">
+          <p style={groupLabelStyle}>Niveau patrimonial</p>
+          <span style={tagStyle('accent')}>
             {{ standard: 'Standard (200K–1M€)', high: 'Élevé (1M–5M€)', very_high: 'Très élevé (5M€+)' }[criteria.patrimony_level]}
-            <button onClick={() => onChange({ ...criteria, patrimony_level: undefined })} className="hover:opacity-70"><X size={12} /></button>
+            <button
+              onClick={() => onChange({ ...criteria, patrimony_level: undefined })}
+              style={removeBtnStyle}
+              aria-label="Retirer"
+            >
+              <X size={11} />
+            </button>
           </span>
         </div>
       )}

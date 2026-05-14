@@ -58,6 +58,7 @@ export async function POST(request: Request) {
     enrichmentData.patrimoine_total_estime = scoring.patrimoine_total_estime ?? undefined
 
     const linkedinData = {
+      source: raw.source,
       source_type: raw.source_type,
       nom: `${raw.dirigeant_prenom} ${raw.dirigeant_nom}`,
       prenom: raw.dirigeant_prenom,

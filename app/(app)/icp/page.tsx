@@ -24,11 +24,25 @@ export default async function IcpPage() {
   }
 
   return (
-    <div className="p-8">
+    <div style={{ padding: '40px 48px' }}>
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Mon ICP</h1>
-        <p className="text-gray-500 mt-1">
-          Décrivez votre client idéal — l'IA génère automatiquement les requêtes de recherche LinkedIn.
+        <h1
+          className="font-display"
+          style={{
+            fontSize: 36,
+            fontWeight: 700,
+            color: 'var(--color-text)',
+            letterSpacing: '-0.02em',
+            lineHeight: 1.1,
+          }}
+        >
+          Mon ICP
+        </h1>
+        <p
+          className="mt-2"
+          style={{ color: 'var(--color-muted)', fontSize: 14, maxWidth: 560 }}
+        >
+          Décrivez votre client idéal — l&apos;IA génère automatiquement les requêtes de recherche LinkedIn.
         </p>
       </div>
       <IcpBuilder initialIcp={existingIcp} />

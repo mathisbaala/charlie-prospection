@@ -1,5 +1,5 @@
 'use client'
-import { ExternalLink, Building2, MapPin, TrendingUp, AlertTriangle, Home, User } from 'lucide-react'
+import { ExternalLink, Building2, MapPin, TrendingUp, AlertTriangle, Home, User, Stethoscope, Users2, BarChart3 } from 'lucide-react'
 import { PatrimonyScoreBadge } from './patrimony-score-badge'
 import { SignalBadge } from './signal-badge'
 import type { Prospect, ProspectEnrichmentData, BodaccEvent, DvfTransaction } from '@/lib/types'
@@ -23,21 +23,24 @@ function euros(n: number | null | undefined): string {
   return `${n.toLocaleString('fr-FR')}€`
 }
 
+function titleCase(s: string): string {
+  return s.toLowerCase().replace(/\b\w/g, c => c.toUpperCase())
+}
+
 export function ProspectDetailSheet({ prospect, onClose, onStageChange }: Props) {
   const ld = prospect.linkedin_data as Record<string, string>
   const ed = prospect.enrichment_data as ProspectEnrichmentData
-  const isPhysique = ld?.source_type === 'personne_physique'
 
-  // Personne physique: individual is the main entity
-  // Personne morale: company is the main entity
-  const personName = ld?.nom ?? (`${ed?.dirigeant_prenom ?? ''} ${ed?.dirigeant_nom ?? ''}`.trim() || 'Prospect')
-  const mainTitle = isPhysique
-    ? personName
-    : (ld?.entreprise ?? ed?.siren ?? 'Prospect')
-  const mainSubtitle = isPhysique
-    ? (ld?.titre ?? ed?.dirigeant_qualite ?? '—')
-    : (ed?.libelle_naf ?? '—')
-  const secondaryLabel = isPhysique ? ld?.entreprise ?? '—' : `${ld?.nom ?? '—'} · ${ld?.titre ?? ''}`
+  // Person-first display: the prospect IS the human
+  const prenom = ed?.dirigeant_prenom ?? ld?.prenom ?? ''
+  const nom = ed?.dirigeant_nom ?? ld?.nom_de_famille ?? ''
+  const personName = `${titleCase(prenom)} ${titleCase(nom)}`.trim() || 'Prospect'
+  const personRole = ed?.dirigeant_qualite ?? ld?.titre ?? '—'
+  const companyName = ld?.entreprise ?? ed?.libelle_naf ?? '—'
+
+  const mainTitle = personName
+  const mainSubtitle = personRole
+  const secondaryLabel = titleCase(companyName)
 
   return (
     <div className="fixed inset-0 bg-black/30 z-50 flex justify-end" onClick={onClose}>
@@ -53,19 +56,19 @@ export function ProspectDetailSheet({ prospect, onClose, onStageChange }: Props)
           </div>
           {/* Type badge */}
           <div className="flex items-center gap-1.5 mb-2">
-            {isPhysique
-              ? <><User size={12} className="text-rose-500" /><span className="text-xs font-medium text-rose-600">Personne physique</span></>
-              : <><Building2 size={12} className="text-violet-500" /><span className="text-xs font-medium text-violet-600">Personne morale</span></>
+            {ed?.rpps
+              ? <><User size={12} className="text-rose-500" /><span className="text-xs font-medium text-rose-600">Professionnel de santé</span></>
+              : <><User size={12} className="text-gray-500" /><span className="text-xs font-medium text-gray-600">Dirigeant</span></>
             }
           </div>
           <h2 className="text-xl font-bold text-gray-900">{mainTitle}</h2>
           <p className="text-gray-600 mt-0.5">{mainSubtitle}</p>
           <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
             <span className="flex items-center gap-1">
-              {isPhysique ? <Building2 size={12} /> : <User size={12} />}
+              <Building2 size={12} />
               {secondaryLabel}
             </span>
-            {ed?.ville && <span className="flex items-center gap-1"><MapPin size={12} />{ed.ville}</span>}
+            {ed?.ville && <span className="flex items-center gap-1"><MapPin size={12} />{titleCase(ed.ville)}</span>}
           </div>
           {/* CRM Stage */}
           <div className="flex gap-1 mt-4 flex-wrap">
@@ -128,7 +131,7 @@ export function ProspectDetailSheet({ prospect, onClose, onStageChange }: Props)
           <section>
             <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2 mb-3">
               <Building2 size={14} className="text-gray-600" />
-              {isPhysique ? 'Structure d\'exercice' : 'Données entreprise'}
+              Société d&apos;exercice
             </h3>
             <div className="space-y-2 text-sm">
               {ed?.siren && <div className="flex justify-between"><span className="text-gray-500">SIREN</span><span className="font-mono">{ed.siren}</span></div>}
@@ -138,6 +141,95 @@ export function ProspectDetailSheet({ prospect, onClose, onStageChange }: Props)
               {ed?.adresse_entreprise && <div className="flex justify-between gap-4"><span className="text-gray-500">Adresse</span><span className="text-right">{ed.adresse_entreprise}</span></div>}
             </div>
           </section>
+
+          {/* Finances entreprise (Pappers) */}
+          {ed?.finances && ed.finances.length > 0 && (
+            <section>
+              <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2 mb-3">
+                <BarChart3 size={14} className="text-indigo-600" />
+                Finances entreprise
+              </h3>
+              <div className="grid grid-cols-2 gap-2 mb-3">
+                {ed.chiffre_affaires_dernier != null && (
+                  <div className="bg-indigo-50 rounded-lg p-2.5">
+                    <p className="text-xs text-indigo-600">Chiffre d&apos;affaires</p>
+                    <p className="text-sm font-bold text-indigo-900">{euros(ed.chiffre_affaires_dernier)}</p>
+                  </div>
+                )}
+                {ed.resultat_dernier != null && (
+                  <div className="bg-indigo-50 rounded-lg p-2.5">
+                    <p className="text-xs text-indigo-600">Résultat net</p>
+                    <p className="text-sm font-bold text-indigo-900">{euros(ed.resultat_dernier)}</p>
+                  </div>
+                )}
+                {ed.fonds_propres_dernier != null && (
+                  <div className="bg-indigo-50 rounded-lg p-2.5">
+                    <p className="text-xs text-indigo-600">Fonds propres</p>
+                    <p className="text-sm font-bold text-indigo-900">{euros(ed.fonds_propres_dernier)}</p>
+                  </div>
+                )}
+                {ed.taux_marge_dernier != null && (
+                  <div className="bg-indigo-50 rounded-lg p-2.5">
+                    <p className="text-xs text-indigo-600">Marge EBITDA</p>
+                    <p className="text-sm font-bold text-indigo-900">{ed.taux_marge_dernier}%</p>
+                  </div>
+                )}
+              </div>
+              {ed.finances.length > 1 && (
+                <div className="text-xs text-gray-500">
+                  Évolution CA : {ed.finances.slice(0, 3).reverse().map(f => `${f.annee}: ${euros(f.chiffre_affaires)}`).join(' → ')}
+                </div>
+              )}
+              {ed.capital_social && (
+                <div className="text-xs text-gray-500 mt-1">Capital social : {euros(ed.capital_social)}</div>
+              )}
+              {ed.procedure_collective_en_cours && (
+                <div className="mt-2 px-2.5 py-1.5 bg-red-50 text-red-700 text-xs rounded-lg border border-red-200">
+                  ⚠️ Procédure collective en cours
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* Bénéficiaires effectifs */}
+          {ed?.beneficiaires_effectifs && ed.beneficiaires_effectifs.length > 0 && (
+            <section>
+              <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2 mb-3">
+                <Users2 size={14} className="text-purple-600" />
+                Bénéficiaires effectifs ({ed.beneficiaires_effectifs.length})
+              </h3>
+              <div className="space-y-1.5">
+                {ed.beneficiaires_effectifs.slice(0, 5).map((b, i) => (
+                  <div key={i} className="flex items-center justify-between text-xs p-2 bg-purple-50 rounded-lg">
+                    <span className="font-medium text-purple-900">
+                      {b.prenom ?? ''} {b.nom ?? ''}
+                    </span>
+                    <span className="text-purple-700 font-mono">
+                      {b.pourcentage_parts != null ? `${b.pourcentage_parts}% parts` : '—'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* RPPS — profil santé */}
+          {ed?.rpps && (
+            <section>
+              <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2 mb-3">
+                <Stethoscope size={14} className="text-rose-600" />
+                Profil santé (RPPS)
+              </h3>
+              <div className="space-y-2 text-sm bg-rose-50 rounded-lg p-3">
+                {ed.rpps.profession && <div className="flex justify-between"><span className="text-rose-600">Profession</span><span className="font-medium">{ed.rpps.profession}</span></div>}
+                {ed.rpps.savoir_faire && <div className="flex justify-between"><span className="text-rose-600">Spécialité</span><span className="text-right">{ed.rpps.savoir_faire}</span></div>}
+                {ed.rpps.mode_exercice && <div className="flex justify-between"><span className="text-rose-600">Mode d&apos;exercice</span><span>{ed.rpps.mode_exercice}</span></div>}
+                {ed.rpps.type_activite_liberale && <div className="flex justify-between"><span className="text-rose-600">Type activité</span><span>{ed.rpps.type_activite_liberale}</span></div>}
+                {ed.rpps.cabinet_nom && <div className="flex justify-between gap-2"><span className="text-rose-600">Cabinet</span><span className="text-right">{ed.rpps.cabinet_nom}</span></div>}
+                {ed.rpps.cabinet_commune && <div className="flex justify-between"><span className="text-rose-600">Commune</span><span>{ed.rpps.cabinet_commune} ({ed.rpps.cabinet_code_postal})</span></div>}
+              </div>
+            </section>
+          )}
 
           {/* Signaux BODACC */}
           {ed?.bodacc_events && ed.bodacc_events.length > 0 && (

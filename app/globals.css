@@ -1,26 +1,67 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --color-bg: #F3EFE6;
+  --color-surface: #FDFAF5;
+  --color-text: #1A1612;
+  --color-muted: #6F6358;
+  --color-border: #E2DBD0;
+  --color-accent: #BC6B2A;
+  --color-accent-dim: rgba(188, 107, 42, 0.10);
+  --color-dark-surface: #1C1915;
+  --color-success: #2A6B4A;
+  --color-warning: #B45A1A;
+  --color-error: #8B2233;
+}
+
+[data-mode="dark"] {
+  --color-bg: #131110;
+  --color-surface: #1D1B18;
+  --color-text: #EDE9E0;
+  --color-muted: #8C7F72;
+  --color-border: #2C2824;
+  --color-accent: #D4844A;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --color-bg: var(--color-bg);
+  --color-surface: var(--color-surface);
+  --color-ink: var(--color-text);
+  --color-muted: var(--color-muted);
+  --color-border-warm: var(--color-border);
+  --color-accent: var(--color-accent);
+  --color-accent-dim: var(--color-accent-dim);
+  --color-dark-surface: var(--color-dark-surface);
+  --color-success: var(--color-success);
+  --color-warning: var(--color-warning);
+  --color-error: var(--color-error);
+
+  --font-display: var(--font-fraunces);
+  --font-sans: var(--font-jakarta);
   --font-mono: var(--font-geist-mono);
+
+  --radius-tight: 2px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html, body {
+  height: 100%;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-jakarta), system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.font-display {
+  font-family: var(--font-fraunces), Georgia, serif;
+}
+
+.font-mono,
+[data-numeric] {
+  font-family: var(--font-geist-mono), monospace;
+  font-variant-numeric: tabular-nums;
 }

@@ -101,6 +101,70 @@ export async function getEntrepriseRepresentants(siren: string): Promise<Pappers
   }
 }
 
+// Financials from /entreprise — chiffre d'affaires, résultat, marges, BFR, etc.
+export interface PappersFinances {
+  annee: number
+  chiffre_affaires?: number
+  resultat?: number
+  marge_brute?: number
+  excedent_brut_exploitation?: number
+  resultat_exploitation?: number
+  taux_croissance_chiffre_affaires?: number
+  taux_marge_EBITDA?: number
+  taux_marge_operationnelle?: number
+  fonds_propres?: number
+  rentabilite_fonds_propres?: number
+  dettes_financieres?: number
+  capacite_autofinancement?: number
+  effectif?: number | null
+}
+
+export interface PappersBeneficiaireEffectif {
+  nom?: string
+  prenom?: string
+  date_de_naissance?: string
+  pourcentage_parts?: number
+  pourcentage_votes?: number
+  nationalite?: string
+}
+
+export interface PappersEnrichment {
+  finances: PappersFinances[]
+  beneficiaires_effectifs: PappersBeneficiaireEffectif[]
+  procedure_collective_en_cours: boolean
+  capital?: number
+  forme_juridique?: string
+  numero_tva_intracommunautaire?: string
+  date_immatriculation_rcs?: string
+  greffe?: string
+  effectif_max?: number
+  nb_etablissements?: number
+}
+
+// Fetch the full enrichment payload for a SIREN — finances, BEs, procédures collectives
+export async function getPappersEnrichment(siren: string): Promise<PappersEnrichment | null> {
+  try {
+    const url = `${BASE}/entreprise?api_token=${token()}&siren=${siren}`
+    const res = await fetch(url, { next: { revalidate: 86400 } })
+    if (!res.ok) return null
+    const data = await res.json()
+    return {
+      finances: data.finances ?? [],
+      beneficiaires_effectifs: data.beneficiaires_effectifs ?? [],
+      procedure_collective_en_cours: data.procedure_collective_en_cours ?? false,
+      capital: data.capital,
+      forme_juridique: data.forme_juridique,
+      numero_tva_intracommunautaire: data.numero_tva_intracommunautaire,
+      date_immatriculation_rcs: data.date_immatriculation_rcs,
+      greffe: data.greffe,
+      effectif_max: data.effectif_max,
+      nb_etablissements: data.etablissements?.length,
+    }
+  } catch {
+    return null
+  }
+}
+
 export async function searchPersonnes(params: {
   q: string
   par_page?: number
