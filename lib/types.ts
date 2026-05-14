@@ -86,3 +86,80 @@ export interface OutreachMessage {
   sent_at: string | null
   created_at: string
 }
+
+// ── Enrichissement prospect ────────────────────────────────────────────────
+
+export interface BodaccEvent {
+  id: string
+  date: string
+  type: 'cession' | 'creation' | 'radiation' | 'modification' | 'procedure_collective' | 'autre'
+  libelle: string
+  source: 'bodacc'
+}
+
+export interface DvfTransaction {
+  id: string
+  date_mutation: string
+  nature_mutation: string
+  valeur_fonciere: number
+  type_local: string
+  surface_reelle_bati?: number
+  adresse: string
+  commune: string
+}
+
+export interface ProspectEnrichmentData {
+  // Identité dirigeant
+  dirigeant_nom?: string
+  dirigeant_prenom?: string
+  dirigeant_qualite?: string
+  dirigeant_annee_naissance?: number
+
+  // Entreprise (SIRENE)
+  siren?: string
+  siret?: string
+  forme_juridique?: string
+  date_creation_entreprise?: string
+  code_naf?: string
+  libelle_naf?: string
+  tranche_effectifs?: string
+  adresse_entreprise?: string
+  code_postal?: string
+  ville?: string
+  departement?: string
+
+  // Signaux BODACC
+  bodacc_events?: BodaccEvent[]
+
+  // Transactions immobilières (DVF)
+  dvf_transactions?: DvfTransaction[]
+  patrimoine_immo_estime?: number
+
+  // LinkedIn indirect
+  linkedin_search_url?: string
+  linkedin_titre?: string
+
+  // Scores calculés
+  valeur_entreprise_estimee?: number
+  revenus_implicites_estimes?: number
+  patrimoine_total_estime?: number
+
+  // Métadonnées
+  sources_utilisees?: string[]
+  enrichi_le?: string
+}
+
+export interface ProspectSearchResult {
+  linkedin_url: string
+  linkedin_data: Record<string, unknown>
+  enrichment_data: ProspectEnrichmentData
+  patrimony_score: number
+  icp_score: number
+  signals_detected: Array<{
+    type: SignalType
+    source: SignalSource
+    data: Record<string, unknown>
+    valeur_estimee?: number
+    detected_at: string
+  }>
+}
