@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { searchProspects } from '@/lib/prospect-search/engine'
 import { enrichProspect } from '@/lib/enrichment/enricher'
 import { scorePatrimony } from '@/lib/enrichment/patrimony-scorer'
-import type { ParsedIcpCriteria } from '@/lib/types'
+import type { ParsedIcpCriteria, ProspectEnrichmentData } from '@/lib/types'
 
 export async function POST(request: Request) {
   const supabase = await createClient()
@@ -19,37 +19,46 @@ export async function POST(request: Request) {
 
   const body = await request.json()
   const criteria: ParsedIcpCriteria = body.criteria
+  const icpId: string | null = body.icp_id ?? null
   if (!criteria) return NextResponse.json({ error: 'criteria required' }, { status: 400 })
 
   const limit = Math.min(body.limit ?? 20, 50)
 
   const rawProspects = await searchProspects(criteria, { limit })
+  if (rawProspects.length === 0) return NextResponse.json({ count: 0, prospect_ids: [] })
 
-  const saved: string[] = []
+  // Batch-check which prospects already exist (single query)
+  const linkedinUrls = rawProspects.map(r => r.linkedin_search_url)
+  const { data: existingRows } = await supabase
+    .from('prospection_prospects')
+    .select('id, linkedin_url')
+    .eq('org_id', membership.org_id)
+    .in('linkedin_url', linkedinUrls)
 
-  for (const raw of rawProspects) {
-    const linkedinUrl = `https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(raw.dirigeant_prenom + ' ' + raw.dirigeant_nom + ' ' + raw.entreprise_nom)}`
+  const existingByUrl = new Map((existingRows ?? []).map(r => [r.linkedin_url, r.id]))
+  const saved: string[] = [...existingByUrl.values()]
+  const newRaws = rawProspects.filter(r => !existingByUrl.has(r.linkedin_search_url))
 
-    const { data: existing } = await supabase
-      .from('prospection_prospects')
-      .select('id')
-      .eq('org_id', membership.org_id)
-      .eq('linkedin_url', linkedinUrl)
-      .single()
+  // Enrich all new prospects in parallel
+  const enrichResults = await Promise.allSettled(
+    newRaws.map(async (raw) => {
+      const enrichmentData = await enrichProspect(raw)
+      const scoring = await scorePatrimony(enrichmentData)
+      return { raw, enrichmentData, scoring }
+    })
+  )
 
-    if (existing) {
-      saved.push(existing.id)
-      continue
-    }
-
-    const enrichmentData = await enrichProspect(raw)
-    const scoring = await scorePatrimony(enrichmentData)
+  // Insert each successfully enriched prospect sequentially (signals depend on prospect id)
+  for (const result of enrichResults) {
+    if (result.status === 'rejected') continue
+    const { raw, enrichmentData, scoring } = result.value
 
     enrichmentData.valeur_entreprise_estimee = scoring.valeur_entreprise_estimee ?? undefined
     enrichmentData.revenus_implicites_estimes = scoring.revenus_implicites_estimes ?? undefined
     enrichmentData.patrimoine_total_estime = scoring.patrimoine_total_estime ?? undefined
 
     const linkedinData = {
+      source_type: raw.source_type,
       nom: `${raw.dirigeant_prenom} ${raw.dirigeant_nom}`,
       prenom: raw.dirigeant_prenom,
       nom_de_famille: raw.dirigeant_nom,
@@ -65,7 +74,8 @@ export async function POST(request: Request) {
       .from('prospection_prospects')
       .insert({
         org_id: membership.org_id,
-        linkedin_url: linkedinUrl,
+        icp_id: icpId,
+        linkedin_url: raw.linkedin_search_url,
         linkedin_data: linkedinData,
         enrichment_data: enrichmentData,
         patrimony_score: scoring.score,
@@ -80,27 +90,33 @@ export async function POST(request: Request) {
 
     if (!error && prospect) {
       saved.push(prospect.id)
-
-      if (enrichmentData.bodacc_events?.length) {
-        const signalInserts = enrichmentData.bodacc_events
-          .filter(e => e.type !== 'autre')
-          .map(e => ({
-            prospect_id: prospect.id,
-            org_id: membership.org_id,
-            type: mapBodaccToSignalType(e.type),
-            source: 'bodacc' as const,
-            data: { libelle: e.libelle, date_bodacc: e.date },
-            detected_at: new Date(e.date).toISOString(),
-          }))
-
-        if (signalInserts.length > 0) {
-          await supabase.from('prospection_signals').insert(signalInserts)
-        }
-      }
+      await insertSignals(supabase, prospect.id, membership.org_id, enrichmentData)
     }
   }
 
   return NextResponse.json({ count: saved.length, prospect_ids: saved })
+}
+
+async function insertSignals(
+  supabase: Awaited<ReturnType<typeof import('@/lib/supabase/server').createClient>>,
+  prospectId: string,
+  orgId: string,
+  enrichmentData: ProspectEnrichmentData
+) {
+  if (!enrichmentData.bodacc_events?.length) return
+  const signalInserts = enrichmentData.bodacc_events
+    .filter(e => e.type !== 'autre')
+    .map(e => ({
+      prospect_id: prospectId,
+      org_id: orgId,
+      type: mapBodaccToSignalType(e.type),
+      source: 'bodacc' as const,
+      data: { libelle: e.libelle, date_bodacc: e.date },
+      detected_at: new Date(e.date).toISOString(),
+    }))
+  if (signalInserts.length > 0) {
+    await supabase.from('prospection_signals').insert(signalInserts)
+  }
 }
 
 function mapBodaccToSignalType(type: string): string {

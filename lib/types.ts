@@ -28,7 +28,10 @@ export interface OrganizationMember {
   created_at: string
 }
 
+export type TargetType = 'personne_morale' | 'personne_physique' | 'both'
+
 export interface ParsedIcpCriteria {
+  target_type?: TargetType
   roles: string[]
   sectors: string[]
   locations: string[]

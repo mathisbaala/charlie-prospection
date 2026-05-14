@@ -42,7 +42,7 @@ export function ProspectsClientPage({ icp, initialProspects }: Props) {
 
       {icp ? (
         <div className="mb-6">
-          <SearchLauncher criteria={icp.parsed_criteria} onComplete={refreshProspects} />
+          <SearchLauncher icpId={icp.id} criteria={icp.parsed_criteria} onComplete={refreshProspects} />
         </div>
       ) : (
         <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">

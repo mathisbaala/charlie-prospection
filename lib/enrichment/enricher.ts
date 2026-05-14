@@ -3,11 +3,27 @@ import { getDvfByCommune } from '@/lib/data-sources/dvf'
 import type { BodaccEvent, DvfTransaction, ProspectEnrichmentData } from '@/lib/types'
 import type { RawProspect } from '@/lib/prospect-search/engine'
 
-function codePostalToCodeCommune(codePostal: string, ville: string): string {
-  if (codePostal?.startsWith('75')) return '75056'
-  if (codePostal?.startsWith('69') && ville?.toLowerCase().includes('lyon')) return '69123'
-  if (codePostal?.startsWith('13') && ville?.toLowerCase().includes('marseille')) return '13055'
-  return codePostal?.slice(0, 5) ?? ''
+async function resolveCodeCommune(codePostal: string, ville: string): Promise<string> {
+  if (!codePostal) return ''
+  if (codePostal.startsWith('75')) return '75056'
+  if (codePostal.startsWith('69') && ville.toLowerCase().includes('lyon')) return '69123'
+  if (codePostal.startsWith('13') && ville.toLowerCase().includes('marseille')) return '13055'
+  try {
+    const res = await fetch(
+      `https://geo.api.gouv.fr/communes?codePostal=${codePostal}&fields=code,nom&limit=5`,
+      { next: { revalidate: 86400 } }
+    )
+    if (!res.ok) return ''
+    const communes: Array<{ code: string; nom: string }> = await res.json()
+    if (!communes.length) return ''
+    const villeLower = ville.toLowerCase()
+    const match = communes.find(
+      c => c.nom.toLowerCase().includes(villeLower) || villeLower.includes(c.nom.toLowerCase())
+    )
+    return match?.code ?? communes[0].code
+  } catch {
+    return ''
+  }
 }
 
 export async function enrichProspect(raw: RawProspect): Promise<ProspectEnrichmentData> {
@@ -53,7 +69,7 @@ export async function enrichProspect(raw: RawProspect): Promise<ProspectEnrichme
   // Enrichissement DVF
   if (raw.code_postal) {
     try {
-      const codeCommune = codePostalToCodeCommune(raw.code_postal, raw.ville)
+      const codeCommune = await resolveCodeCommune(raw.code_postal, raw.ville)
       if (codeCommune) {
         const dvfRecords = await getDvfByCommune(codeCommune, 300_000, 10)
         if (dvfRecords.length > 0) {

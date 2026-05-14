@@ -1,6 +1,13 @@
 'use client'
-import { X } from 'lucide-react'
-import type { ParsedIcpCriteria } from '@/lib/types'
+import type React from 'react'
+import { X, Building2, User, Users } from 'lucide-react'
+import type { ParsedIcpCriteria, TargetType } from '@/lib/types'
+
+const TARGET_TYPE_CONFIG: Record<TargetType, { label: string; color: string; Icon: React.ElementType }> = {
+  personne_morale: { label: 'Personne morale (entreprise)', color: 'bg-violet-100 text-violet-800', Icon: Building2 },
+  personne_physique: { label: 'Personne physique (individu)', color: 'bg-rose-100 text-rose-800', Icon: User },
+  both: { label: 'Personnes morales & physiques', color: 'bg-orange-100 text-orange-800', Icon: Users },
+}
 
 const SIGNAL_LABELS: Record<string, string> = {
   cession_entreprise: 'Cession entreprise',
@@ -51,8 +58,27 @@ export function CriteriaTags({ criteria, onChange }: Props) {
     onChange({ ...criteria, [field]: current.filter(v => v !== value) })
   }
 
+  const targetConfig = criteria.target_type ? TARGET_TYPE_CONFIG[criteria.target_type] : null
+
   return (
     <div className="space-y-4">
+      {targetConfig && (
+        <div>
+          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Cible</p>
+          <div className="flex items-center gap-2">
+            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium ${targetConfig.color}`}>
+              <targetConfig.Icon size={12} />
+              {targetConfig.label}
+            </span>
+            <button
+              onClick={() => onChange({ ...criteria, target_type: undefined })}
+              className="text-gray-400 hover:text-gray-600"
+            >
+              <X size={12} />
+            </button>
+          </div>
+        </div>
+      )}
       <TagGroup label="Rôles" items={criteria.roles} color="bg-indigo-100 text-indigo-800" onRemove={v => remove('roles', v)} />
       <TagGroup label="Secteurs" items={criteria.sectors} color="bg-blue-100 text-blue-800" onRemove={v => remove('sectors', v)} />
       <TagGroup label="Localisations" items={criteria.locations} color="bg-green-100 text-green-800" onRemove={v => remove('locations', v)} />

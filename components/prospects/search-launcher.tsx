@@ -4,11 +4,12 @@ import { Search, Loader2 } from 'lucide-react'
 import type { ParsedIcpCriteria } from '@/lib/types'
 
 interface Props {
+  icpId: string
   criteria: ParsedIcpCriteria
   onComplete: () => void
 }
 
-export function SearchLauncher({ criteria, onComplete }: Props) {
+export function SearchLauncher({ icpId, criteria, onComplete }: Props) {
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<{ count: number } | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -20,7 +21,7 @@ export function SearchLauncher({ criteria, onComplete }: Props) {
       const res = await fetch('/api/prospects/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ criteria, limit: 30 }),
+        body: JSON.stringify({ criteria, icp_id: icpId, limit: 30 }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)

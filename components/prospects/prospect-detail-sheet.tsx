@@ -1,5 +1,5 @@
 'use client'
-import { ExternalLink, Building2, MapPin, TrendingUp, AlertTriangle, Home } from 'lucide-react'
+import { ExternalLink, Building2, MapPin, TrendingUp, AlertTriangle, Home, User } from 'lucide-react'
 import { PatrimonyScoreBadge } from './patrimony-score-badge'
 import { SignalBadge } from './signal-badge'
 import type { Prospect, ProspectEnrichmentData, BodaccEvent, DvfTransaction } from '@/lib/types'
@@ -26,9 +26,18 @@ function euros(n: number | null | undefined): string {
 export function ProspectDetailSheet({ prospect, onClose, onStageChange }: Props) {
   const ld = prospect.linkedin_data as Record<string, string>
   const ed = prospect.enrichment_data as ProspectEnrichmentData
-  const nom = ld?.nom ?? (`${ed?.dirigeant_prenom ?? ''} ${ed?.dirigeant_nom ?? ''}`.trim() || 'Prospect')
-  const titre = ld?.titre ?? ed?.dirigeant_qualite ?? '—'
-  const entreprise = ld?.entreprise ?? ed?.siren ?? '—'
+  const isPhysique = ld?.source_type === 'personne_physique'
+
+  // Personne physique: individual is the main entity
+  // Personne morale: company is the main entity
+  const personName = ld?.nom ?? (`${ed?.dirigeant_prenom ?? ''} ${ed?.dirigeant_nom ?? ''}`.trim() || 'Prospect')
+  const mainTitle = isPhysique
+    ? personName
+    : (ld?.entreprise ?? ed?.siren ?? 'Prospect')
+  const mainSubtitle = isPhysique
+    ? (ld?.titre ?? ed?.dirigeant_qualite ?? '—')
+    : (ed?.libelle_naf ?? '—')
+  const secondaryLabel = isPhysique ? ld?.entreprise ?? '—' : `${ld?.nom ?? '—'} · ${ld?.titre ?? ''}`
 
   return (
     <div className="fixed inset-0 bg-black/30 z-50 flex justify-end" onClick={onClose}>
@@ -42,10 +51,20 @@ export function ProspectDetailSheet({ prospect, onClose, onStageChange }: Props)
             <button onClick={onClose} className="text-gray-400 hover:text-gray-700 text-sm">✕ Fermer</button>
             <PatrimonyScoreBadge score={prospect.patrimony_score ?? null} size="md" />
           </div>
-          <h2 className="text-xl font-bold text-gray-900">{nom}</h2>
-          <p className="text-gray-600 mt-0.5">{titre}</p>
+          {/* Type badge */}
+          <div className="flex items-center gap-1.5 mb-2">
+            {isPhysique
+              ? <><User size={12} className="text-rose-500" /><span className="text-xs font-medium text-rose-600">Personne physique</span></>
+              : <><Building2 size={12} className="text-violet-500" /><span className="text-xs font-medium text-violet-600">Personne morale</span></>
+            }
+          </div>
+          <h2 className="text-xl font-bold text-gray-900">{mainTitle}</h2>
+          <p className="text-gray-600 mt-0.5">{mainSubtitle}</p>
           <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
-            <span className="flex items-center gap-1"><Building2 size={12} />{entreprise}</span>
+            <span className="flex items-center gap-1">
+              {isPhysique ? <Building2 size={12} /> : <User size={12} />}
+              {secondaryLabel}
+            </span>
             {ed?.ville && <span className="flex items-center gap-1"><MapPin size={12} />{ed.ville}</span>}
           </div>
           {/* CRM Stage */}
@@ -105,11 +124,11 @@ export function ProspectDetailSheet({ prospect, onClose, onStageChange }: Props)
             </section>
           )}
 
-          {/* Données entreprise */}
+          {/* Données entreprise / activité */}
           <section>
             <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2 mb-3">
               <Building2 size={14} className="text-gray-600" />
-              Données entreprise
+              {isPhysique ? 'Structure d\'exercice' : 'Données entreprise'}
             </h3>
             <div className="space-y-2 text-sm">
               {ed?.siren && <div className="flex justify-between"><span className="text-gray-500">SIREN</span><span className="font-mono">{ed.siren}</span></div>}
@@ -176,7 +195,7 @@ export function ProspectDetailSheet({ prospect, onClose, onStageChange }: Props)
                 className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 p-3 bg-blue-50 rounded-lg border border-blue-100"
               >
                 <ExternalLink size={14} />
-                Rechercher {nom} sur LinkedIn
+                Rechercher {mainTitle} sur LinkedIn
               </a>
             </section>
           )}
