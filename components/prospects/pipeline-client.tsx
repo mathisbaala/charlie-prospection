@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react'
 import { Search } from 'lucide-react'
 import { PipelineDetailPanel } from './pipeline-detail-panel'
 import { titleCase, euros } from './_shared'
-import type { Prospect, ProspectEnrichmentData } from '@/lib/types'
+import type { CrmStage, Prospect, ProspectEnrichmentData } from '@/lib/types'
 
 const STAGE_LABELS: Record<string, string> = {
   new: 'Nouveau',
@@ -25,6 +25,7 @@ interface Props {
  */
 export function PipelineClient({ initialProspects }: Props) {
   const [query, setQuery] = useState('')
+  const [prospects, setProspects] = useState<Prospect[]>(initialProspects)
   const [selectedId, setSelectedId] = useState<string | null>(
     initialProspects[0]?.id ?? null,
   )
@@ -32,7 +33,7 @@ export function PipelineClient({ initialProspects }: Props) {
   // Precompute the searchable haystack per prospect (cheap, ~50 rows).
   const rows = useMemo(
     () =>
-      initialProspects.map(p => {
+      prospects.map(p => {
         const ld = p.linkedin_data as Record<string, string>
         const ed = p.enrichment_data as ProspectEnrichmentData
         const prenom = ed?.dirigeant_prenom ?? ld?.prenom ?? ''
@@ -42,10 +43,11 @@ export function PipelineClient({ initialProspects }: Props) {
         const ville = ed?.ville ?? ''
         const ca = ed?.chiffre_affaires_dernier
         const stage = p.crm_stage
+        const score = p.patrimony_score
         const haystack = `${personName} ${companyName} ${ville}`.toLowerCase()
-        return { prospect: p, personName, companyName, ville, ca, stage, haystack }
+        return { prospect: p, personName, companyName, ville, ca, stage, score, haystack }
       }),
-    [initialProspects],
+    [prospects],
   )
 
   const filtered = useMemo(() => {
@@ -54,8 +56,36 @@ export function PipelineClient({ initialProspects }: Props) {
     return rows.filter(r => r.haystack.includes(q))
   }, [rows, query])
 
-  const selected =
-    initialProspects.find(p => p.id === selectedId) ?? filtered[0]?.prospect ?? null
+  // If the current selection is filtered out, fall back to the first
+  // filtered row so the detail panel stays in sync with the visible list.
+  const selectedInFiltered = filtered.some(r => r.prospect.id === selectedId)
+  const selected = selectedInFiltered
+    ? prospects.find(p => p.id === selectedId) ?? null
+    : filtered[0]?.prospect ?? null
+
+  async function handleStageChange(stage: CrmStage) {
+    if (!selected) return
+    const previousStage = selected.crm_stage
+    // Optimistic update
+    setProspects(prev =>
+      prev.map(p => (p.id === selected.id ? { ...p, crm_stage: stage } : p)),
+    )
+    try {
+      const res = await fetch(`/api/prospects/${selected.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ crm_stage: stage }),
+      })
+      if (!res.ok) throw new Error('PATCH failed')
+    } catch {
+      // Rollback on failure
+      setProspects(prev =>
+        prev.map(p =>
+          p.id === selected.id ? { ...p, crm_stage: previousStage } : p,
+        ),
+      )
+    }
+  }
 
   // Empty pipeline (no prospects in DB at all)
   if (initialProspects.length === 0) {
@@ -129,7 +159,7 @@ export function PipelineClient({ initialProspects }: Props) {
             </div>
           ) : (
             <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-              {filtered.map(({ prospect, personName, companyName, ville, ca, stage }) => {
+              {filtered.map(({ prospect, personName, companyName, ville, ca, stage, score }) => {
                 const active = prospect.id === selected?.id
                 return (
                   <li key={prospect.id}>
@@ -157,8 +187,24 @@ export function PipelineClient({ initialProspects }: Props) {
                     >
                       <div
                         className="flex items-start justify-between"
-                        style={{ gap: 8 }}
+                        style={{ gap: 10 }}
                       >
+                        {/* Score-as-hero: copper Fraunces before the name (DESIGN.md) */}
+                        <span
+                          className="font-display"
+                          style={{
+                            flexShrink: 0,
+                            fontSize: 22,
+                            fontWeight: 800,
+                            lineHeight: 1,
+                            letterSpacing: '-0.02em',
+                            color: score != null && score >= 60 ? 'var(--color-accent)' : 'var(--color-muted)',
+                            fontVariantNumeric: 'tabular-nums',
+                            width: 32,
+                          }}
+                        >
+                          {score ?? '—'}
+                        </span>
                         <div style={{ minWidth: 0, flex: 1 }}>
                           <p
                             style={{
@@ -190,7 +236,7 @@ export function PipelineClient({ initialProspects }: Props) {
                       </div>
                       <div
                         className="flex items-center"
-                        style={{ gap: 6, marginTop: 8, flexWrap: 'wrap' }}
+                        style={{ gap: 6, marginTop: 8, marginLeft: 42, flexWrap: 'wrap' }}
                       >
                         <span
                           className="font-mono"
@@ -231,7 +277,11 @@ export function PipelineClient({ initialProspects }: Props) {
 
         {/* ── RIGHT: detail panel ─────────────────────────────────── */}
         {selected ? (
-          <PipelineDetailPanel key={selected.id} prospect={selected} />
+          <PipelineDetailPanel
+            key={selected.id}
+            prospect={selected}
+            onStageChange={handleStageChange}
+          />
         ) : (
           <div
             className="flex-1 flex items-center justify-center"
