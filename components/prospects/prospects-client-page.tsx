@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { Users, RefreshCw } from 'lucide-react'
 import { ProspectTable } from './prospect-table'
 import { SearchLauncher } from './search-launcher'
+import { ProspectDetailSheet } from './prospect-detail-sheet'
 import type { Icp, Prospect } from '@/lib/types'
 
 interface Props {
@@ -55,19 +56,19 @@ export function ProspectsClientPage({ icp, initialProspects }: Props) {
       </div>
 
       {selected && (
-        <div className="fixed inset-0 bg-black/20 z-50" onClick={() => setSelected(null)}>
-          <div
-            className="absolute right-0 top-0 h-full w-[480px] bg-white shadow-2xl overflow-y-auto"
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="p-6">
-              <button onClick={() => setSelected(null)} className="text-gray-400 hover:text-gray-700 text-sm mb-4">← Fermer</button>
-              <pre className="text-xs bg-gray-50 p-4 rounded-lg overflow-x-auto">
-                {JSON.stringify(selected, null, 2)}
-              </pre>
-            </div>
-          </div>
-        </div>
+        <ProspectDetailSheet
+          prospect={selected}
+          onClose={() => setSelected(null)}
+          onStageChange={async (stage) => {
+            await fetch(`/api/prospects/${selected.id}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ crm_stage: stage }),
+            })
+            setSelected({ ...selected, crm_stage: stage as Prospect['crm_stage'] })
+            setProspects(prev => prev.map(p => p.id === selected.id ? { ...p, crm_stage: stage as Prospect['crm_stage'] } : p))
+          }}
+        />
       )}
     </div>
   )
