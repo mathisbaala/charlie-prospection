@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
-import { Users, RefreshCw } from 'lucide-react'
+import { RefreshCw } from 'lucide-react'
+import Link from 'next/link'
 import { ProspectTable } from './prospect-table'
 import { SearchLauncher } from './search-launcher'
 import { ProspectDetailSheet } from './prospect-detail-sheet'
@@ -22,36 +23,98 @@ export function ProspectsClientPage({ icp, initialProspects }: Props) {
   }
 
   return (
-    <div className="p-8">
-      <div className="flex items-center justify-between mb-6">
+    <div style={{ padding: '40px 48px' }}>
+      <div className="flex items-center justify-between" style={{ marginBottom: 24 }}>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <Users size={24} />
+          <h1
+            className="font-display"
+            style={{
+              fontSize: 36,
+              fontWeight: 700,
+              color: 'var(--color-text)',
+              letterSpacing: '-0.02em',
+              lineHeight: 1.1,
+            }}
+          >
             Prospects
           </h1>
-          <p className="text-gray-500 mt-1">{prospects.length} prospect{prospects.length > 1 ? 's' : ''} enrichis</p>
+          <p
+            className="font-mono"
+            style={{
+              fontSize: 12,
+              color: 'var(--color-muted)',
+              marginTop: 6,
+              fontVariantNumeric: 'tabular-nums',
+              letterSpacing: '0.02em',
+            }}
+          >
+            {prospects.length} prospect{prospects.length > 1 ? 's' : ''} enrichi
+            {prospects.length > 1 ? 's' : ''}
+          </p>
         </div>
         <button
           onClick={refreshProspects}
-          className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
+          className="flex items-center gap-2 transition-colors"
+          style={{
+            padding: '7px 12px',
+            fontSize: 12,
+            fontWeight: 500,
+            color: 'var(--color-muted)',
+            background: 'transparent',
+            border: '1px solid var(--color-border)',
+            borderRadius: 2,
+            cursor: 'pointer',
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.color = 'var(--color-text)'
+            e.currentTarget.style.borderColor = 'var(--color-text)'
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.color = 'var(--color-muted)'
+            e.currentTarget.style.borderColor = 'var(--color-border)'
+          }}
         >
-          <RefreshCw size={14} />
+          <RefreshCw size={13} />
           Actualiser
         </button>
       </div>
 
       {icp ? (
-        <div className="mb-6">
-          <SearchLauncher icpId={icp.id} criteria={icp.parsed_criteria} onComplete={refreshProspects} />
+        <div style={{ marginBottom: 24 }}>
+          <SearchLauncher
+            icpId={icp.id}
+            criteria={icp.parsed_criteria}
+            onComplete={refreshProspects}
+          />
         </div>
       ) : (
-        <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
+        <div
+          style={{
+            marginBottom: 24,
+            padding: '14px 18px',
+            background: 'var(--color-bg)',
+            borderLeft: '2px solid var(--color-warning)',
+            fontSize: 13,
+            color: 'var(--color-text)',
+          }}
+        >
           Configurez d&apos;abord votre ICP pour lancer une recherche de prospects.{' '}
-          <a href="/icp" className="underline font-medium">Créer mon ICP →</a>
+          <Link
+            href="/icp"
+            style={{ color: 'var(--color-accent)', fontWeight: 600 }}
+            className="hover:underline"
+          >
+            Créer mon ICP →
+          </Link>
         </div>
       )}
 
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
+      <div
+        style={{
+          background: 'var(--color-surface)',
+          border: '1px solid var(--color-border)',
+        }}
+      >
         <ProspectTable prospects={prospects} onSelect={setSelected} />
       </div>
 
@@ -59,14 +122,18 @@ export function ProspectsClientPage({ icp, initialProspects }: Props) {
         <ProspectDetailSheet
           prospect={selected}
           onClose={() => setSelected(null)}
-          onStageChange={async (stage) => {
+          onStageChange={async stage => {
             await fetch(`/api/prospects/${selected.id}`, {
               method: 'PATCH',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ crm_stage: stage }),
             })
             setSelected({ ...selected, crm_stage: stage as Prospect['crm_stage'] })
-            setProspects(prev => prev.map(p => p.id === selected.id ? { ...p, crm_stage: stage as Prospect['crm_stage'] } : p))
+            setProspects(prev =>
+              prev.map(p =>
+                p.id === selected.id ? { ...p, crm_stage: stage as Prospect['crm_stage'] } : p,
+              ),
+            )
           }}
         />
       )}

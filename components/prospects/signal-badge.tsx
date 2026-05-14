@@ -1,17 +1,41 @@
 'use client'
 
-const SIGNAL_CONFIG: Record<string, { label: string; color: string; icon: string }> = {
-  cession_entreprise:   { label: 'Cession',         color: 'bg-red-100 text-red-700',       icon: '🏭' },
-  levee_fonds:          { label: 'Levée de fonds',  color: 'bg-violet-100 text-violet-700', icon: '🚀' },
-  creation_holding:     { label: 'Holding/SCI',     color: 'bg-blue-100 text-blue-700',     icon: '🏗️' },
-  transaction_immo:     { label: 'Transaction immo', color: 'bg-green-100 text-green-700',  icon: '🏠' },
-  nouveau_poste:        { label: 'Nouveau poste',   color: 'bg-sky-100 text-sky-700',       icon: '💼' },
-  installation_cabinet: { label: 'Installation',    color: 'bg-teal-100 text-teal-700',     icon: '🏥' },
-  post_linkedin:        { label: 'Post LinkedIn',   color: 'bg-cyan-100 text-cyan-700',     icon: '📢' },
-  retraite_imminente:   { label: 'Retraite',        color: 'bg-orange-100 text-orange-700', icon: '⏰' },
-  divorce:              { label: 'Divorce',         color: 'bg-pink-100 text-pink-700',     icon: '⚖️' },
-  succession:           { label: 'Succession',      color: 'bg-purple-100 text-purple-700', icon: '📜' },
-  augmentation_capital: { label: 'Aug. capital',    color: 'bg-indigo-100 text-indigo-700', icon: '📈' },
+// Three-tier signal classification:
+// - hot: high-value money-in-motion events (cession, levée, transaction immo,
+//   création holding) → copper accent
+// - warm: relevant but lower-urgency life events (nouveau poste, installation,
+//   retraite, divorce, succession, augmentation capital) → warning terracotta
+// - info: ambient signals (post LinkedIn) → muted
+const SIGNAL_CONFIG: Record<string, { label: string; tier: 'hot' | 'warm' | 'info' }> = {
+  cession_entreprise:   { label: 'Cession',          tier: 'hot' },
+  levee_fonds:          { label: 'Levée de fonds',   tier: 'hot' },
+  creation_holding:     { label: 'Holding/SCI',      tier: 'hot' },
+  transaction_immo:     { label: 'Transaction immo', tier: 'hot' },
+  augmentation_capital: { label: 'Aug. capital',     tier: 'hot' },
+  nouveau_poste:        { label: 'Nouveau poste',    tier: 'warm' },
+  installation_cabinet: { label: 'Installation',     tier: 'warm' },
+  retraite_imminente:   { label: 'Retraite',         tier: 'warm' },
+  divorce:              { label: 'Divorce',          tier: 'warm' },
+  succession:           { label: 'Succession',       tier: 'warm' },
+  post_linkedin:        { label: 'Post LinkedIn',    tier: 'info' },
+}
+
+const TIER_STYLE: Record<'hot' | 'warm' | 'info', React.CSSProperties> = {
+  hot: {
+    background: 'var(--color-accent-dim)',
+    color: 'var(--color-accent)',
+    border: '1px solid var(--color-accent)',
+  },
+  warm: {
+    background: 'var(--color-bg)',
+    color: 'var(--color-warning)',
+    border: '1px solid var(--color-warning)',
+  },
+  info: {
+    background: 'var(--color-bg)',
+    color: 'var(--color-muted)',
+    border: '1px solid var(--color-border)',
+  },
 }
 
 interface Props {
@@ -20,11 +44,21 @@ interface Props {
 }
 
 export function SignalBadge({ type, size = 'sm' }: Props) {
-  const config = SIGNAL_CONFIG[type] ?? { label: type, color: 'bg-gray-100 text-gray-700', icon: '📌' }
+  const config = SIGNAL_CONFIG[type] ?? { label: type, tier: 'info' as const }
   return (
-    <span className={`inline-flex items-center gap-1 rounded-full font-medium ${config.color} ${size === 'sm' ? 'px-2 py-0.5 text-xs' : 'px-3 py-1 text-sm'}`}>
-      <span>{config.icon}</span>
-      <span>{config.label}</span>
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 4,
+        padding: size === 'sm' ? '2px 8px' : '3px 10px',
+        fontSize: size === 'sm' ? 11 : 12,
+        fontWeight: 500,
+        borderRadius: 2,
+        ...TIER_STYLE[config.tier],
+      }}
+    >
+      {config.label}
     </span>
   )
 }

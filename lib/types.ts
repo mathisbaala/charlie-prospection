@@ -146,6 +146,7 @@ export interface RppsData {
   cabinet_commune?: string
   cabinet_code_postal?: string
   cabinet_adresse?: string
+  doctolib_search_url?: string
 }
 
 export interface ProspectEnrichmentData {

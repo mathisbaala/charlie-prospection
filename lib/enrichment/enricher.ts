@@ -2,6 +2,7 @@ import { getBodaccBySiren, classifyBodaccEvent } from '@/lib/data-sources/bodacc
 import { getDvfByCommune } from '@/lib/data-sources/dvf'
 import { getPappersEnrichment } from '@/lib/data-sources/pappers'
 import { searchRpps, pickBestRppsMatch } from '@/lib/data-sources/rpps'
+import { buildDoctolibSearchUrl } from '@/lib/data-sources/doctolib'
 import type {
   BodaccEvent,
   DvfTransaction,
@@ -152,17 +153,25 @@ export async function enrichProspect(raw: RawProspect): Promise<ProspectEnrichme
     if (match) {
       const ea = match.exerciceActivite?.[0]
       const se = match.situationExercice?.[0]
+      const profession = ea?.libelleProfession ?? match.libelleProfession
+      const cabinetCommune = se?.libelleCommune
       enrichment.rpps = {
         identifiant: match.identifiant,
-        profession: ea?.libelleProfession ?? match.libelleProfession,
+        profession,
         categorie_professionnelle: match.libelleCategorieProfessionnelle,
         mode_exercice: ea?.libelleMode,
         type_activite_liberale: ea?.libelleTypeActiviteLiberale,
         savoir_faire: ea?.libelleSavoirFaire ?? se?.libelleSavoirFaire,
         cabinet_nom: se?.raisonSociale,
-        cabinet_commune: se?.libelleCommune,
+        cabinet_commune: cabinetCommune,
         cabinet_code_postal: se?.codePostal,
         cabinet_adresse: se?.adresseLigne1,
+        doctolib_search_url: buildDoctolibSearchUrl({
+          nom: raw.dirigeant_nom,
+          prenom: raw.dirigeant_prenom,
+          commune: cabinetCommune ?? raw.ville,
+          profession,
+        }),
       } satisfies RppsData
       enrichment.sources_utilisees?.push('rpps')
     }

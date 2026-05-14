@@ -1,13 +1,33 @@
 'use client'
-import { ExternalLink, Building2, MapPin, TrendingUp, AlertTriangle, Home, User, Stethoscope, Users2, BarChart3 } from 'lucide-react'
+import {
+  ExternalLink,
+  Building2,
+  MapPin,
+  TrendingUp,
+  AlertTriangle,
+  Home,
+  User,
+  Stethoscope,
+  Users2,
+  BarChart3,
+} from 'lucide-react'
 import { PatrimonyScoreBadge } from './patrimony-score-badge'
 import { SignalBadge } from './signal-badge'
-import type { Prospect, ProspectEnrichmentData, BodaccEvent, DvfTransaction } from '@/lib/types'
+import type {
+  Prospect,
+  ProspectEnrichmentData,
+  BodaccEvent,
+  DvfTransaction,
+} from '@/lib/types'
 
 const CRM_STAGES = ['new', 'to_contact', 'contacted', 'meeting', 'client', 'lost'] as const
 const CRM_LABELS: Record<string, string> = {
-  new: 'Nouveau', to_contact: 'À contacter', contacted: 'Contacté',
-  meeting: 'RDV', client: 'Client', lost: 'Perdu',
+  new: 'Nouveau',
+  to_contact: 'À contacter',
+  contacted: 'Contacté',
+  meeting: 'RDV',
+  client: 'Client',
+  lost: 'Perdu',
 }
 
 interface Props {
@@ -31,7 +51,6 @@ export function ProspectDetailSheet({ prospect, onClose, onStageChange }: Props)
   const ld = prospect.linkedin_data as Record<string, string>
   const ed = prospect.enrichment_data as ProspectEnrichmentData
 
-  // Person-first display: the prospect IS the human
   const prenom = ed?.dirigeant_prenom ?? ld?.prenom ?? ''
   const nom = ed?.dirigeant_nom ?? ld?.nom_de_famille ?? ''
   const personName = `${titleCase(prenom)} ${titleCase(nom)}`.trim() || 'Prospect'
@@ -43,256 +62,613 @@ export function ProspectDetailSheet({ prospect, onClose, onStageChange }: Props)
   const secondaryLabel = titleCase(companyName)
 
   return (
-    <div className="fixed inset-0 bg-black/30 z-50 flex justify-end" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-50 flex justify-end"
+      style={{ background: 'rgba(26, 22, 18, 0.32)' }}
+      onClick={onClose}
+    >
       <div
-        className="h-full w-[520px] bg-white shadow-2xl overflow-y-auto flex flex-col"
+        className="h-full overflow-y-auto flex flex-col"
+        style={{
+          width: 520,
+          background: 'var(--color-surface)',
+          borderLeft: '1px solid var(--color-border)',
+          boxShadow: '-12px 0 32px rgba(26, 22, 18, 0.08)',
+        }}
         onClick={e => e.stopPropagation()}
       >
-        {/* Header */}
-        <div className="p-6 border-b border-gray-200 bg-gray-50">
-          <div className="flex items-start justify-between mb-3">
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-700 text-sm">✕ Fermer</button>
+        {/* ── HEADER — score-as-hero per DESIGN.md ───────────────────── */}
+        <div
+          style={{
+            padding: '22px 24px',
+            background: 'var(--color-bg)',
+            borderBottom: '1px solid var(--color-border)',
+          }}
+        >
+          <div className="flex items-start justify-between" style={{ marginBottom: 16 }}>
+            <button
+              onClick={onClose}
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                letterSpacing: '0.06em',
+                textTransform: 'uppercase',
+                color: 'var(--color-muted)',
+                background: 'transparent',
+                border: 'none',
+                padding: 0,
+                cursor: 'pointer',
+              }}
+              onMouseEnter={e => (e.currentTarget.style.color = 'var(--color-text)')}
+              onMouseLeave={e => (e.currentTarget.style.color = 'var(--color-muted)')}
+            >
+              ✕ Fermer
+            </button>
             <PatrimonyScoreBadge score={prospect.patrimony_score ?? null} size="md" />
           </div>
-          {/* Type badge */}
-          <div className="flex items-center gap-1.5 mb-2">
-            {ed?.rpps
-              ? <><User size={12} className="text-rose-500" /><span className="text-xs font-medium text-rose-600">Professionnel de santé</span></>
-              : <><User size={12} className="text-gray-500" /><span className="text-xs font-medium text-gray-600">Dirigeant</span></>
-            }
-          </div>
-          <h2 className="text-xl font-bold text-gray-900">{mainTitle}</h2>
-          <p className="text-gray-600 mt-0.5">{mainSubtitle}</p>
-          <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
-            <span className="flex items-center gap-1">
+
+          {/* Type tag */}
+          <p
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              color: ed?.rpps ? 'var(--color-accent)' : 'var(--color-muted)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              marginBottom: 8,
+            }}
+          >
+            {ed?.rpps ? (
+              <>
+                <Stethoscope size={11} />
+                Professionnel de santé
+              </>
+            ) : (
+              <>
+                <User size={11} />
+                Dirigeant
+              </>
+            )}
+          </p>
+
+          {/* Score-as-hero: large patrimony number BEFORE the name */}
+          {prospect.patrimony_score != null && (
+            <p
+              className="font-display"
+              style={{
+                fontSize: 56,
+                fontWeight: 800,
+                color: 'var(--color-accent)',
+                lineHeight: 1,
+                letterSpacing: '-0.02em',
+                fontVariantNumeric: 'tabular-nums',
+                marginBottom: 4,
+              }}
+            >
+              {prospect.patrimony_score}
+            </p>
+          )}
+
+          <h2
+            className="font-display"
+            style={{
+              fontSize: 24,
+              fontWeight: 700,
+              color: 'var(--color-text)',
+              letterSpacing: '-0.01em',
+              lineHeight: 1.15,
+            }}
+          >
+            {mainTitle}
+          </h2>
+          <p style={{ color: 'var(--color-muted)', fontSize: 13, marginTop: 4 }}>
+            {mainSubtitle}
+          </p>
+          <div
+            className="flex items-center"
+            style={{ gap: 16, marginTop: 10, fontSize: 12, color: 'var(--color-muted)' }}
+          >
+            <span className="flex items-center" style={{ gap: 4 }}>
               <Building2 size={12} />
               {secondaryLabel}
             </span>
-            {ed?.ville && <span className="flex items-center gap-1"><MapPin size={12} />{titleCase(ed.ville)}</span>}
+            {ed?.ville && (
+              <span className="flex items-center" style={{ gap: 4 }}>
+                <MapPin size={12} />
+                {titleCase(ed.ville)}
+              </span>
+            )}
           </div>
-          {/* CRM Stage */}
-          <div className="flex gap-1 mt-4 flex-wrap">
-            {CRM_STAGES.map(stage => (
-              <button
-                key={stage}
-                onClick={() => onStageChange(stage)}
-                className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
-                  prospect.crm_stage === stage
-                    ? 'bg-indigo-600 text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                {CRM_LABELS[stage]}
-              </button>
-            ))}
+
+          {/* CRM Stage selector */}
+          <div className="flex flex-wrap" style={{ gap: 4, marginTop: 16 }}>
+            {CRM_STAGES.map(stage => {
+              const active = prospect.crm_stage === stage
+              return (
+                <button
+                  key={stage}
+                  onClick={() => onStageChange(stage)}
+                  style={{
+                    padding: '4px 10px',
+                    fontSize: 11,
+                    fontWeight: 600,
+                    borderRadius: 2,
+                    border: `1px solid ${active ? 'var(--color-accent)' : 'var(--color-border)'}`,
+                    background: active ? 'var(--color-accent)' : 'transparent',
+                    color: active ? '#fff' : 'var(--color-muted)',
+                    cursor: 'pointer',
+                    transition: 'all 80ms ease-out',
+                  }}
+                  onMouseEnter={e => {
+                    if (active) return
+                    e.currentTarget.style.color = 'var(--color-text)'
+                    e.currentTarget.style.borderColor = 'var(--color-text)'
+                  }}
+                  onMouseLeave={e => {
+                    if (active) return
+                    e.currentTarget.style.color = 'var(--color-muted)'
+                    e.currentTarget.style.borderColor = 'var(--color-border)'
+                  }}
+                >
+                  {CRM_LABELS[stage]}
+                </button>
+              )
+            })}
           </div>
         </div>
 
-        <div className="flex-1 p-6 space-y-6">
+        {/* ── BODY ──────────────────────────────────────────────────── */}
+        <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: 28 }}>
           {/* Cartographie patrimoniale */}
-          {(ed?.patrimoine_total_estime || ed?.valeur_entreprise_estimee || ed?.revenus_implicites_estimes) && (
-            <section>
-              <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2 mb-3">
-                <TrendingUp size={14} className="text-indigo-600" />
-                Cartographie patrimoniale estimée
-              </h3>
-              <div className="grid grid-cols-3 gap-3">
+          {(ed?.patrimoine_total_estime ||
+            ed?.valeur_entreprise_estimee ||
+            ed?.revenus_implicites_estimes) && (
+            <Section icon={<TrendingUp size={13} />} label="Cartographie patrimoniale">
+              <div className="grid grid-cols-3" style={{ gap: 8 }}>
                 {ed?.valeur_entreprise_estimee && (
-                  <div className="bg-blue-50 rounded-lg p-3 text-center">
-                    <p className="text-lg font-bold text-blue-800">{euros(ed.valeur_entreprise_estimee)}</p>
-                    <p className="text-xs text-blue-600 mt-0.5">Valeur entreprise</p>
-                  </div>
+                  <Stat label="Valeur entreprise" value={euros(ed.valeur_entreprise_estimee)} />
                 )}
                 {ed?.patrimoine_immo_estime && (
-                  <div className="bg-green-50 rounded-lg p-3 text-center">
-                    <p className="text-lg font-bold text-green-800">{euros(ed.patrimoine_immo_estime)}</p>
-                    <p className="text-xs text-green-600 mt-0.5">Immo estimé</p>
-                  </div>
+                  <Stat label="Immo estimé" value={euros(ed.patrimoine_immo_estime)} />
                 )}
                 {ed?.revenus_implicites_estimes && (
-                  <div className="bg-amber-50 rounded-lg p-3 text-center">
-                    <p className="text-lg font-bold text-amber-800">{euros(ed.revenus_implicites_estimes)}/an</p>
-                    <p className="text-xs text-amber-600 mt-0.5">Revenus estimés</p>
-                  </div>
+                  <Stat label="Revenus est." value={`${euros(ed.revenus_implicites_estimes)}/an`} />
                 )}
               </div>
               {ed?.patrimoine_total_estime && (
-                <div className="mt-2 p-3 bg-indigo-50 rounded-lg text-center">
-                  <p className="text-sm font-semibold text-indigo-900">Patrimoine total estimé : <span className="text-lg font-bold">{euros(ed.patrimoine_total_estime)}</span></p>
+                <div
+                  style={{
+                    marginTop: 8,
+                    padding: '14px 16px',
+                    background: 'var(--color-accent-dim)',
+                    borderLeft: '2px solid var(--color-accent)',
+                  }}
+                >
+                  <p
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 700,
+                      letterSpacing: '0.08em',
+                      textTransform: 'uppercase',
+                      color: 'var(--color-accent)',
+                    }}
+                  >
+                    Patrimoine total estimé
+                  </p>
+                  <p
+                    className="font-display"
+                    style={{
+                      fontSize: 28,
+                      fontWeight: 700,
+                      color: 'var(--color-text)',
+                      letterSpacing: '-0.01em',
+                      marginTop: 2,
+                      fontVariantNumeric: 'tabular-nums',
+                    }}
+                  >
+                    {euros(ed.patrimoine_total_estime)}
+                  </p>
                 </div>
               )}
               {ld?.raison_score && (
-                <p className="text-xs text-gray-500 mt-2 italic">{ld.raison_score}</p>
+                <p
+                  style={{
+                    fontSize: 12,
+                    color: 'var(--color-muted)',
+                    fontStyle: 'italic',
+                    marginTop: 8,
+                  }}
+                >
+                  {ld.raison_score}
+                </p>
               )}
-            </section>
+            </Section>
           )}
 
-          {/* Données entreprise / activité */}
-          <section>
-            <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2 mb-3">
-              <Building2 size={14} className="text-gray-600" />
-              Société d&apos;exercice
-            </h3>
-            <div className="space-y-2 text-sm">
-              {ed?.siren && <div className="flex justify-between"><span className="text-gray-500">SIREN</span><span className="font-mono">{ed.siren}</span></div>}
-              {ed?.libelle_naf && <div className="flex justify-between"><span className="text-gray-500">Activité</span><span>{ed.libelle_naf}</span></div>}
-              {ed?.date_creation_entreprise && <div className="flex justify-between"><span className="text-gray-500">Créée le</span><span>{new Date(ed.date_creation_entreprise).toLocaleDateString('fr-FR')}</span></div>}
-              {ed?.tranche_effectifs && <div className="flex justify-between"><span className="text-gray-500">Effectifs</span><span>{ed.tranche_effectifs} sal.</span></div>}
-              {ed?.adresse_entreprise && <div className="flex justify-between gap-4"><span className="text-gray-500">Adresse</span><span className="text-right">{ed.adresse_entreprise}</span></div>}
-            </div>
-          </section>
+          {/* Société d'exercice */}
+          <Section icon={<Building2 size={13} />} label="Société d'exercice">
+            <DataList>
+              {ed?.siren && <Row label="SIREN" value={ed.siren} mono />}
+              {ed?.libelle_naf && <Row label="Activité" value={ed.libelle_naf} />}
+              {ed?.date_creation_entreprise && (
+                <Row
+                  label="Créée le"
+                  value={new Date(ed.date_creation_entreprise).toLocaleDateString('fr-FR')}
+                />
+              )}
+              {ed?.tranche_effectifs && (
+                <Row label="Effectifs" value={`${ed.tranche_effectifs} sal.`} />
+              )}
+              {ed?.adresse_entreprise && <Row label="Adresse" value={ed.adresse_entreprise} />}
+            </DataList>
+          </Section>
 
-          {/* Finances entreprise (Pappers) */}
+          {/* Finances Pappers */}
           {ed?.finances && ed.finances.length > 0 && (
-            <section>
-              <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2 mb-3">
-                <BarChart3 size={14} className="text-indigo-600" />
-                Finances entreprise
-              </h3>
-              <div className="grid grid-cols-2 gap-2 mb-3">
+            <Section icon={<BarChart3 size={13} />} label="Finances entreprise">
+              <div className="grid grid-cols-2" style={{ gap: 8, marginBottom: 12 }}>
                 {ed.chiffre_affaires_dernier != null && (
-                  <div className="bg-indigo-50 rounded-lg p-2.5">
-                    <p className="text-xs text-indigo-600">Chiffre d&apos;affaires</p>
-                    <p className="text-sm font-bold text-indigo-900">{euros(ed.chiffre_affaires_dernier)}</p>
-                  </div>
+                  <Stat label="Chiffre d'affaires" value={euros(ed.chiffre_affaires_dernier)} />
                 )}
                 {ed.resultat_dernier != null && (
-                  <div className="bg-indigo-50 rounded-lg p-2.5">
-                    <p className="text-xs text-indigo-600">Résultat net</p>
-                    <p className="text-sm font-bold text-indigo-900">{euros(ed.resultat_dernier)}</p>
-                  </div>
+                  <Stat label="Résultat net" value={euros(ed.resultat_dernier)} />
                 )}
                 {ed.fonds_propres_dernier != null && (
-                  <div className="bg-indigo-50 rounded-lg p-2.5">
-                    <p className="text-xs text-indigo-600">Fonds propres</p>
-                    <p className="text-sm font-bold text-indigo-900">{euros(ed.fonds_propres_dernier)}</p>
-                  </div>
+                  <Stat label="Fonds propres" value={euros(ed.fonds_propres_dernier)} />
                 )}
                 {ed.taux_marge_dernier != null && (
-                  <div className="bg-indigo-50 rounded-lg p-2.5">
-                    <p className="text-xs text-indigo-600">Marge EBITDA</p>
-                    <p className="text-sm font-bold text-indigo-900">{ed.taux_marge_dernier}%</p>
-                  </div>
+                  <Stat label="Marge EBITDA" value={`${ed.taux_marge_dernier}%`} />
                 )}
               </div>
               {ed.finances.length > 1 && (
-                <div className="text-xs text-gray-500">
-                  Évolution CA : {ed.finances.slice(0, 3).reverse().map(f => `${f.annee}: ${euros(f.chiffre_affaires)}`).join(' → ')}
-                </div>
+                <p
+                  className="font-mono"
+                  style={{
+                    fontSize: 11,
+                    color: 'var(--color-muted)',
+                    fontVariantNumeric: 'tabular-nums',
+                  }}
+                >
+                  Évolution CA :{' '}
+                  {ed.finances
+                    .slice(0, 3)
+                    .reverse()
+                    .map(f => `${f.annee} ${euros(f.chiffre_affaires)}`)
+                    .join(' → ')}
+                </p>
               )}
               {ed.capital_social && (
-                <div className="text-xs text-gray-500 mt-1">Capital social : {euros(ed.capital_social)}</div>
+                <p style={{ fontSize: 11, color: 'var(--color-muted)', marginTop: 4 }}>
+                  Capital social : {euros(ed.capital_social)}
+                </p>
               )}
               {ed.procedure_collective_en_cours && (
-                <div className="mt-2 px-2.5 py-1.5 bg-red-50 text-red-700 text-xs rounded-lg border border-red-200">
-                  ⚠️ Procédure collective en cours
+                <div
+                  style={{
+                    marginTop: 10,
+                    padding: '10px 12px',
+                    background: 'var(--color-bg)',
+                    color: 'var(--color-error)',
+                    fontSize: 12,
+                    fontWeight: 500,
+                    borderLeft: '2px solid var(--color-error)',
+                  }}
+                >
+                  ⚠ Procédure collective en cours
                 </div>
               )}
-            </section>
+            </Section>
           )}
 
           {/* Bénéficiaires effectifs */}
           {ed?.beneficiaires_effectifs && ed.beneficiaires_effectifs.length > 0 && (
-            <section>
-              <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2 mb-3">
-                <Users2 size={14} className="text-purple-600" />
-                Bénéficiaires effectifs ({ed.beneficiaires_effectifs.length})
-              </h3>
-              <div className="space-y-1.5">
+            <Section
+              icon={<Users2 size={13} />}
+              label={`Bénéficiaires effectifs (${ed.beneficiaires_effectifs.length})`}
+            >
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 {ed.beneficiaires_effectifs.slice(0, 5).map((b, i) => (
-                  <div key={i} className="flex items-center justify-between text-xs p-2 bg-purple-50 rounded-lg">
-                    <span className="font-medium text-purple-900">
+                  <div
+                    key={i}
+                    className="flex items-center justify-between"
+                    style={{
+                      padding: '8px 12px',
+                      background: 'var(--color-bg)',
+                      border: '1px solid var(--color-border)',
+                      fontSize: 12,
+                    }}
+                  >
+                    <span style={{ fontWeight: 500, color: 'var(--color-text)' }}>
                       {b.prenom ?? ''} {b.nom ?? ''}
                     </span>
-                    <span className="text-purple-700 font-mono">
-                      {b.pourcentage_parts != null ? `${b.pourcentage_parts}% parts` : '—'}
+                    <span
+                      className="font-mono"
+                      style={{
+                        color: 'var(--color-muted)',
+                        fontVariantNumeric: 'tabular-nums',
+                      }}
+                    >
+                      {b.pourcentage_parts != null ? `${b.pourcentage_parts}%` : '—'}
                     </span>
                   </div>
                 ))}
               </div>
-            </section>
+            </Section>
           )}
 
-          {/* RPPS — profil santé */}
+          {/* RPPS */}
           {ed?.rpps && (
-            <section>
-              <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2 mb-3">
-                <Stethoscope size={14} className="text-rose-600" />
-                Profil santé (RPPS)
-              </h3>
-              <div className="space-y-2 text-sm bg-rose-50 rounded-lg p-3">
-                {ed.rpps.profession && <div className="flex justify-between"><span className="text-rose-600">Profession</span><span className="font-medium">{ed.rpps.profession}</span></div>}
-                {ed.rpps.savoir_faire && <div className="flex justify-between"><span className="text-rose-600">Spécialité</span><span className="text-right">{ed.rpps.savoir_faire}</span></div>}
-                {ed.rpps.mode_exercice && <div className="flex justify-between"><span className="text-rose-600">Mode d&apos;exercice</span><span>{ed.rpps.mode_exercice}</span></div>}
-                {ed.rpps.type_activite_liberale && <div className="flex justify-between"><span className="text-rose-600">Type activité</span><span>{ed.rpps.type_activite_liberale}</span></div>}
-                {ed.rpps.cabinet_nom && <div className="flex justify-between gap-2"><span className="text-rose-600">Cabinet</span><span className="text-right">{ed.rpps.cabinet_nom}</span></div>}
-                {ed.rpps.cabinet_commune && <div className="flex justify-between"><span className="text-rose-600">Commune</span><span>{ed.rpps.cabinet_commune} ({ed.rpps.cabinet_code_postal})</span></div>}
+            <Section icon={<Stethoscope size={13} />} label="Profil santé (RPPS)">
+              <div
+                style={{
+                  padding: '14px 16px',
+                  background: 'var(--color-bg)',
+                  borderLeft: '2px solid var(--color-accent)',
+                }}
+              >
+                <DataList>
+                  {ed.rpps.profession && <Row label="Profession" value={ed.rpps.profession} />}
+                  {ed.rpps.savoir_faire && (
+                    <Row label="Spécialité" value={ed.rpps.savoir_faire} />
+                  )}
+                  {ed.rpps.mode_exercice && (
+                    <Row label="Mode d'exercice" value={ed.rpps.mode_exercice} />
+                  )}
+                  {ed.rpps.type_activite_liberale && (
+                    <Row label="Type activité" value={ed.rpps.type_activite_liberale} />
+                  )}
+                  {ed.rpps.cabinet_nom && <Row label="Cabinet" value={ed.rpps.cabinet_nom} />}
+                  {ed.rpps.cabinet_commune && (
+                    <Row
+                      label="Commune"
+                      value={`${ed.rpps.cabinet_commune}${ed.rpps.cabinet_code_postal ? ` (${ed.rpps.cabinet_code_postal})` : ''}`}
+                    />
+                  )}
+                </DataList>
               </div>
-            </section>
+            </Section>
           )}
 
-          {/* Signaux BODACC */}
+          {/* BODACC */}
           {ed?.bodacc_events && ed.bodacc_events.length > 0 && (
-            <section>
-              <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2 mb-3">
-                <AlertTriangle size={14} className="text-amber-600" />
-                Signaux BODACC ({ed.bodacc_events.length})
-              </h3>
-              <div className="space-y-2">
-                {(ed.bodacc_events as BodaccEvent[]).slice(0, 5).map((event: BodaccEvent, i: number) => (
-                  <div key={i} className="flex items-start gap-2">
-                    <SignalBadge type={event.type} size="sm" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs text-gray-700">{event.libelle}</p>
-                      <p className="text-xs text-gray-400">{new Date(event.date).toLocaleDateString('fr-FR')}</p>
+            <Section
+              icon={<AlertTriangle size={13} />}
+              label={`Signaux BODACC (${ed.bodacc_events.length})`}
+            >
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {(ed.bodacc_events as BodaccEvent[])
+                  .slice(0, 5)
+                  .map((event: BodaccEvent, i: number) => (
+                    <div key={i} className="flex items-start" style={{ gap: 10 }}>
+                      <SignalBadge type={event.type} size="sm" />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ fontSize: 12, color: 'var(--color-text)' }}>
+                          {event.libelle}
+                        </p>
+                        <p
+                          className="font-mono"
+                          style={{
+                            fontSize: 10,
+                            color: 'var(--color-muted)',
+                            marginTop: 2,
+                            fontVariantNumeric: 'tabular-nums',
+                          }}
+                        >
+                          {new Date(event.date).toLocaleDateString('fr-FR')}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
               </div>
-            </section>
+            </Section>
           )}
 
           {/* DVF */}
           {ed?.dvf_transactions && ed.dvf_transactions.length > 0 && (
-            <section>
-              <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2 mb-3">
-                <Home size={14} className="text-green-600" />
-                Transactions immobilières zone
-              </h3>
-              <div className="space-y-2">
-                {(ed.dvf_transactions as DvfTransaction[]).slice(0, 3).map((t: DvfTransaction, i: number) => (
-                  <div key={i} className="p-2 bg-green-50 rounded-lg text-xs">
-                    <div className="flex justify-between font-medium">
-                      <span>{t.type_local} {t.surface_reelle_bati ? `${t.surface_reelle_bati}m²` : ''}</span>
-                      <span className="text-green-800 font-bold">{euros(t.valeur_fonciere)}</span>
+            <Section icon={<Home size={13} />} label="Transactions immobilières (zone)">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {(ed.dvf_transactions as DvfTransaction[])
+                  .slice(0, 3)
+                  .map((t: DvfTransaction, i: number) => (
+                    <div
+                      key={i}
+                      style={{
+                        padding: '10px 12px',
+                        background: 'var(--color-bg)',
+                        border: '1px solid var(--color-border)',
+                      }}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span style={{ fontSize: 12, color: 'var(--color-text)', fontWeight: 500 }}>
+                          {t.type_local}{' '}
+                          {t.surface_reelle_bati ? `${t.surface_reelle_bati}m²` : ''}
+                        </span>
+                        <span
+                          className="font-mono"
+                          style={{
+                            fontSize: 13,
+                            fontWeight: 600,
+                            color: 'var(--color-accent)',
+                            fontVariantNumeric: 'tabular-nums',
+                          }}
+                        >
+                          {euros(t.valeur_fonciere)}
+                        </span>
+                      </div>
+                      <p
+                        style={{
+                          fontSize: 11,
+                          color: 'var(--color-muted)',
+                          marginTop: 2,
+                        }}
+                      >
+                        {t.commune} · {new Date(t.date_mutation).toLocaleDateString('fr-FR')}
+                      </p>
                     </div>
-                    <div className="text-gray-500 mt-0.5">{t.commune} · {new Date(t.date_mutation).toLocaleDateString('fr-FR')}</div>
-                  </div>
-                ))}
+                  ))}
               </div>
-            </section>
+            </Section>
           )}
 
-          {/* LinkedIn */}
-          {ed?.linkedin_search_url && (
-            <section>
-              <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2 mb-3">
-                <ExternalLink size={14} className="text-blue-600" />
-                LinkedIn
-              </h3>
-              <a
-                href={ed.linkedin_search_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 p-3 bg-blue-50 rounded-lg border border-blue-100"
-              >
-                <ExternalLink size={14} />
-                Rechercher {mainTitle} sur LinkedIn
-              </a>
-            </section>
+          {/* Liens externes */}
+          {(prospect.linkedin_url ||
+            ed?.linkedin_search_url ||
+            ed?.rpps?.doctolib_search_url) && (
+            <Section icon={<ExternalLink size={13} />} label="Liens">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {prospect.linkedin_url ? (
+                  <ExternalLinkRow
+                    href={prospect.linkedin_url}
+                    label={`Voir profil LinkedIn de ${mainTitle}`}
+                    variant="primary"
+                  />
+                ) : ed?.linkedin_search_url ? (
+                  <ExternalLinkRow
+                    href={ed.linkedin_search_url}
+                    label={`Rechercher ${mainTitle} sur LinkedIn`}
+                    variant="muted"
+                  />
+                ) : null}
+                {ed?.rpps?.doctolib_search_url && (
+                  <ExternalLinkRow
+                    href={ed.rpps.doctolib_search_url}
+                    label={`Trouver ${mainTitle} sur Doctolib`}
+                    variant="muted"
+                  />
+                )}
+              </div>
+            </Section>
           )}
         </div>
       </div>
     </div>
+  )
+}
+
+// ── Layout primitives ───────────────────────────────────────────────
+
+function Section({
+  icon,
+  label,
+  children,
+}: {
+  icon: React.ReactNode
+  label: string
+  children: React.ReactNode
+}) {
+  return (
+    <section>
+      <h3
+        className="flex items-center"
+        style={{
+          gap: 6,
+          fontSize: 11,
+          fontWeight: 700,
+          letterSpacing: '0.08em',
+          textTransform: 'uppercase',
+          color: 'var(--color-muted)',
+          marginBottom: 12,
+        }}
+      >
+        <span style={{ color: 'var(--color-accent)', display: 'inline-flex' }}>{icon}</span>
+        {label}
+      </h3>
+      {children}
+    </section>
+  )
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div
+      style={{
+        padding: '10px 12px',
+        background: 'var(--color-bg)',
+        border: '1px solid var(--color-border)',
+      }}
+    >
+      <p
+        style={{
+          fontSize: 10,
+          fontWeight: 700,
+          letterSpacing: '0.08em',
+          textTransform: 'uppercase',
+          color: 'var(--color-muted)',
+        }}
+      >
+        {label}
+      </p>
+      <p
+        className="font-mono"
+        style={{
+          fontSize: 15,
+          fontWeight: 600,
+          color: 'var(--color-text)',
+          marginTop: 4,
+          fontVariantNumeric: 'tabular-nums',
+        }}
+      >
+        {value}
+      </p>
+    </div>
+  )
+}
+
+function DataList({ children }: { children: React.ReactNode }) {
+  return <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>{children}</div>
+}
+
+function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div className="flex items-baseline justify-between" style={{ gap: 16 }}>
+      <span style={{ fontSize: 12, color: 'var(--color-muted)', flexShrink: 0 }}>{label}</span>
+      <span
+        className={mono ? 'font-mono' : ''}
+        style={{
+          fontSize: 13,
+          color: 'var(--color-text)',
+          textAlign: 'right',
+          fontVariantNumeric: mono ? 'tabular-nums' : 'normal',
+        }}
+      >
+        {value}
+      </span>
+    </div>
+  )
+}
+
+function ExternalLinkRow({
+  href,
+  label,
+  variant,
+}: {
+  href: string
+  label: string
+  variant: 'primary' | 'muted'
+}) {
+  const accent = variant === 'primary' ? 'var(--color-accent)' : 'var(--color-muted)'
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex items-center transition-colors"
+      style={{
+        gap: 8,
+        padding: '10px 12px',
+        background: variant === 'primary' ? 'var(--color-accent-dim)' : 'var(--color-bg)',
+        border: `1px solid ${variant === 'primary' ? 'var(--color-accent)' : 'var(--color-border)'}`,
+        borderRadius: 2,
+        fontSize: 13,
+        color: variant === 'primary' ? 'var(--color-accent)' : 'var(--color-text)',
+        fontWeight: variant === 'primary' ? 600 : 400,
+      }}
+    >
+      <ExternalLink size={14} style={{ color: accent }} />
+      <span style={{ flex: 1 }}>{label}</span>
+    </a>
   )
 }

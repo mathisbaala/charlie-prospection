@@ -5,13 +5,6 @@ interface Props {
   size?: 'sm' | 'md'
 }
 
-function getColor(score: number): string {
-  if (score >= 80) return 'bg-emerald-100 text-emerald-800 border-emerald-200'
-  if (score >= 60) return 'bg-blue-100 text-blue-800 border-blue-200'
-  if (score >= 40) return 'bg-amber-100 text-amber-800 border-amber-200'
-  return 'bg-gray-100 text-gray-600 border-gray-200'
-}
-
 function getLabel(score: number): string {
   if (score >= 80) return 'Prioritaire'
   if (score >= 60) return 'Fort'
@@ -19,14 +12,47 @@ function getLabel(score: number): string {
   return 'Faible'
 }
 
+function getStyle(score: number): React.CSSProperties {
+  // High-priority scores (≥60) use copper accent — these are the signals
+  // that matter. Lower scores stay neutral so they don't compete visually.
+  if (score >= 60) {
+    return {
+      background: 'var(--color-accent-dim)',
+      color: 'var(--color-accent)',
+      border: '1px solid var(--color-accent)',
+    }
+  }
+  return {
+    background: 'var(--color-bg)',
+    color: 'var(--color-muted)',
+    border: '1px solid var(--color-border)',
+  }
+}
+
 export function PatrimonyScoreBadge({ score, size = 'md' }: Props) {
-  if (score === null) return <span className="text-xs text-gray-400">—</span>
-  const color = getColor(score)
+  if (score === null) {
+    return (
+      <span style={{ fontSize: 12, color: 'var(--color-muted)' }}>—</span>
+    )
+  }
   const label = getLabel(score)
   return (
-    <span className={`inline-flex items-center gap-1 border rounded-full font-semibold ${color} ${size === 'sm' ? 'px-2 py-0.5 text-xs' : 'px-3 py-1 text-sm'}`}>
+    <span
+      className="font-mono"
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 6,
+        padding: size === 'sm' ? '2px 8px' : '4px 10px',
+        fontSize: size === 'sm' ? 11 : 12,
+        fontWeight: 600,
+        borderRadius: 2,
+        fontVariantNumeric: 'tabular-nums',
+        ...getStyle(score),
+      }}
+    >
       <span>{score}</span>
-      <span className="font-normal opacity-70">{label}</span>
+      <span style={{ fontWeight: 400, opacity: 0.75 }}>{label}</span>
     </span>
   )
 }
