@@ -47,10 +47,14 @@ const PROFESSION_SLUG: Record<string, string> = {
 }
 
 function slugify(input: string): string {
+  // Strip diacritics via the Mn (Mark, Nonspacing) Unicode property class —
+  // matches the pattern used in lib/prospect-search/naf-mapper.ts and is more
+  // robust than a raw combining-character regex (which can silently break if
+  // the source file's encoding is ever mangled).
   return input
     .toLowerCase()
     .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
+    .replace(/\p{Mn}/gu, '')
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
 }
