@@ -22,7 +22,9 @@ export function IcpBuilder({ initialIcp }: Props) {
   const [queries, setQueries] = useState<string[]>(initialIcp?.linkedin_queries ?? [])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [saved, setSaved] = useState(false)
+  // If we hydrate from a saved ICP, show the "Sauvegardé" indicator immediately —
+  // the user just returned to the page, the criteria are already persisted.
+  const [saved, setSaved] = useState(!!initialIcp)
 
   async function handleParse() {
     if (!description.trim()) return
@@ -53,7 +55,11 @@ export function IcpBuilder({ initialIcp }: Props) {
         <Label>Décrivez votre client idéal en langage naturel</Label>
         <textarea
           value={description}
-          onChange={e => setDescription(e.target.value)}
+          onChange={e => {
+            setDescription(e.target.value)
+            // Description diverges from the persisted version → criteria are no longer in sync.
+            if (saved) setSaved(false)
+          }}
           rows={4}
           className="w-full mt-2"
           placeholder="Ex : Je cherche des médecins généralistes installés depuis moins de 5 ans en Île-de-France, avec un cabinet de groupe et une activité LinkedIn régulière…"

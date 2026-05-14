@@ -336,7 +336,7 @@ export function ProspectFicheContent({ prospect }: Props) {
               <ExternalLinkRow
                 href={ed.rpps.doctolib_search_url}
                 label={`Trouver ${personName} sur Doctolib`}
-                variant="muted"
+                variant="primary"
               />
             )}
           </div>

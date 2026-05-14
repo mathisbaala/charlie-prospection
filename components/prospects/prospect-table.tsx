@@ -2,6 +2,7 @@
 import { ChevronRight, Stethoscope, User } from 'lucide-react'
 import { PatrimonyScoreBadge } from './patrimony-score-badge'
 import { SignalBadge } from './signal-badge'
+import { euros, titleCase } from './_shared'
 import type { Prospect, ProspectEnrichmentData, BodaccEvent } from '@/lib/types'
 
 function LinkedinIcon({ size = 14 }: { size?: number }) {
@@ -57,17 +58,6 @@ function stageStyle(stage: string): React.CSSProperties {
     color: 'var(--color-text)',
     border: '1px solid var(--color-border)',
   }
-}
-
-function euros(n: number | null | undefined): string {
-  if (!n) return '—'
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M€`
-  if (n >= 1_000) return `${Math.round(n / 1_000)}K€`
-  return `${n}€`
-}
-
-function titleCase(s: string): string {
-  return s.toLowerCase().replace(/\b\w/g, c => c.toUpperCase())
 }
 
 interface Props {
