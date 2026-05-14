@@ -92,7 +92,7 @@ export function IcpBuilder({ initialIcp }: Props) {
             <h3 className="font-medium text-gray-900">Critères extraits</h3>
             {saved && <span className="text-xs text-green-600 font-medium">✓ Sauvegardé</span>}
           </div>
-          <CriteriaTags criteria={criteria} onChange={setCriteria} />
+          <CriteriaTags criteria={criteria} onChange={c => { setCriteria(c); setSaved(false) }} />
         </div>
       )}
 
