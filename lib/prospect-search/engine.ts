@@ -1,4 +1,4 @@
-import { searchEntreprises, searchPersonnes, type PappersEntreprise, type PappersDirigeant } from '@/lib/data-sources/pappers'
+import { searchEntreprises, getEntrepriseRepresentants, searchPersonnes, type PappersEntreprise, type PappersRepresentant } from '@/lib/data-sources/pappers'
 import { mapRolesToNaf, mapLocationsToDepartements } from './naf-mapper'
 import type { ParsedIcpCriteria, TargetType } from '@/lib/types'
 
@@ -28,37 +28,37 @@ function buildLinkedInSearchUrl(prenom: string, nom: string, entreprise: string)
   return `https://www.linkedin.com/search/results/people/?keywords=${q}`
 }
 
-function estimateInitialScore(
-  entreprise: PappersEntreprise,
-  dirigeant: PappersDirigeant,
-  sourceType: 'personne_morale' | 'personne_physique'
-): number {
+function anneeNaissance(rep: PappersRepresentant): number | undefined {
+  // "YYYY-MM-DD" or "YYYY-MM"
+  const raw = rep.date_de_naissance ?? rep.date_de_naissance_rgpd
+  if (!raw) return undefined
+  const year = parseInt(raw.slice(0, 4))
+  return isNaN(year) ? undefined : year
+}
+
+function estimateScore(ae: PappersEntreprise, rep: PappersRepresentant): number {
   let score = 20
 
-  if (entreprise.date_creation) {
-    const years = new Date().getFullYear() - new Date(entreprise.date_creation).getFullYear()
+  if (ae.date_creation) {
+    const years = new Date().getFullYear() - new Date(ae.date_creation).getFullYear()
     if (years >= 10) score += 20
     else if (years >= 5) score += 10
     else score += 5
   }
 
-  const naf = entreprise.code_naf ?? ''
-  // Professions libérales réglementées = fort potentiel patrimonial
-  if (naf.startsWith('86') || naf.startsWith('6910') || naf.startsWith('6920') || naf.startsWith('6910')) score += 20
-  else if (naf.startsWith('69') || naf.startsWith('71') || naf.startsWith('75')) score += 15
+  const naf = ae.code_naf ?? ''
+  if (naf.startsWith('86') || naf.startsWith('69') || naf.startsWith('6910') || naf.startsWith('6920')) score += 20
+  else if (naf.startsWith('71') || naf.startsWith('75')) score += 10
 
-  // Capital social pour personnes morales
-  if (sourceType === 'personne_morale' && entreprise.capital) {
-    if (entreprise.capital >= 100_000) score += 15
-    else if (entreprise.capital >= 10_000) score += 8
-  }
+  if (ae.capital && ae.capital >= 100_000) score += 15
+  else if (ae.capital && ae.capital >= 10_000) score += 8
 
-  const effectifMax = entreprise.effectif_max ?? 0
-  if (effectifMax >= 20) score += 15
-  else if (effectifMax >= 5) score += 8
+  if (ae.effectif_max && ae.effectif_max >= 20) score += 15
+  else if (ae.effectif_max && ae.effectif_max >= 5) score += 8
 
-  if (dirigeant.annee_de_naissance) {
-    const age = new Date().getFullYear() - parseInt(dirigeant.annee_de_naissance)
+  const annee = anneeNaissance(rep)
+  if (annee) {
+    const age = new Date().getFullYear() - annee
     if (age >= 45 && age <= 65) score += 15
     else if (age >= 35 && age < 45) score += 10
   }
@@ -66,41 +66,40 @@ function estimateInitialScore(
   return Math.min(score, 75)
 }
 
-function pappersToRawProspect(
-  entreprise: PappersEntreprise,
-  dirigeant: PappersDirigeant,
+function buildRawProspect(
+  ae: PappersEntreprise,
+  rep: PappersRepresentant,
   sourceType: 'personne_morale' | 'personne_physique'
 ): RawProspect {
-  const prenom = dirigeant.prenom?.split(' ')[0] ?? ''
-  const nom = dirigeant.nom ?? ''
+  const prenom = rep.prenom_usuel ?? rep.prenom?.split(/[,\s]+/)[0] ?? ''
+  const nom = rep.nom ?? ''
   return {
-    uid: `${entreprise.siren}-${nom}-${prenom}`,
+    uid: `${ae.siren}-${nom}-${prenom}`,
     source_type: sourceType,
-    entreprise_nom: entreprise.nom_entreprise,
-    siren: entreprise.siren,
-    code_naf: entreprise.code_naf ?? '',
-    libelle_naf: entreprise.libelle_code_naf ?? '',
-    date_creation: entreprise.date_creation ?? '',
-    tranche_effectifs: entreprise.tranche_effectif ?? '',
-    adresse: entreprise.siege?.adresse_ligne_1 ?? '',
-    code_postal: entreprise.siege?.code_postal ?? '',
-    ville: entreprise.siege?.ville ?? '',
-    departement: entreprise.siege?.departement ?? '',
+    entreprise_nom: ae.nom_entreprise,
+    siren: ae.siren,
+    code_naf: ae.code_naf ?? '',
+    libelle_naf: ae.libelle_code_naf ?? '',
+    date_creation: ae.date_creation ?? '',
+    tranche_effectifs: ae.tranche_effectif ?? '',
+    adresse: ae.siege?.adresse_ligne_1 ?? '',
+    code_postal: ae.siege?.code_postal ?? '',
+    ville: ae.siege?.ville ?? '',
+    departement: ae.siege?.departement ?? '',
     dirigeant_nom: nom,
     dirigeant_prenom: prenom,
-    dirigeant_qualite: dirigeant.qualite ?? 'dirigeant',
-    dirigeant_annee_naissance: dirigeant.annee_de_naissance
-      ? parseInt(dirigeant.annee_de_naissance)
-      : undefined,
-    linkedin_search_url: buildLinkedInSearchUrl(prenom, nom, entreprise.nom_entreprise),
-    score_initial: estimateInitialScore(entreprise, dirigeant, sourceType),
+    dirigeant_qualite: rep.qualite ?? 'dirigeant',
+    dirigeant_annee_naissance: anneeNaissance(rep),
+    linkedin_search_url: buildLinkedInSearchUrl(prenom, nom, ae.nom_entreprise),
+    score_initial: estimateScore(ae, rep),
   }
 }
 
-async function searchPersonnesMorales(
+async function searchByNaf(
   criteria: ParsedIcpCriteria,
   limit: number,
-  seen: Set<string>
+  seen: Set<string>,
+  sourceType: 'personne_morale' | 'personne_physique'
 ): Promise<RawProspect[]> {
   const { codes: nafCodes, keywords } = mapRolesToNaf(criteria.roles)
   const departements = mapLocationsToDepartements(criteria.locations)
@@ -112,104 +111,33 @@ async function searchPersonnesMorales(
   for (const naf of nafList.slice(0, 3)) {
     for (const dept of deptList.slice(0, 5)) {
       if (results.length >= limit) break
+
       const q = nafCodes.length === 0 ? keywords.join(' ') : undefined
-      const { resultats } = await searchEntreprises({
-        q,
-        code_naf: naf,
-        departement: dept,
-        par_page: 20,
-      })
-      for (const ae of resultats) {
-        if (results.length >= limit) break
+      const { resultats } = await searchEntreprises({ q, code_naf: naf, departement: dept, par_page: 20 })
+
+      // Filter unseen companies with at least one director recorded
+      const candidates = resultats.filter(ae =>
+        !seen.has(ae.siren) && (ae.nb_dirigeants_total ?? 1) > 0
+      ).slice(0, limit - results.length)
+
+      // Fetch representants for all candidates in parallel
+      const enriched = await Promise.allSettled(
+        candidates.map(async ae => {
+          const reps = await getEntrepriseRepresentants(ae.siren)
+          return { ae, reps }
+        })
+      )
+
+      for (const result of enriched) {
+        if (result.status === 'rejected' || !result.value.reps.length) continue
+        const { ae, reps } = result.value
         if (seen.has(ae.siren)) continue
-        if (!ae.dirigeants?.length) continue
         seen.add(ae.siren)
-        results.push(pappersToRawProspect(ae, ae.dirigeants[0], 'personne_morale'))
+        results.push(buildRawProspect(ae, reps[0], sourceType))
+        if (results.length >= limit) break
       }
     }
     if (results.length >= limit) break
-  }
-
-  return results
-}
-
-async function searchPersonnesPhysiques(
-  criteria: ParsedIcpCriteria,
-  limit: number,
-  seen: Set<string>
-): Promise<RawProspect[]> {
-  const { codes: nafCodes, keywords } = mapRolesToNaf(criteria.roles)
-  const departements = mapLocationsToDepartements(criteria.locations)
-  const results: RawProspect[] = []
-
-  // Strategy: search companies by NAF (profession-based) but flag as personne_physique
-  // Liberal professionals always have a company/cabinet even if they are the target as individuals
-  const nafList = nafCodes.length > 0 ? nafCodes : [undefined]
-  const deptList = departements.length > 0 ? departements : [undefined]
-
-  for (const naf of nafList.slice(0, 3)) {
-    for (const dept of deptList.slice(0, 5)) {
-      if (results.length >= limit) break
-      const q = nafCodes.length === 0 ? keywords.join(' ') : undefined
-      const { resultats } = await searchEntreprises({
-        q,
-        code_naf: naf,
-        departement: dept,
-        par_page: 20,
-      })
-      for (const ae of resultats) {
-        if (results.length >= limit) break
-        if (seen.has(ae.siren)) continue
-        if (!ae.dirigeants?.length) continue
-        seen.add(ae.siren)
-        // Each dirigeant is a prospect as a physical person
-        for (const dirigeant of ae.dirigeants) {
-          if (results.length >= limit) break
-          results.push(pappersToRawProspect(ae, dirigeant, 'personne_physique'))
-        }
-      }
-    }
-    if (results.length >= limit) break
-  }
-
-  // Supplement with Pappers recherche-dirigeants for keyword-based person search
-  if (results.length < limit && keywords.length > 0) {
-    const q = [...keywords, ...criteria.locations.slice(0, 2)].join(' ')
-    const { resultats: personnes } = await searchPersonnes({ q, par_page: 20 })
-    for (const personne of personnes) {
-      if (results.length >= limit) break
-      const entreprise = personne.entreprises?.[0]
-      if (!entreprise) continue
-      const uid = `${entreprise.siren}-${personne.nom}-${personne.prenom ?? ''}`
-      if (seen.has(uid)) continue
-      seen.add(uid)
-      results.push({
-        uid,
-        source_type: 'personne_physique',
-        entreprise_nom: entreprise.nom_entreprise,
-        siren: entreprise.siren,
-        code_naf: entreprise.code_naf ?? '',
-        libelle_naf: entreprise.libelle_code_naf ?? '',
-        date_creation: entreprise.date_creation ?? '',
-        tranche_effectifs: '',
-        adresse: entreprise.siege?.adresse_ligne_1 ?? '',
-        code_postal: entreprise.siege?.code_postal ?? '',
-        ville: entreprise.siege?.ville ?? '',
-        departement: entreprise.siege?.departement ?? '',
-        dirigeant_nom: personne.nom,
-        dirigeant_prenom: personne.prenom ?? '',
-        dirigeant_qualite: personne.qualite ?? 'professionnel libéral',
-        dirigeant_annee_naissance: personne.annee_de_naissance
-          ? parseInt(personne.annee_de_naissance)
-          : undefined,
-        linkedin_search_url: buildLinkedInSearchUrl(
-          personne.prenom ?? '',
-          personne.nom,
-          entreprise.nom_entreprise
-        ),
-        score_initial: 40, // baseline for physically searched persons
-      })
-    }
   }
 
   return results
@@ -223,18 +151,16 @@ export async function searchProspects(
   const targetType: TargetType = criteria.target_type ?? 'personne_morale'
   const seen = new Set<string>()
 
+  const sourceType = targetType === 'personne_physique' ? 'personne_physique' : 'personne_morale'
+
   if (targetType === 'both') {
     const half = Math.ceil(limit / 2)
     const [morales, physiques] = await Promise.all([
-      searchPersonnesMorales(criteria, half, seen),
-      searchPersonnesPhysiques(criteria, half, seen),
+      searchByNaf(criteria, half, seen, 'personne_morale'),
+      searchByNaf(criteria, half, seen, 'personne_physique'),
     ])
     return [...morales, ...physiques].slice(0, limit)
   }
 
-  if (targetType === 'personne_physique') {
-    return searchPersonnesPhysiques(criteria, limit, seen)
-  }
-
-  return searchPersonnesMorales(criteria, limit, seen)
+  return searchByNaf(criteria, limit, seen, sourceType)
 }

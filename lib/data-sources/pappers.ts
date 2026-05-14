@@ -11,23 +11,33 @@ function normalizeNaf(code: string): string {
   return code.replace('.', '')
 }
 
-export interface PappersDirigeant {
+// Représentant physique d'une entreprise (champ "representants" dans /entreprise)
+export interface PappersRepresentant {
   nom: string
   prenom?: string
+  prenom_usuel?: string
   qualite?: string
-  date_de_naissance?: string
-  annee_de_naissance?: string
+  personne_morale: boolean
+  date_de_naissance?: string       // "YYYY-MM-DD"
+  date_de_naissance_rgpd?: string  // "YYYY-MM" (privacy-safe)
+  age?: number
+  sexe?: string
+  departement?: string
 }
 
 export interface PappersEntreprise {
   siren: string
   nom_entreprise: string
+  personne_morale?: boolean
+  nom?: string    // populated for individual entrepreneurs
+  prenom?: string // populated for individual entrepreneurs
   code_naf?: string
   libelle_code_naf?: string
   date_creation?: string
   tranche_effectif?: string
   effectif_max?: number
   capital?: number
+  nb_dirigeants_total?: number
   siege?: {
     adresse_ligne_1?: string
     code_postal?: string
@@ -36,16 +46,12 @@ export interface PappersEntreprise {
     latitude?: number
     longitude?: number
   }
-  dirigeants?: PappersDirigeant[]
 }
 
 export interface PappersPersonne {
-  nom: string
+  nom?: string
   prenom?: string
-  date_de_naissance?: string
-  annee_de_naissance?: string
   qualite?: string
-  // entreprises where this person is a dirigeant
   entreprises?: Array<{
     siren: string
     nom_entreprise: string
@@ -75,12 +81,23 @@ export async function searchEntreprises(params: {
     const res = await fetch(url.toString(), { next: { revalidate: 3600 } })
     if (!res.ok) return { resultats: [], total: 0 }
     const data = await res.json()
-    return {
-      resultats: data.resultats ?? [],
-      total: data.total ?? 0,
-    }
+    return { resultats: data.resultats ?? [], total: data.total ?? 0 }
   } catch {
     return { resultats: [], total: 0 }
+  }
+}
+
+// Fetch full company details to get representants (people)
+// /recherche doesn't include them inline — only /entreprise does
+export async function getEntrepriseRepresentants(siren: string): Promise<PappersRepresentant[]> {
+  try {
+    const url = `${BASE}/entreprise?api_token=${token()}&siren=${siren}`
+    const res = await fetch(url, { next: { revalidate: 86400 } })
+    if (!res.ok) return []
+    const data = await res.json()
+    return (data.representants ?? []).filter((r: PappersRepresentant) => !r.personne_morale)
+  } catch {
+    return []
   }
 }
 
@@ -92,7 +109,6 @@ export async function searchPersonnes(params: {
   const url = new URL(`${BASE}/recherche-dirigeants`)
   url.searchParams.set('api_token', token())
   url.searchParams.set('q', params.q)
-  // filter for physical persons only
   url.searchParams.set('type_dirigeant', 'pp')
   url.searchParams.set('par_page', String(params.par_page ?? 20))
   url.searchParams.set('page', String(params.page ?? 1))
@@ -101,10 +117,7 @@ export async function searchPersonnes(params: {
     const res = await fetch(url.toString(), { next: { revalidate: 3600 } })
     if (!res.ok) return { resultats: [], total: 0 }
     const data = await res.json()
-    return {
-      resultats: data.resultats ?? [],
-      total: data.total ?? 0,
-    }
+    return { resultats: data.resultats ?? [], total: data.total ?? 0 }
   } catch {
     return { resultats: [], total: 0 }
   }
