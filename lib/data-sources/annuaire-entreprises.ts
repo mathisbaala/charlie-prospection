@@ -40,6 +40,9 @@ export async function searchEntreprises(params: {
   url.searchParams.set('page', String(params.page ?? 1))
   url.searchParams.set('per_page', String(params.per_page ?? 25))
 
+  // include_dirigeants ensures the dirigeants array is populated in each result
+  url.searchParams.set('include_dirigeants', 'true')
+
   const res = await fetch(url.toString(), { next: { revalidate: 3600 } })
   if (!res.ok) throw new Error(`AE API ${res.status}: ${url}`)
   const data = await res.json()
