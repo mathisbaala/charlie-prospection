@@ -337,3 +337,44 @@ export interface SignalsInboxRow {
 export type SignalsInboxInsert = Omit<SignalsInboxRow, 'id' | 'ingested_at' | 'matched_org_ids'> & {
   matched_org_ids?: string[]
 }
+
+// ── Recherche tab — ephemeral search candidates (PR 3) ──────────────────────
+//
+// SearchCandidate is the unit returned by POST /api/recherche/run. It carries
+// the full enriched blob round-trip to the client so that POST /api/suivi/add
+// can persist exactly what the user previewed, without any server-side cache
+// or "search results" table. Stays out of the DB until the user explicitly
+// adds it to /suivi.
+export interface SearchCandidate {
+  /** Stable key for client-side selection (= raw.uid). */
+  uid: string
+  raw: {
+    uid: string
+    source: 'pappers' | 'annuaire_entreprises'
+    source_type: 'personne_morale' | 'personne_physique'
+    entreprise_nom: string
+    siren: string
+    code_naf: string
+    libelle_naf: string
+    date_creation: string
+    tranche_effectifs: string
+    adresse: string
+    code_postal: string
+    ville: string
+    departement: string
+    dirigeant_nom: string
+    dirigeant_prenom: string
+    dirigeant_qualite: string
+    dirigeant_annee_naissance?: number
+    linkedin_search_url: string
+    score_initial: number
+  }
+  enrichment_data: ProspectEnrichmentData
+  patrimony_score: number
+  icp_score: number
+  niveau: 'faible' | 'moyen' | 'fort' | 'prioritaire'
+  raison_principale: string
+  /** True if a prospect with this linkedin_search_url already exists in the
+   *  org's /suivi (so the UI can disable the "Ajouter" button). */
+  already_in_suivi: boolean
+}
