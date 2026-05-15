@@ -41,11 +41,23 @@ export interface ParsedIcpCriteria {
   signal_priorities: SignalType[]
 }
 
+/**
+ * Per-criterion strict flag. When `true`, the search engine weights that
+ * criterion as a strong multiplier on the score (soft ranking, no hard
+ * exclusion — owner's decision). Keys are field names from ParsedIcpCriteria.
+ */
+export type StrictFilters = Partial<Record<keyof ParsedIcpCriteria, boolean>>
+
 export interface Icp {
   id: string
   org_id: string
+  /** Human-friendly persona name shown in /cible. Migration 20260516000000
+   *  backfilled this from raw_description for existing rows. */
+  name: string
   raw_description: string
   parsed_criteria: ParsedIcpCriteria
+  /** Per-criterion strict flag — see StrictFilters. */
+  strict_filters: StrictFilters
   linkedin_queries: string[]
   status: IcpStatus
   created_at: string
