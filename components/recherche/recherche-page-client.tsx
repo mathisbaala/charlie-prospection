@@ -18,6 +18,8 @@ export function RecherchePageClient({ personas }: Props) {
 
   const [selectedPersonaId, setSelectedPersonaId] = useState<string | null>(initialPersonaId)
   const [candidates, setCandidates] = useState<SearchCandidate[]>([])
+  const [filteredCount, setFilteredCount] = useState<number>(0)
+  const [filterBreakdown, setFilterBreakdown] = useState<Record<string, number>>({})
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(false)
   const [adding, setAdding] = useState(false)
@@ -30,6 +32,8 @@ export function RecherchePageClient({ personas }: Props) {
     setError(null)
     setAddedSummary(null)
     setCandidates([])
+    setFilteredCount(0)
+    setFilterBreakdown({})
     setSelected(new Set())
     try {
       const res = await fetch('/api/recherche/run', {
@@ -40,6 +44,12 @@ export function RecherchePageClient({ personas }: Props) {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       setCandidates(data.candidates ?? [])
+      setFilteredCount(typeof data.filtered_count === 'number' ? data.filtered_count : 0)
+      setFilterBreakdown(
+        data.filter_breakdown && typeof data.filter_breakdown === 'object'
+          ? (data.filter_breakdown as Record<string, number>)
+          : {},
+      )
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur inconnue')
     } finally {
@@ -171,7 +181,7 @@ export function RecherchePageClient({ personas }: Props) {
         </div>
       )}
 
-      {!loading && candidates.length === 0 && !error && (
+      {!loading && candidates.length === 0 && filteredCount === 0 && !error && (
         <div
           style={{
             padding: 40,
@@ -181,6 +191,48 @@ export function RecherchePageClient({ personas }: Props) {
           }}
         >
           Aucun résultat encore. Lance une recherche pour voir les prospects.
+        </div>
+      )}
+
+      {!loading && filteredCount > 0 && (
+        <div
+          style={{
+            background: 'var(--color-surface)',
+            border: '1px solid var(--color-border)',
+            borderLeft: '2px solid var(--color-accent)',
+            padding: '10px 14px',
+            fontSize: 12,
+            color: 'var(--color-muted)',
+            marginBottom: 12,
+            display: 'flex',
+            alignItems: 'baseline',
+            gap: 10,
+            flexWrap: 'wrap',
+          }}
+        >
+          <span>
+            <strong
+              style={{
+                fontFamily: 'var(--font-mono, monospace)',
+                fontVariantNumeric: 'tabular-nums',
+                color: 'var(--color-text)',
+                fontWeight: 700,
+              }}
+            >
+              {filteredCount}
+            </strong>{' '}
+            prospect{filteredCount > 1 ? 's' : ''} filtré{filteredCount > 1 ? 's' : ''}{' '}
+            automatiquement
+          </span>
+          {Object.keys(filterBreakdown).length > 0 && (
+            <span style={{ opacity: 0.85 }}>
+              ·{' '}
+              {Object.entries(filterBreakdown)
+                .sort(([, a], [, b]) => b - a)
+                .map(([reason, count]) => `${count} ${reason.toLowerCase()}`)
+                .join(', ')}
+            </span>
+          )}
         </div>
       )}
 

@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { searchProspects } from '@/lib/prospect-search/engine'
+import {
+  aggregateDropReasons,
+  assessProspectQuality,
+  type QualityAssessment,
+} from '@/lib/prospect-search/quality-filter'
 import { enrichProspect } from '@/lib/enrichment/enricher'
 import { scorePatrimony } from '@/lib/enrichment/patrimony-scorer'
 import type { Icp, ParsedIcpCriteria, SearchCandidate, StrictFilters } from '@/lib/types'
@@ -66,23 +71,36 @@ export async function POST(request: Request) {
     .in('linkedin_url', linkedinUrls)
   const existingSet = new Set((existing ?? []).map((r) => r.linkedin_url))
 
-  // Enrich all candidates in parallel — same pipeline as before, just no insert.
+  // Enrich all candidates in parallel, then quality-filter BEFORE scoring.
+  // The quality filter drops obvious off-target cases (procédure collective,
+  // coquille vide, dormante) — saves ~2 Claude calls per dropped candidate
+  // and élimine le bruit que l'utilisateur verrait dans la liste.
   const enrichResults = await Promise.allSettled(
     rawProspects.map(async (raw) => {
       const enrichmentData = await enrichProspect(raw)
+      const quality = assessProspectQuality(enrichmentData)
+      if (quality.drop) {
+        // Skip scoring entirely — dropped candidates aren't shown to the user.
+        return { raw, enrichmentData, quality, dropped: true as const }
+      }
       const scoring = await scorePatrimony(enrichmentData)
       enrichmentData.valeur_entreprise_estimee = scoring.valeur_entreprise_estimee ?? undefined
       enrichmentData.revenus_implicites_estimes = scoring.revenus_implicites_estimes ?? undefined
       enrichmentData.patrimoine_total_estime = scoring.patrimoine_total_estime ?? undefined
       enrichmentData.score_breakdown = scoring.breakdown
       enrichmentData.facteurs_cles = scoring.facteurs_cles
-      return { raw, enrichmentData, scoring }
+      return { raw, enrichmentData, scoring, dropped: false as const, quality }
     }),
   )
 
   const candidates: SearchCandidate[] = []
+  const droppedAssessments: QualityAssessment[] = []
   for (const result of enrichResults) {
     if (result.status === 'rejected') continue
+    if (result.value.dropped) {
+      droppedAssessments.push(result.value.quality)
+      continue
+    }
     const { raw, enrichmentData, scoring } = result.value
     candidates.push({
       uid: raw.uid,
@@ -99,5 +117,9 @@ export async function POST(request: Request) {
   // Sort by patrimony_score desc — best leads first.
   candidates.sort((a, b) => b.patrimony_score - a.patrimony_score)
 
-  return NextResponse.json({ candidates })
+  return NextResponse.json({
+    candidates,
+    filtered_count: droppedAssessments.length,
+    filter_breakdown: aggregateDropReasons(droppedAssessments),
+  })
 }
