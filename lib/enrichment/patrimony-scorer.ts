@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { summarizeDerivatives } from '@/lib/enrichment/finance-derivatives'
+import { summarizePortfolio } from '@/lib/enrichment/personal-portfolio'
 import type {
   BodaccEvent,
   PatrimonyScoreBreakdown,
@@ -104,6 +105,19 @@ ${enrichment.finance_derivatives?.fonds_propres_growth_pct != null && enrichment
 
 ## Bénéficiaires effectifs
 ${enrichment.beneficiaires_effectifs?.slice(0, 3).map(b => `- ${b.prenom ?? ''} ${b.nom ?? ''} (${b.pourcentage_parts ?? '?'}% parts)`).join('\n') || 'Non renseignés'}
+
+## Portefeuille d'entités juridiques du dirigeant
+${enrichment.personal_portfolio ? `- ${summarizePortfolio(enrichment.personal_portfolio)}` : '- Pas d\'autres entités détectées'}
+${enrichment.personal_portfolio && enrichment.personal_portfolio.entites.length > 1
+  ? `- Détail des structures annexes:\n${enrichment.personal_portfolio.entites
+      .filter(e => e.category !== 'principale')
+      .slice(0, 6)
+      .map(e => `  · [${e.category.toUpperCase()}] ${e.nom_entreprise} (${e.code_naf ?? '—'}${e.ville ? `, ${e.ville}` : ''}${e.date_creation ? `, créée ${e.date_creation.slice(0, 4)}` : ''})`)
+      .join('\n')}` : ''}
+${enrichment.personal_portfolio?.niveau_structuration === 'sophistiqué'
+  ? '- Lecture: structure patrimoniale **sophistiquée** (SCI + holding + sociétés actives) — client haut de gamme probable.' : ''}
+${enrichment.personal_portfolio?.niveau_structuration === 'structuré'
+  ? '- Lecture: patrimoine **structuré** (SCI ou holding détectée) — signe d\'organisation patrimoniale active.' : ''}
 
 ${rppsBlock}
 

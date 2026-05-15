@@ -1,9 +1,13 @@
 import { getBodaccBySiren, classifyBodaccEvent } from '@/lib/data-sources/bodacc'
 import { getDvfByCommune } from '@/lib/data-sources/dvf'
-import { getPappersEnrichment } from '@/lib/data-sources/pappers'
+import {
+  getPappersEnrichment,
+  getPersonneEntreprises,
+} from '@/lib/data-sources/pappers'
 import { searchRpps, pickBestRppsMatch } from '@/lib/data-sources/rpps'
 import { buildDoctolibSearchUrl } from '@/lib/data-sources/doctolib'
 import { computeFinanceDerivatives } from '@/lib/enrichment/finance-derivatives'
+import { analyzePersonalPortfolio } from '@/lib/enrichment/personal-portfolio'
 import type {
   BodaccEvent,
   ContexteMarcheImmoLocal,
@@ -123,20 +127,28 @@ export async function enrichProspect(raw: RawProspect): Promise<ProspectEnrichme
     ? resolveCodeCommune(raw.code_postal, raw.ville)
     : Promise.resolve('')
 
-  // Call all enrichment sources in parallel
-  const [bodaccResult, pappersResult, rppsResult, codeCommune] = await Promise.allSettled([
-    raw.siren ? getBodaccBySiren(raw.siren, 10) : Promise.resolve([]),
-    raw.siren ? getPappersEnrichment(raw.siren) : Promise.resolve(null),
-    isHealthProfessional(raw.code_naf) && raw.dirigeant_nom
-      ? searchRpps({
-          nom: raw.dirigeant_nom,
-          prenom: raw.dirigeant_prenom,
-          departement: raw.departement,
-          limit: 5,
-        })
-      : Promise.resolve([]),
-    codeCommunePromise,
-  ])
+  // Call all enrichment sources in parallel. Personal portfolio (SCI /
+  // holdings / autres sociétés du dirigeant) est résolu en parallèle des
+  // autres sources : c'est UN appel Pappers de plus par prospect, mais le
+  // signal patrimonial qu'il révèle (multi-entités patrimoniales) est
+  // central pour un CGP qui démarche des personnes — pas des sociétés.
+  const [bodaccResult, pappersResult, rppsResult, codeCommune, personnePappersResult] =
+    await Promise.allSettled([
+      raw.siren ? getBodaccBySiren(raw.siren, 10) : Promise.resolve([]),
+      raw.siren ? getPappersEnrichment(raw.siren) : Promise.resolve(null),
+      isHealthProfessional(raw.code_naf) && raw.dirigeant_nom
+        ? searchRpps({
+            nom: raw.dirigeant_nom,
+            prenom: raw.dirigeant_prenom,
+            departement: raw.departement,
+            limit: 5,
+          })
+        : Promise.resolve([]),
+      codeCommunePromise,
+      raw.dirigeant_prenom && raw.dirigeant_nom
+        ? getPersonneEntreprises(raw.dirigeant_prenom, raw.dirigeant_nom)
+        : Promise.resolve(null),
+    ])
 
   // ── BODACC ─────────────────────────────────────────────
   if (bodaccResult.status === 'fulfilled' && bodaccResult.value.length > 0) {
@@ -195,6 +207,29 @@ export async function enrichProspect(raw: RawProspect): Promise<ProspectEnrichme
     enrichment.numero_tva = p.numero_tva_intracommunautaire
     enrichment.nb_etablissements = p.nb_etablissements
     enrichment.sources_utilisees?.push('pappers_finances')
+  }
+
+  // ── Portefeuille patrimonial du dirigeant ──────────────
+  // Détecte les SCI, holdings, autres sociétés rattachées à la personne.
+  // Indicateur direct de patrimoine structuré (vs. un dirigeant unique
+  // qui n'a que son entreprise principale).
+  if (
+    personnePappersResult.status === 'fulfilled' &&
+    personnePappersResult.value &&
+    raw.siren
+  ) {
+    const portfolio = analyzePersonalPortfolio(
+      personnePappersResult.value.entreprises,
+      raw.siren,
+    )
+    if (portfolio.total_entites > 0) {
+      enrichment.personal_portfolio = portfolio
+      // Ne pas dupliquer 'pappers_finances' déjà ajouté — on track sous un
+      // tag distinct pour observabilité.
+      if (!enrichment.sources_utilisees?.includes('pappers_dirigeant')) {
+        enrichment.sources_utilisees?.push('pappers_dirigeant')
+      }
+    }
   }
 
   // ── RPPS (professionnels de santé) ─────────────────────

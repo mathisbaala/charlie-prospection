@@ -197,3 +197,63 @@ export async function searchPersonnes(params: {
     return { resultats: [], total: 0 }
   }
 }
+
+/** Normalise a name segment for comparison (lowercase, no diacritics, trim). */
+function normName(s: string | undefined | null): string {
+  if (!s) return ''
+  return s
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .trim()
+    .toLowerCase()
+}
+
+/**
+ * Récupère toutes les entreprises où une personne physique apparaît
+ * comme dirigeante. Match prénom + nom (insensible aux accents/casse).
+ *
+ * Pourquoi : pour l'analyse de portefeuille patrimonial multi-entités —
+ * un CGP veut savoir qu'un dirigeant gère aussi 2 SCI et 1 holding.
+ *
+ * Retourne la première personne qui matche prénom + nom (Pappers retourne
+ * souvent plusieurs homonymes). Si match incertain → retourne null pour
+ * éviter de polluer le portefeuille avec un mauvais homonyme.
+ *
+ * Coût quota: 1 appel Pappers (déjà couvert par tryConsumeQuota dans
+ * searchPersonnes).
+ */
+export async function getPersonneEntreprises(
+  prenom: string,
+  nom: string,
+): Promise<PappersPersonne | null> {
+  const cleanPrenom = (prenom ?? '').trim()
+  const cleanNom = (nom ?? '').trim()
+  if (!cleanPrenom || !cleanNom) return null
+
+  const { resultats } = await searchPersonnes({
+    q: `${cleanPrenom} ${cleanNom}`,
+    par_page: 5,
+  })
+  if (resultats.length === 0) return null
+
+  const wantPrenom = normName(cleanPrenom)
+  const wantNom = normName(cleanNom)
+
+  // Best match: exact nom + prenom matches
+  for (const r of resultats) {
+    if (normName(r.nom) === wantNom && normName(r.prenom) === wantPrenom) {
+      return r
+    }
+  }
+  // Fallback: nom exact + prenom starts with (handle "Jean-François" vs "Jean")
+  for (const r of resultats) {
+    if (
+      normName(r.nom) === wantNom &&
+      normName(r.prenom).startsWith(wantPrenom)
+    ) {
+      return r
+    }
+  }
+  // If we can't confidently identify the person, refuse (avoid wrong homonym).
+  return null
+}

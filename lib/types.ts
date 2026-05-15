@@ -144,6 +144,30 @@ export interface FinanceYear {
   effectif?: number | null
 }
 
+/** Une entité juridique annexe au dirigeant — SCI, holding, autre société.
+ *  Voir lib/enrichment/personal-portfolio.ts pour les heuristiques de
+ *  catégorisation. */
+export interface EntitySummary {
+  siren: string
+  nom_entreprise: string
+  code_naf?: string
+  libelle_code_naf?: string
+  date_creation?: string
+  ville?: string
+  category: 'sci' | 'sccv' | 'holding' | 'principale' | 'societe_active' | 'autre'
+}
+
+/** Portefeuille patrimonial du dirigeant — agrégation des entités juridiques
+ *  rattachées (incl. la principale). Voir lib/enrichment/personal-portfolio.ts */
+export interface PersonalPortfolio {
+  total_entites: number
+  nb_sci: number
+  nb_holding: number
+  nb_societes_actives: number
+  entites: EntitySummary[]
+  niveau_structuration: 'none' | 'simple' | 'structuré' | 'sophistiqué'
+}
+
 /** Dérivées calculées sur la séquence FinanceYear[] — voir
  *  lib/enrichment/finance-derivatives.ts pour le détail des champs. */
 export interface FinanceDerivatives {
@@ -240,6 +264,12 @@ export interface ProspectEnrichmentData {
   // Dérivées finance calculées (croissance, marge trend, D/E…)
   // Voir lib/enrichment/finance-derivatives.ts
   finance_derivatives?: FinanceDerivatives
+
+  // Portefeuille d'entités juridiques du dirigeant (SCI / holdings / autres
+  // sociétés). Signal patrimonial fort pour un CGP qui démarche des
+  // personnes physiques, pas des sociétés.
+  // Voir lib/enrichment/personal-portfolio.ts
+  personal_portfolio?: PersonalPortfolio
 
   // Scores calculés
   valeur_entreprise_estimee?: number
