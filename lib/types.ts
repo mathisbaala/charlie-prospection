@@ -342,6 +342,27 @@ export type SignalsInboxInsert = Omit<SignalsInboxRow, 'id' | 'ingested_at' | 'm
   matched_org_ids?: string[]
 }
 
+// ── Activity log per prospect (Round 10) ───────────────────────────────────
+
+export type ActivityKind =
+  | 'note'
+  | 'call'
+  | 'email_sent'
+  | 'linkedin_message'
+  | 'meeting'
+  | 'other'
+
+export interface ProspectActivity {
+  id: string
+  prospect_id: string
+  org_id: string
+  kind: ActivityKind
+  body: string
+  occurred_at: string
+  created_by: string | null
+  created_at: string
+}
+
 // ── Recherche tab — ephemeral search candidates (PR 3) ──────────────────────
 //
 // SearchCandidate is the unit returned by POST /api/recherche/run. It carries
