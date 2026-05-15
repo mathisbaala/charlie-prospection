@@ -1,3 +1,5 @@
+import { timedFetch } from '@/lib/observability/logger'
+
 const BASE = 'https://api.pappers.fr/v2'
 
 function token() {
@@ -78,7 +80,7 @@ export async function searchEntreprises(params: {
   url.searchParams.set('page', String(params.page ?? 1))
 
   try {
-    const res = await fetch(url.toString(), { next: { revalidate: 3600 } })
+    const res = await timedFetch('pappers', 'searchEntreprises', url.toString(), { next: { revalidate: 3600 } })
     if (!res.ok) return { resultats: [], total: 0 }
     const data = await res.json()
     return { resultats: data.resultats ?? [], total: data.total ?? 0 }
@@ -92,7 +94,7 @@ export async function searchEntreprises(params: {
 export async function getEntrepriseRepresentants(siren: string): Promise<PappersRepresentant[]> {
   try {
     const url = `${BASE}/entreprise?api_token=${token()}&siren=${siren}`
-    const res = await fetch(url, { next: { revalidate: 86400 } })
+    const res = await timedFetch('pappers', 'getEntrepriseRepresentants', url, { next: { revalidate: 86400 } })
     if (!res.ok) return []
     const data = await res.json()
     return (data.representants ?? []).filter((r: PappersRepresentant) => !r.personne_morale)
@@ -145,7 +147,7 @@ export interface PappersEnrichment {
 export async function getPappersEnrichment(siren: string): Promise<PappersEnrichment | null> {
   try {
     const url = `${BASE}/entreprise?api_token=${token()}&siren=${siren}`
-    const res = await fetch(url, { next: { revalidate: 86400 } })
+    const res = await timedFetch('pappers', 'getPappersEnrichment', url, { next: { revalidate: 86400 } })
     if (!res.ok) return null
     const data = await res.json()
     return {
@@ -178,7 +180,7 @@ export async function searchPersonnes(params: {
   url.searchParams.set('page', String(params.page ?? 1))
 
   try {
-    const res = await fetch(url.toString(), { next: { revalidate: 3600 } })
+    const res = await timedFetch('pappers', 'searchPersonnes', url.toString(), { next: { revalidate: 3600 } })
     if (!res.ok) return { resultats: [], total: 0 }
     const data = await res.json()
     return { resultats: data.resultats ?? [], total: data.total ?? 0 }

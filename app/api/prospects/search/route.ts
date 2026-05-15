@@ -56,6 +56,8 @@ export async function POST(request: Request) {
     enrichmentData.valeur_entreprise_estimee = scoring.valeur_entreprise_estimee ?? undefined
     enrichmentData.revenus_implicites_estimes = scoring.revenus_implicites_estimes ?? undefined
     enrichmentData.patrimoine_total_estime = scoring.patrimoine_total_estime ?? undefined
+    enrichmentData.score_breakdown = scoring.breakdown
+    enrichmentData.facteurs_cles = scoring.facteurs_cles
 
     const linkedinData = {
       source: raw.source,

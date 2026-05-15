@@ -5,6 +5,7 @@ import {
   TrendingUp,
   AlertTriangle,
   Home,
+  MapPin,
   Stethoscope,
   Users2,
   BarChart3,
@@ -16,10 +17,57 @@ import type {
   ProspectEnrichmentData,
   BodaccEvent,
   DvfTransaction,
+  PatrimonyScoreBreakdown,
 } from '@/lib/types'
 
 interface Props {
   prospect: Prospect
+}
+
+const BREAKDOWN_LABELS: Array<{ key: keyof PatrimonyScoreBreakdown; label: string }> = [
+  { key: 'patrimoine_professionnel', label: 'Patrimoine pro' },
+  { key: 'patrimoine_immobilier', label: 'Patrimoine immo (inféré)' },
+  { key: 'signaux_liquidite', label: 'Signaux liquidité' },
+  { key: 'age_carriere', label: 'Âge / carrière' },
+  { key: 'qualite_donnees', label: 'Qualité données' },
+]
+
+function BreakdownBar({ label, value }: { label: string; value: number }) {
+  const clamped = Math.min(100, Math.max(0, value))
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <div className="flex items-baseline justify-between" style={{ gap: 16 }}>
+        <span style={{ fontSize: 12, color: 'var(--color-muted)' }}>{label}</span>
+        <span
+          className="font-mono"
+          style={{
+            fontSize: 12,
+            fontWeight: 600,
+            color: 'var(--color-text)',
+            fontVariantNumeric: 'tabular-nums',
+          }}
+        >
+          {clamped}
+        </span>
+      </div>
+      <div
+        style={{
+          width: '100%',
+          height: 6,
+          background: 'var(--color-bg)',
+          border: '1px solid var(--color-border)',
+        }}
+      >
+        <div
+          style={{
+            width: `${clamped}%`,
+            height: '100%',
+            background: 'var(--color-accent)',
+          }}
+        />
+      </div>
+    </div>
+  )
 }
 
 /**
@@ -35,9 +83,12 @@ export function ProspectFicheContent({ prospect }: Props) {
   const nom = ed?.dirigeant_nom ?? ld?.nom_de_famille ?? ''
   const personName = `${titleCase(prenom)} ${titleCase(nom)}`.trim() || 'Prospect'
 
+  const breakdown = ed?.score_breakdown
+  const facteursCles = ed?.facteurs_cles
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
-      {/* Cartographie patrimoniale */}
+      {/* Cartographie patrimoniale — uniquement patrimoine inféré du dirigeant */}
       {(ed?.patrimoine_total_estime ||
         ed?.valeur_entreprise_estimee ||
         ed?.revenus_implicites_estimes) && (
@@ -46,8 +97,8 @@ export function ProspectFicheContent({ prospect }: Props) {
             {ed?.valeur_entreprise_estimee && (
               <Stat label="Valeur entreprise" value={euros(ed.valeur_entreprise_estimee)} />
             )}
-            {ed?.patrimoine_immo_estime && (
-              <Stat label="Immo estimé" value={euros(ed.patrimoine_immo_estime)} />
+            {ed?.patrimoine_total_estime && (
+              <Stat label="Patrimoine total" value={euros(ed.patrimoine_total_estime)} />
             )}
             {ed?.revenus_implicites_estimes && (
               <Stat
@@ -67,6 +118,35 @@ export function ProspectFicheContent({ prospect }: Props) {
             >
               {ld.raison_score}
             </p>
+          )}
+        </Section>
+      )}
+
+      {/* Détail du score — breakdown 5 axes */}
+      {breakdown && (
+        <Section icon={<BarChart3 size={13} />} label="Détail du score patrimonial">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {BREAKDOWN_LABELS.map(({ key, label }) => (
+              <BreakdownBar key={key} label={label} value={breakdown[key]} />
+            ))}
+          </div>
+          {facteursCles && facteursCles.length > 0 && (
+            <ul
+              style={{
+                marginTop: 14,
+                paddingLeft: 16,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 4,
+                fontSize: 12,
+                color: 'var(--color-text)',
+                listStyleType: 'square',
+              }}
+            >
+              {facteursCles.map((f, i) => (
+                <li key={i}>{f}</li>
+              ))}
+            </ul>
           )}
         </Section>
       )}
@@ -216,6 +296,9 @@ export function ProspectFicheContent({ prospect }: Props) {
               {ed.rpps.type_activite_liberale && (
                 <Row label="Type activité" value={ed.rpps.type_activite_liberale} />
               )}
+              {ed.potentiel_rpps && (
+                <Row label="Potentiel" value={titleCase(ed.potentiel_rpps.replace('_', ' '))} />
+              )}
               {ed.rpps.cabinet_nom && <Row label="Cabinet" value={ed.rpps.cabinet_nom} />}
               {ed.rpps.cabinet_commune && (
                 <Row
@@ -264,7 +347,32 @@ export function ProspectFicheContent({ prospect }: Props) {
         </Section>
       )}
 
-      {/* DVF — transactions immobilières */}
+      {/* Contexte marché immobilier — informatif, jamais patrimoine perso */}
+      {ed?.contexte_marche_immo_local && (
+        <Section icon={<MapPin size={13} />} label="Contexte marché immobilier">
+          <div className="grid grid-cols-2" style={{ gap: 8, marginBottom: 8 }}>
+            <Stat
+              label={`Médiane ${ed.contexte_marche_immo_local.ville}`}
+              value={euros(ed.contexte_marche_immo_local.mediane_zone)}
+            />
+            <Stat
+              label="Ventes > 300k€"
+              value={String(ed.contexte_marche_immo_local.nb_transactions_zone)}
+            />
+          </div>
+          <p
+            style={{
+              fontSize: 11,
+              color: 'var(--color-muted)',
+              fontStyle: 'italic',
+            }}
+          >
+            Indicateur du niveau de la zone — ce n&apos;est pas le patrimoine du dirigeant.
+          </p>
+        </Section>
+      )}
+
+      {/* DVF — transactions immobilières de zone */}
       {ed?.dvf_transactions && ed.dvf_transactions.length > 0 && (
         <Section icon={<Home size={13} />} label="Transactions immobilières (zone)">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>

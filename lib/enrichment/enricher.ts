@@ -5,8 +5,10 @@ import { searchRpps, pickBestRppsMatch } from '@/lib/data-sources/rpps'
 import { buildDoctolibSearchUrl } from '@/lib/data-sources/doctolib'
 import type {
   BodaccEvent,
+  ContexteMarcheImmoLocal,
   DvfTransaction,
   FinanceYear,
+  PotentielRppsNiveau,
   ProspectEnrichmentData,
   RppsData,
 } from '@/lib/types'
@@ -44,6 +46,54 @@ function isHealthProfessional(codeNaf: string): boolean {
     codeNaf.startsWith('87.') ||
     codeNaf.startsWith('75.00') // vétérinaires
   )
+}
+
+/**
+ * Derive a coarse patrimonial potential from RPPS fields.
+ * Used as a hard input to the patrimony scorer — a chirurgien secteur 2
+ * has ~5–10x the revenue of a généraliste secteur 1, so the scorer needs
+ * this signal explicitly rather than guessing from `libelleProfession`.
+ */
+export function computePotentielRpps(rpps: RppsData | undefined): PotentielRppsNiveau | undefined {
+  if (!rpps) return undefined
+  const mode = (rpps.mode_exercice ?? '').toLowerCase()
+  const secteur = (rpps.type_activite_liberale ?? '').toLowerCase()
+  const savoir = (rpps.savoir_faire ?? rpps.profession ?? '').toLowerCase()
+
+  if (mode.includes('salar')) return 'faible'
+
+  const isLiberal = mode.includes('libér') || mode.includes('liber')
+  if (!isLiberal) return 'moyen' // mode inconnu/mixte → milieu
+
+  const isSecteur23 = secteur.includes('secteur 2') || secteur.includes('secteur 3')
+  const isHautPlateauTechnique =
+    savoir.includes('chirurg') ||
+    savoir.includes('radio') ||
+    savoir.includes('imagerie') ||
+    savoir.includes('anesth') ||
+    savoir.includes('cardio') ||
+    savoir.includes('ophtalm') ||
+    savoir.includes('stomato')
+
+  if (isSecteur23 && isHautPlateauTechnique) return 'tres_fort'
+
+  const isTechniqueSecteur1 =
+    savoir.includes('gastro') ||
+    savoir.includes('pneumo') ||
+    savoir.includes('rhumato') ||
+    savoir.includes('néphro') ||
+    savoir.includes('nephro') ||
+    savoir.includes('neuro') ||
+    savoir.includes('dermato') ||
+    savoir.includes('psychiatr') ||
+    savoir.includes('endocrin') ||
+    isHautPlateauTechnique // technique en secteur 1 — toujours technique
+
+  const isGeneraliste = savoir.includes('général') || savoir.includes('generaliste') || savoir.includes('medecine generale')
+
+  if (isTechniqueSecteur1) return 'fort'
+  if (isGeneraliste) return 'moyen'
+  return 'moyen'
 }
 
 export async function enrichProspect(raw: RawProspect): Promise<ProspectEnrichmentData> {
@@ -173,11 +223,12 @@ export async function enrichProspect(raw: RawProspect): Promise<ProspectEnrichme
           profession,
         }),
       } satisfies RppsData
+      enrichment.potentiel_rpps = computePotentielRpps(enrichment.rpps)
       enrichment.sources_utilisees?.push('rpps')
     }
   }
 
-  // ── DVF (transactions immobilières) ────────────────────
+  // ── DVF — contexte marché immobilier local (PAS patrimoine perso) ───────
   if (codeCommune.status === 'fulfilled' && codeCommune.value) {
     try {
       const dvfRecords = await getDvfByCommune(codeCommune.value, 300_000, 10)
@@ -194,7 +245,12 @@ export async function enrichProspect(raw: RawProspect): Promise<ProspectEnrichme
         }))
         const values = dvfRecords.map(r => r.valeur_fonciere).sort((a, b) => a - b)
         const median = values[Math.floor(values.length / 2)] ?? 0
-        enrichment.patrimoine_immo_estime = median
+        // Indicateur de zone, jamais le patrimoine du dirigeant
+        enrichment.contexte_marche_immo_local = {
+          mediane_zone: median,
+          nb_transactions_zone: dvfRecords.length,
+          ville: dvfRecords[0]?.nom_commune ?? raw.ville,
+        } satisfies ContexteMarcheImmoLocal
         enrichment.sources_utilisees?.push('dvf')
       }
     } catch {

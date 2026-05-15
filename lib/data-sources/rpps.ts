@@ -1,6 +1,8 @@
 // Annuaire Santé — RPPS / ADELI
 // Free API for French health professionals
 // Doc: https://annuaire.sante.fr/web/site-pro/ouverture-donnees
+import { timedFetch } from '@/lib/observability/logger'
+
 const BASE = 'https://annuaire.sante.fr/api/v2.0'
 
 export interface RppsProfessionnel {
@@ -46,7 +48,7 @@ export async function searchRpps(params: {
     url.searchParams.set('size', String(params.limit ?? 5))
     url.searchParams.set('page', '0')
 
-    const res = await fetch(url.toString(), {
+    const res = await timedFetch('rpps', 'searchRpps', url.toString(), {
       next: { revalidate: 86400 },
       signal: AbortSignal.timeout(8000),
     })
