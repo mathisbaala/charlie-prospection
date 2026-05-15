@@ -1,15 +1,22 @@
 import {
   searchEntreprises as pappersSearchEntreprises,
   getEntrepriseRepresentants,
+  searchPersonnes as pappersSearchPersonnes,
   type PappersEntreprise,
   type PappersRepresentant,
+  type PappersPersonne,
 } from '@/lib/data-sources/pappers'
 import {
   searchEntreprises as aeSearchEntreprises,
   type AEResult,
   type AEDirigeant,
 } from '@/lib/data-sources/annuaire-entreprises'
-import { mapRolesToNaf, mapLocationsToDepartements } from './naf-mapper'
+import {
+  mapRolesToNaf,
+  mapSectorsToNaf,
+  mapLocationsToDepartements,
+  expandWithAdjacent,
+} from './naf-mapper'
 import type { ParsedIcpCriteria } from '@/lib/types'
 
 export interface RawProspect {
@@ -39,8 +46,23 @@ function buildLinkedInUrl(prenom: string, nom: string, entreprise: string): stri
   return `https://www.linkedin.com/search/results/people/?keywords=${q}`
 }
 
-function personUid(siren: string, nom: string, prenom: string): string {
-  return `${siren}-${nom.toLowerCase().trim()}-${prenom.toLowerCase().trim()}`
+/**
+ * Clé canonique person-level pour dédupliquer cross-source.
+ *
+ * Normalise diacritiques + casse + espaces, et utilise siren comme tiebreaker
+ * (deux personnes nommées DURAND dans deux entreprises distinctes ne fusionnent
+ * pas). Plus robuste que la clé dérivée de linkedin_url qui est sensible aux
+ * variations de raison sociale entre Pappers et Annuaire Entreprises.
+ */
+export function canonicalPersonKey(prenom: string, nom: string, siren?: string): string {
+  const norm = (s: string) =>
+    s
+      .normalize('NFD')
+      .replace(/\p{Mn}/gu, '')
+      .toLowerCase()
+      .replace(/\s+/g, ' ')
+      .trim()
+  return `${norm(prenom)}|${norm(nom)}|${siren ?? '—'}`
 }
 
 // Derive department code from postal code (handles metropolitan + Corsica + DOM-TOM)
@@ -88,6 +110,67 @@ function isInstitutional(name: string): boolean {
   return CORPORATE_NAME_BLOCKLIST.some(b => upper.includes(b))
 }
 
+/**
+ * Décode une tranche d'effectif (format AE: "00", "11", "21"...) ou un libellé
+ * Pappers ("10 à 19 salariés") en une paire min/max approximative.
+ * Retourne null si non décodable.
+ */
+export function parseEffectifTranche(input: string): { min: number; max: number } | null {
+  if (!input) return null
+  const AE_TRANCHE: Record<string, [number, number]> = {
+    '00': [0, 0],
+    '01': [1, 2],
+    '02': [3, 5],
+    '03': [6, 9],
+    '11': [10, 19],
+    '12': [20, 49],
+    '21': [50, 99],
+    '22': [100, 199],
+    '31': [200, 249],
+    '32': [250, 499],
+    '41': [500, 999],
+    '42': [1000, 1999],
+    '51': [2000, 4999],
+    '52': [5000, 9999],
+    '53': [10000, 999999],
+  }
+  if (AE_TRANCHE[input]) {
+    const [min, max] = AE_TRANCHE[input]
+    return { min, max }
+  }
+  const range = input.match(/(\d+)\s*[àà-]\s*(\d+)/i)
+  if (range) return { min: parseInt(range[1]), max: parseInt(range[2]) }
+  const single = input.match(/(\d+)/)
+  if (single) {
+    const n = parseInt(single[1])
+    return { min: n, max: n }
+  }
+  return null
+}
+
+/**
+ * Filtres durs : effectif min/max, âge min/max.
+ * Le filtre département est appliqué séparément. Le filtre CA n'est pas
+ * applicable ici (données financières disponibles post-enrichissement seulement).
+ */
+function passesHardFilters(p: RawProspect, criteria: ParsedIcpCriteria): boolean {
+  if (criteria.effectif_min != null || criteria.effectif_max != null) {
+    const eff = parseEffectifTranche(p.tranche_effectifs)
+    if (eff) {
+      if (criteria.effectif_min != null && eff.max < criteria.effectif_min) return false
+      if (criteria.effectif_max != null && eff.min > criteria.effectif_max) return false
+    }
+    // Si on a un seuil mais qu'on n'a aucune info effectif : tolérance
+    // (l'absence n'est pas une exclusion, sinon trop de faux négatifs).
+  }
+  if (p.dirigeant_annee_naissance) {
+    const age = new Date().getFullYear() - p.dirigeant_annee_naissance
+    if (criteria.age_min != null && age < criteria.age_min) return false
+    if (criteria.age_max != null && age > criteria.age_max) return false
+  }
+  return true
+}
+
 // Exclude large or institutional entities when the ICP targets libéraux
 function shouldExcludeFromLiberal(opts: {
   codeNaf: string
@@ -98,11 +181,8 @@ function shouldExcludeFromLiberal(opts: {
 }): boolean {
   if (!isLiberalTarget(opts.codeNaf)) return false
   if (isInstitutional(opts.entrepriseNom)) return true
-  // AE: GE / ETI = too large for libéral target
   if (opts.categorieEntreprise === 'GE' || opts.categorieEntreprise === 'ETI') return true
-  // Pappers: > 50 employees
   if (opts.effectifMax != null && opts.effectifMax > 50) return true
-  // AE tranche codes: 41=100-199, 42=200-249... reject ≥ 41
   if (opts.trancheEffectif) {
     const code = parseInt(opts.trancheEffectif)
     if (!isNaN(code) && code >= 41) return true
@@ -110,7 +190,41 @@ function shouldExcludeFromLiberal(opts: {
   return false
 }
 
-// ── Pappers ──────────────────────────────────────────────────────────────────
+// Export pour les tests vitest
+export const _internals = {
+  shouldExcludeFromLiberal,
+  passesHardFilters,
+  isLiberalTarget,
+  isInstitutional,
+}
+
+// ── NAF / location resolution ────────────────────────────────────────────────
+
+/**
+ * Fusionne les codes NAF dérivés des roles ET des sectors (corrige le bug
+ * silencieux où criteria.sectors était parsé mais jamais lu).
+ */
+function resolveNafCodes(criteria: ParsedIcpCriteria): { codes: string[]; keywords: string[] } {
+  const fromRoles = mapRolesToNaf(criteria.roles)
+  const fromSectors = mapSectorsToNaf(criteria.sectors)
+  const codes = new Set([...fromRoles.codes, ...fromSectors])
+  return { codes: Array.from(codes), keywords: fromRoles.keywords }
+}
+
+/**
+ * Résout les départements cibles. Par défaut, élargit aux voisins immédiats
+ * pour ne pas écarter des prospects à 30km. Désactivable via geo_strict.
+ */
+function resolveDepartements(criteria: ParsedIcpCriteria): {
+  effective: string[]
+  strict: string[]
+} {
+  const strict = mapLocationsToDepartements(criteria.locations)
+  if (criteria.geo_strict || strict.length === 0) return { effective: strict, strict }
+  return { effective: expandWithAdjacent(strict), strict }
+}
+
+// ── Pappers — personne morale ────────────────────────────────────────────────
 
 function anneeNaissancePappers(rep: PappersRepresentant): number | undefined {
   const raw = rep.date_de_naissance ?? rep.date_de_naissance_rgpd
@@ -148,7 +262,7 @@ function fromPappers(ae: PappersEntreprise, rep: PappersRepresentant): RawProspe
   const nom = rep.nom ?? ''
   const codePostal = ae.siege?.code_postal ?? ''
   return {
-    uid: personUid(ae.siren, nom, prenom),
+    uid: canonicalPersonKey(prenom, nom, ae.siren),
     source: 'pappers',
     source_type: 'personne_morale',
     entreprise_nom: ae.nom_entreprise,
@@ -175,8 +289,8 @@ async function searchFromPappers(
   limit: number,
   allowedDepts: Set<string>,
 ): Promise<RawProspect[]> {
-  const { codes: nafCodes, keywords } = mapRolesToNaf(criteria.roles)
-  const departements = mapLocationsToDepartements(criteria.locations)
+  const { codes: nafCodes, keywords } = resolveNafCodes(criteria)
+  const departements = Array.from(allowedDepts)
   const seen = new Set<string>()
   const results: RawProspect[] = []
 
@@ -193,13 +307,8 @@ async function searchFromPappers(
         .filter(ae => {
           if (seen.has(ae.siren)) return false
           if ((ae.nb_dirigeants_total ?? 1) === 0) return false
-          // Strict dept match: company siège must be in requested dept
-          // Pappers /recherche doesn't return siege.departement directly — derive from code_postal
           const dept = ae.siege?.departement ?? deptFromCodePostal(ae.siege?.code_postal)
-          if (allowedDepts.size > 0 && dept && !allowedDepts.has(dept)) {
-            return false
-          }
-          // Exclude large/institutional entities for libéral ICPs
+          if (allowedDepts.size > 0 && dept && !allowedDepts.has(dept)) return false
           if (shouldExcludeFromLiberal({
             codeNaf: ae.code_naf ?? '',
             entrepriseNom: ae.nom_entreprise ?? '',
@@ -221,12 +330,82 @@ async function searchFromPappers(
         for (const rep of reps.slice(0, 2)) {
           if (results.length >= limit) break
           const prospect = fromPappers(ae, rep)
-          if (!seen.has(prospect.uid)) {
+          if (!seen.has(prospect.uid) && passesHardFilters(prospect, criteria)) {
             seen.add(prospect.uid)
             results.push(prospect)
           }
         }
       }
+    }
+  }
+  return results
+}
+
+// ── Pappers — personne physique (NOUVEAU, corrige le bug bloquant) ──────────
+
+function fromPappersPersonne(personne: PappersPersonne): RawProspect | null {
+  if (!personne.nom) return null
+  const entreprise = personne.entreprises?.[0]
+  if (!entreprise) return null
+
+  const prenom = personne.prenom?.split(/[\s,]+/)[0] ?? ''
+  const nom = personne.nom
+  const codePostal = entreprise.siege?.code_postal ?? ''
+
+  return {
+    uid: canonicalPersonKey(prenom, nom, entreprise.siren),
+    source: 'pappers',
+    source_type: 'personne_physique',
+    entreprise_nom: entreprise.nom_entreprise,
+    siren: entreprise.siren,
+    code_naf: entreprise.code_naf ?? '',
+    libelle_naf: entreprise.libelle_code_naf ?? '',
+    date_creation: entreprise.date_creation ?? '',
+    tranche_effectifs: '',
+    adresse: entreprise.siege?.adresse_ligne_1 ?? '',
+    code_postal: codePostal,
+    ville: entreprise.siege?.ville ?? '',
+    departement: entreprise.siege?.departement ?? deptFromCodePostal(codePostal),
+    dirigeant_nom: nom,
+    dirigeant_prenom: prenom,
+    dirigeant_qualite: personne.qualite ?? 'dirigeant',
+    linkedin_search_url: buildLinkedInUrl(prenom, nom, entreprise.nom_entreprise),
+    score_initial: 35, // baseline — sera affiné post-enrichissement
+  }
+}
+
+async function searchFromPappersPersonnes(
+  criteria: ParsedIcpCriteria,
+  limit: number,
+  allowedDepts: Set<string>,
+): Promise<RawProspect[]> {
+  const { keywords } = resolveNafCodes(criteria)
+  // Si on a des keywords issus du NAF mapper, on les utilise comme requêtes.
+  // Sinon fallback sur les roles bruts (texte libre dans /recherche-dirigeants).
+  const queries = keywords.length > 0 ? keywords.slice(0, 3) : criteria.roles.slice(0, 3)
+  if (queries.length === 0) return []
+
+  const seen = new Set<string>()
+  const results: RawProspect[] = []
+
+  for (const q of queries) {
+    if (results.length >= limit) break
+    const { resultats } = await pappersSearchPersonnes({ q, par_page: 25 })
+
+    for (const personne of resultats) {
+      if (results.length >= limit) break
+      const prospect = fromPappersPersonne(personne)
+      if (!prospect) continue
+
+      // Filtre département (la recherche-dirigeants Pappers n'a pas de
+      // paramètre departement, donc filtrage en post)
+      if (allowedDepts.size > 0 && prospect.departement && !allowedDepts.has(prospect.departement)) {
+        continue
+      }
+      if (seen.has(prospect.uid)) continue
+      if (!passesHardFilters(prospect, criteria)) continue
+      seen.add(prospect.uid)
+      results.push(prospect)
     }
   }
   return results
@@ -272,7 +451,7 @@ function fromAE(ae: AEResult, d: AEDirigeant): RawProspect {
   const prenom = d.prenoms?.split(/[\s,]+/)[0] ?? ''
   const nom = d.nom ?? ''
   return {
-    uid: personUid(ae.siren, nom, prenom),
+    uid: canonicalPersonKey(prenom, nom, ae.siren),
     source: 'annuaire_entreprises',
     source_type: 'personne_morale',
     entreprise_nom: ae.nom_complet,
@@ -299,8 +478,8 @@ async function searchFromAE(
   limit: number,
   allowedDepts: Set<string>,
 ): Promise<RawProspect[]> {
-  const { codes: nafCodes, keywords } = mapRolesToNaf(criteria.roles)
-  const departements = mapLocationsToDepartements(criteria.locations)
+  const { codes: nafCodes, keywords } = resolveNafCodes(criteria)
+  const departements = Array.from(allowedDepts)
   const seen = new Set<string>()
   const results: RawProspect[] = []
 
@@ -320,11 +499,9 @@ async function searchFromAE(
 
       for (const ae of aeResults) {
         if (results.length >= limit) break
-        // Strict dept match: siège must be in requested dept
         if (allowedDepts.size > 0 && ae.siege?.departement && !allowedDepts.has(ae.siege.departement)) {
           continue
         }
-        // Exclude large/institutional entities for libéral ICPs
         if (shouldExcludeFromLiberal({
           codeNaf: ae.activite_principale ?? '',
           entrepriseNom: ae.nom_complet ?? '',
@@ -336,7 +513,7 @@ async function searchFromAE(
         for (const d of dirigeants.slice(0, 2)) {
           if (results.length >= limit) break
           const prospect = fromAE(ae, d)
-          if (!seen.has(prospect.uid)) {
+          if (!seen.has(prospect.uid) && passesHardFilters(prospect, criteria)) {
             seen.add(prospect.uid)
             results.push(prospect)
           }
@@ -349,34 +526,57 @@ async function searchFromAE(
 
 // ── Main entry point ─────────────────────────────────────────────────────────
 
+/**
+ * Routeur principal de recherche prospect.
+ *
+ *  - target_type === 'personne_morale' (défaut) → flow société→dirigeants
+ *    (Pappers /recherche + Annuaire Entreprises, en parallèle).
+ *  - target_type === 'personne_physique' → flow Pappers /recherche-dirigeants
+ *    (cherche les personnes directement, agrège leur entreprise principale).
+ *  - target_type === 'both' → les deux flows en parallèle, dédup canonique.
+ *
+ * Adjacence départementale activée par défaut (criteria.geo_strict = true pour
+ * désactiver). Filtres durs effectif/âge appliqués post-fetch.
+ */
 export async function searchProspects(
   criteria: ParsedIcpCriteria,
   options: { limit?: number } = {}
 ): Promise<RawProspect[]> {
   const limit = options.limit ?? 30
-  const half = Math.ceil(limit / 2)
-  const departements = mapLocationsToDepartements(criteria.locations)
-  const allowedDepts = new Set(departements)
+  const { effective } = resolveDepartements(criteria)
+  const allowedDepts = new Set(effective)
 
-  const [fromPappersResults, fromAEResults] = await Promise.allSettled([
-    searchFromPappers(criteria, half, allowedDepts),
-    searchFromAE(criteria, half, allowedDepts),
-  ])
+  const targetType = criteria.target_type ?? 'personne_morale'
+  const tasks: Array<Promise<RawProspect[]>> = []
 
-  const pappersProspects = fromPappersResults.status === 'fulfilled' ? fromPappersResults.value : []
-  const aeProspects = fromAEResults.status === 'fulfilled' ? fromAEResults.value : []
+  if (targetType === 'personne_morale' || targetType === 'both') {
+    const half = Math.ceil(limit / (targetType === 'both' ? 3 : 2))
+    tasks.push(searchFromPappers(criteria, half, allowedDepts))
+    tasks.push(searchFromAE(criteria, half, allowedDepts))
+  }
+  if (targetType === 'personne_physique' || targetType === 'both') {
+    const slice = targetType === 'both' ? Math.ceil(limit / 3) : limit
+    tasks.push(searchFromPappersPersonnes(criteria, slice, allowedDepts))
+  }
 
-  // Merge, deduplicate across sources by uid (same person from different sources)
+  const settled = await Promise.allSettled(tasks)
+  const allResults: RawProspect[] = []
+  for (const s of settled) {
+    if (s.status === 'fulfilled') allResults.push(...s.value)
+  }
+
+  // Dédup canonique cross-source (même personne via Pappers + AE → 1 entrée)
   const seen = new Set<string>()
   const merged: RawProspect[] = []
-  for (const p of [...pappersProspects, ...aeProspects]) {
-    if (!seen.has(p.uid) && p.dirigeant_nom) {
+  for (const p of allResults) {
+    if (!p.dirigeant_nom) continue
+    if (!seen.has(p.uid)) {
       seen.add(p.uid)
       merged.push(p)
     }
   }
 
-  // Final hard filter: dept must match if user specified locations
+  // Filtre département final (au cas où une source aurait laissé passer)
   const filtered = allowedDepts.size > 0
     ? merged.filter(p => !p.departement || allowedDepts.has(p.departement))
     : merged
