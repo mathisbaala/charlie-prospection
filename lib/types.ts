@@ -62,6 +62,10 @@ export interface Icp {
   status: IcpStatus
   created_at: string
   updated_at: string
+  /** Optional decoration computed by list endpoints / page server queries —
+   *  number of /suivi prospects attached. Surfaces in PersonaList badges
+   *  and the delete-confirm dialog. Not stored in DB. */
+  prospect_count?: number
 }
 
 export interface Prospect {

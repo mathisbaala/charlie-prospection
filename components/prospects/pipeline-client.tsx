@@ -88,6 +88,29 @@ export function PipelineClient({ initialProspects }: Props) {
     }
   }
 
+  async function handleDelete() {
+    if (!selected) return
+    const displayName =
+      `${(selected.linkedin_data as { prenom?: string } | null)?.prenom ?? ''} ${(selected.linkedin_data as { nom_de_famille?: string } | null)?.nom_de_famille ?? ''}`.trim() ||
+      'ce prospect'
+    if (!confirm(`Supprimer ${displayName} du suivi ? Les signaux associés seront aussi supprimés.`)) {
+      return
+    }
+    const prospectId = selected.id
+    // Optimistic remove
+    setProspects(prev => prev.filter(p => p.id !== prospectId))
+    setSelectedId(null)
+    try {
+      const res = await fetch(`/api/prospects/${prospectId}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error('DELETE failed')
+    } catch {
+      // Rollback: refetch via parent — easiest is router.refresh() which the
+      // server component re-fetches. Since we don't have router here, we
+      // refresh the page so the deletion is visible/reverted consistently.
+      window.location.reload()
+    }
+  }
+
   // Empty pipeline (no prospects in DB at all)
   if (initialProspects.length === 0) {
     return (
@@ -282,6 +305,7 @@ export function PipelineClient({ initialProspects }: Props) {
             key={selected.id}
             prospect={selected}
             onStageChange={handleStageChange}
+            onDelete={handleDelete}
           />
         ) : (
           <div

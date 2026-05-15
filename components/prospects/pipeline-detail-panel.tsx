@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { Building2, MapPin, Stethoscope, User, Check } from 'lucide-react'
+import { Building2, MapPin, Stethoscope, User, Check, Trash2 } from 'lucide-react'
 import { ProspectFicheContent } from './prospect-fiche-content'
 import { ProspectSignalsTimeline } from '@/components/suivi/prospect-signals-timeline'
 import { titleCase } from './_shared'
@@ -33,6 +33,10 @@ const STAGE_HINTS: Record<CrmStage, string> = {
 interface Props {
   prospect: Prospect
   onStageChange?: (stage: CrmStage) => void
+  /** Called when the user removes the prospect from /suivi (DELETE button).
+   *  Optional so the legacy /pipeline page (now a redirect shim) doesn't
+   *  need to wire it. */
+  onDelete?: () => void
 }
 
 const STAGE_PILLS: CrmStage[] = ['new', 'to_contact', 'contacted', 'meeting', 'client', 'lost']
@@ -43,7 +47,7 @@ const STAGE_PILLS: CrmStage[] = ['new', 'to_contact', 'contacted', 'meeting', 'c
  * score-as-hero rule), CRM stage pills, two tabs (Fiche / Pipeline), and
  * either the shared `ProspectFicheContent` or a clickable stage timeline.
  */
-export function PipelineDetailPanel({ prospect, onStageChange }: Props) {
+export function PipelineDetailPanel({ prospect, onStageChange, onDelete }: Props) {
   const [tab, setTab] = useState<Tab>('fiche')
 
   const ld = prospect.linkedin_data as Record<string, string>
@@ -82,18 +86,53 @@ export function PipelineDetailPanel({ prospect, onStageChange }: Props) {
           borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
         }}
       >
-        <p
-          style={{
-            fontSize: 10,
-            fontWeight: 700,
-            letterSpacing: '0.08em',
-            textTransform: 'uppercase',
-            color: 'rgba(237, 233, 224, 0.55)',
-            marginBottom: 10,
-          }}
-        >
-          Score patrimonial
-        </p>
+        <div className="flex items-start justify-between" style={{ gap: 12 }}>
+          <p
+            style={{
+              fontSize: 10,
+              fontWeight: 700,
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              color: 'rgba(237, 233, 224, 0.55)',
+              marginBottom: 10,
+            }}
+          >
+            Score patrimonial
+          </p>
+          {onDelete && (
+            <button
+              type="button"
+              onClick={onDelete}
+              aria-label="Supprimer ce prospect du suivi"
+              title="Supprimer du suivi"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '4px 10px',
+                background: 'transparent',
+                color: 'rgba(237, 233, 224, 0.55)',
+                border: '1px solid rgba(237, 233, 224, 0.15)',
+                borderRadius: 2,
+                fontSize: 11,
+                fontWeight: 500,
+                cursor: 'pointer',
+                transition: 'all 100ms',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = 'var(--color-error, #c44)'
+                e.currentTarget.style.borderColor = 'var(--color-error, #c44)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = 'rgba(237, 233, 224, 0.55)'
+                e.currentTarget.style.borderColor = 'rgba(237, 233, 224, 0.15)'
+              }}
+            >
+              <Trash2 size={11} />
+              Retirer
+            </button>
+          )}
+        </div>
         <div className="flex items-baseline" style={{ gap: 16, flexWrap: 'wrap' }}>
           <p
             className="font-display"

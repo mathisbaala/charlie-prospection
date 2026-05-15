@@ -24,7 +24,11 @@ async function getMembership() {
   return { supabase, user, orgId: membership?.org_id ?? null }
 }
 
-/** GET /api/personas — list personas for the current org. */
+/** GET /api/personas — list personas for the current org.
+ *
+ * Each persona is decorated with `prospect_count` (number of /suivi prospects
+ * attached) so the UI can warn before deletion + show counts in the list.
+ */
 export async function GET() {
   const { supabase, user, orgId } = await getMembership()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -32,12 +36,21 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from('prospection_icps')
-    .select('*')
+    .select('*, prospect_count:prospection_prospects(count)')
     .eq('org_id', orgId)
     .order('updated_at', { ascending: false })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ personas: data ?? [] })
+
+  // PostgREST returns aggregate as { count } objects; normalise to a flat number.
+  const personas = (data ?? []).map((p: { prospect_count?: Array<{ count: number }> | number } & Record<string, unknown>) => ({
+    ...p,
+    prospect_count: Array.isArray(p.prospect_count)
+      ? (p.prospect_count[0]?.count ?? 0)
+      : (typeof p.prospect_count === 'number' ? p.prospect_count : 0),
+  }))
+
+  return NextResponse.json({ personas })
 }
 
 /** POST /api/personas — create a new persona by parsing a natural-language description. */

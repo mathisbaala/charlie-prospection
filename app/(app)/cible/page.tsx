@@ -24,9 +24,19 @@ export default async function CiblePage() {
 
   const { data: personas } = await supabase
     .from('prospection_icps')
-    .select('*')
+    .select('*, prospect_count:prospection_prospects(count)')
     .eq('org_id', membership.org_id)
     .order('updated_at', { ascending: false })
 
-  return <CiblePageClient initialPersonas={(personas ?? []) as Icp[]} />
+  // PostgREST returns the aggregate as `[{count: N}]` — flatten to a number
+  // on each persona row so the client can use it directly for delete-confirm
+  // and the persona-list badge.
+  const normalised = (personas ?? []).map((p: { prospect_count?: Array<{ count: number }> | number } & Record<string, unknown>) => ({
+    ...p,
+    prospect_count: Array.isArray(p.prospect_count)
+      ? (p.prospect_count[0]?.count ?? 0)
+      : (typeof p.prospect_count === 'number' ? p.prospect_count : 0),
+  })) as Icp[]
+
+  return <CiblePageClient initialPersonas={normalised} />
 }

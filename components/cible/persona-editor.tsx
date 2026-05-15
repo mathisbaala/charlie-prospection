@@ -133,7 +133,12 @@ export function PersonaEditor({ persona, onSaved }: Props) {
 
   async function handleDelete() {
     if (!persona) return
-    if (!confirm(`Supprimer la cible "${persona.name}" ?`)) return
+    const count = persona.prospect_count ?? 0
+    const detachWarning =
+      count > 0
+        ? `\n\n${count} prospect${count > 1 ? 's' : ''} actuellement rattaché${count > 1 ? 's' : ''} ${count > 1 ? 'seront' : 'sera'} détaché${count > 1 ? 's' : ''} (ils restent dans /suivi sous "Sans cible").`
+        : ''
+    if (!confirm(`Supprimer la cible « ${persona.name} » ?${detachWarning}`)) return
     setDeleting(true)
     setError(null)
     try {

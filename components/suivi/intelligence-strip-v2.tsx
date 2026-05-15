@@ -69,7 +69,36 @@ export async function IntelligenceStripV2() {
     .neq('type', 'depot_comptes')
     .limit(500)
 
-  if (error || !rows || rows.length === 0) return null
+  // Empty state: only show it when the org has at least one prospect in suivi
+  // (otherwise it's just a normal "haven't started yet" state, no value to
+  // surface). Below we check prospect count to disambiguate.
+  if (error || !rows || rows.length === 0) {
+    const { count: trackedCount } = await service
+      .from('prospection_prospects')
+      .select('id', { count: 'exact', head: true })
+      .eq('org_id', orgId)
+      .not('icp_id', 'is', null)
+
+    if (!trackedCount || trackedCount === 0) return null
+
+    return (
+      <div
+        role="status"
+        style={{
+          background: 'var(--color-surface)',
+          color: 'var(--color-muted)',
+          fontSize: 11.5,
+          padding: '8px 24px',
+          letterSpacing: '0.01em',
+          borderBottom: '1px solid var(--color-border)',
+          textAlign: 'center',
+        }}
+      >
+        Aucun signal qualifié sur les {WINDOW_DAYS} derniers jours. Les nouveaux signaux
+        s&apos;affichent ici après le passage du firehose quotidien (06:30 UTC).
+      </div>
+    )
+  }
 
   // Group: personaId → { name, types[] }
   const groups = new Map<string, { name: string; counts: Map<string, number> }>()

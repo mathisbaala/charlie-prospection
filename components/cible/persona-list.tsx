@@ -75,6 +75,23 @@ export function PersonaList({ personas, selectedId, onSelect, onNew }: Props) {
               >
                 {p.name}
               </span>
+              {(p.prospect_count ?? 0) > 0 && (
+                <span
+                  title={`${p.prospect_count} prospect${(p.prospect_count ?? 0) > 1 ? 's' : ''} en suivi`}
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 600,
+                    color: 'var(--color-muted)',
+                    background: 'var(--color-bg)',
+                    padding: '2px 6px',
+                    borderRadius: 2,
+                    fontFamily: 'var(--font-mono, monospace)',
+                    fontVariantNumeric: 'tabular-nums',
+                  }}
+                >
+                  {p.prospect_count}
+                </span>
+              )}
               {p.status === 'paused' && (
                 <span
                   style={{
