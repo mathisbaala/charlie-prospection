@@ -1,16 +1,17 @@
 'use client'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Search, Target, Kanban, MessageSquare, Settings, LogOut } from 'lucide-react'
+import { Search, Target, Kanban, Settings, LogOut } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
-// Order reflects the natural workflow: define cibles → search → track in suivi → outreach.
+// Order reflects the natural workflow: define cibles → search → track in suivi.
+// /outreach was previously here but pointed to a stub "Bientôt disponible" page —
+// dropped to avoid lying to the user. Will return when the feature is built.
 const NAV_ITEMS = [
   { href: '/cible', label: 'Cible', icon: Target },
   { href: '/recherche', label: 'Recherche', icon: Search },
   { href: '/suivi', label: 'Suivi', icon: Kanban },
-  { href: '/outreach', label: 'Contact', icon: MessageSquare },
 ]
 
 export function Sidebar() {
