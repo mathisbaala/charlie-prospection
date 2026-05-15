@@ -57,8 +57,10 @@ ne le publie pas). On contourne via le fallback NULL dans la RPC, mais
 chaque signal BODACC avec son `code_naf` via un appel Pappers ou Sirene
 au moment de l'ingest.
 
-**Effort** : ~2h (avec quota Pappers à surveiller — ~1000 calls/jour
-sur BODACC seul).
+**Effort** : ~2h (mais ATTENTION quota Pappers — abo payant à 500
+crédits/MOIS, voir `lib/observability/api-quota.ts`. Enrichir tous les
+signaux BODACC via Pappers ferait sauter le mois en quelques jours →
+préférer Sirene comme source NAF).
 
 **Trade-off** : alternative moins chère = lookup Sirene par SIREN (déjà
 sous quota Sirene, et l'API renvoie le NAF directement).

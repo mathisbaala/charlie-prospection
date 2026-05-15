@@ -144,13 +144,13 @@ de classifier.
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Auth client | .env.local + Vercel |
 | `SUPABASE_SERVICE_ROLE_KEY` | Service role (server) | .env.local + Vercel |
 | `ANTHROPIC_API_KEY` | Claude pour parser + scoring | .env.local + Vercel |
-| `PAPPERS_API_KEY` | Pappers v2 | .env.local + Vercel |
-| `PAPPERS_DAILY_LIMIT` | Cap quota (défaut 500) | Vercel (optional) |
+| `PAPPERS_API_KEY` | Pappers v2 (plan payant 500/mois) | .env.local + Vercel |
+| `PAPPERS_MONTHLY_LIMIT` | Cap mensuel Pappers (défaut 500 — match l'abo) | Vercel (optional) |
 | `INSEE_SIRENE_API_KEY` | INSEE Sirene v3.11 | .env.local + Vercel |
-| `SIRENE_DAILY_LIMIT` | Cap quota (défaut 1000) | Vercel (optional) |
+| `SIRENE_DAILY_LIMIT` | Cap quota quotidien (défaut 1000) | Vercel (optional) |
 | `INPI_API_TOKEN`, `INPI_API_BASE` | INPI RNE (en attente activation) | Vercel |
-| `INPI_DAILY_LIMIT` | Cap quota (défaut 500) | Vercel (optional) |
-| `BODACC_DAILY_LIMIT` | Cap quota (défaut 5000) | Vercel (optional) |
+| `INPI_DAILY_LIMIT` | Cap quota quotidien (défaut 500) | Vercel (optional) |
+| `BODACC_DAILY_LIMIT` | Cap quota quotidien (défaut 5000) | Vercel (optional) |
 | `CRON_SECRET` | Bearer pour les 5 crons | .env.local + Vercel |
 | `QUOTA_DISABLED` | Bypass quota (debug only) | .env.local rarement |
 
