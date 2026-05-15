@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { PipelineClient } from '@/components/prospects/pipeline-client'
+import { IntelligenceStrip } from '@/components/intelligence-strip'
 import type { Prospect } from '@/lib/types'
 
 export default async function PipelinePage() {
@@ -28,5 +29,10 @@ export default async function PipelinePage() {
     }
   }
 
-  return <PipelineClient initialProspects={prospects} />
+  return (
+    <>
+      <IntelligenceStrip />
+      <PipelineClient initialProspects={prospects} />
+    </>
+  )
 }
