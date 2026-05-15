@@ -144,6 +144,21 @@ export interface FinanceYear {
   effectif?: number | null
 }
 
+/** Dérivées calculées sur la séquence FinanceYear[] — voir
+ *  lib/enrichment/finance-derivatives.ts pour le détail des champs. */
+export interface FinanceDerivatives {
+  ca_growth_yoy: number | null
+  ca_growth_3y_cagr: number | null
+  ca_trajectory: 'growth' | 'stable' | 'decline' | 'volatile' | 'unknown'
+  marge_ebitda_delta_pts: number | null
+  resultat_growth_yoy: number | null
+  fonds_propres_growth_pct: number | null
+  debt_to_equity: number | null
+  effectif_delta_3y: number | null
+  years_available: number
+  latest_year: number | null
+}
+
 export interface BeneficiaireEffectif {
   nom?: string
   prenom?: string
@@ -221,6 +236,10 @@ export interface ProspectEnrichmentData {
   // LinkedIn indirect
   linkedin_search_url?: string
   linkedin_titre?: string
+
+  // Dérivées finance calculées (croissance, marge trend, D/E…)
+  // Voir lib/enrichment/finance-derivatives.ts
+  finance_derivatives?: FinanceDerivatives
 
   // Scores calculés
   valeur_entreprise_estimee?: number

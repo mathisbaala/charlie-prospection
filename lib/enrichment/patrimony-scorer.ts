@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
+import { summarizeDerivatives } from '@/lib/enrichment/finance-derivatives'
 import type {
   BodaccEvent,
   PatrimonyScoreBreakdown,
@@ -94,6 +95,12 @@ ${enrichment.procedure_collective_en_cours ? '- ⚠️ Procédure collective en 
 - Taux de marge EBITDA: ${enrichment.taux_marge_dernier != null ? enrichment.taux_marge_dernier + '%' : 'N/A'}
 - Fonds propres: ${fmtEuro(enrichment.fonds_propres_dernier)}
 ${enrichment.finances && enrichment.finances.length > 1 ? `- Évolution CA: ${enrichment.finances.slice(0, 3).map(f => `${f.annee}: ${fmtEuro(f.chiffre_affaires)}`).join(' → ')}` : ''}
+
+## Dérivées finance (calculées sur les ${enrichment.finance_derivatives?.years_available ?? 0} an(s) dispo)
+${enrichment.finance_derivatives ? `- ${summarizeDerivatives(enrichment.finance_derivatives)}` : '- Pas de dérivées calculables'}
+${enrichment.finance_derivatives?.ca_trajectory && enrichment.finance_derivatives.ca_trajectory !== 'unknown' ? `- Lecture: une boîte en trajectoire **${enrichment.finance_derivatives.ca_trajectory}** vaut un score patrimonial différent d'une boîte stagnante au même CA. Pondère.` : ''}
+${enrichment.finance_derivatives?.debt_to_equity != null && enrichment.finance_derivatives.debt_to_equity > 2 ? `- Alerte: D/E élevé (${enrichment.finance_derivatives.debt_to_equity}) — patrimoine professionnel à pondérer à la baisse.` : ''}
+${enrichment.finance_derivatives?.fonds_propres_growth_pct != null && enrichment.finance_derivatives.fonds_propres_growth_pct > 30 ? `- Signal positif: fonds propres en forte croissance (+${enrichment.finance_derivatives.fonds_propres_growth_pct}%) — accumulation patrimoniale active.` : ''}
 
 ## Bénéficiaires effectifs
 ${enrichment.beneficiaires_effectifs?.slice(0, 3).map(b => `- ${b.prenom ?? ''} ${b.nom ?? ''} (${b.pourcentage_parts ?? '?'}% parts)`).join('\n') || 'Non renseignés'}

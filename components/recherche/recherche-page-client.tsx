@@ -13,7 +13,7 @@ interface Props {
 export function RecherchePageClient({ personas }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
-  // Honor ?persona=<id> deeplink (used by hero-search post-create flow).
+  // Honor ?persona=<id> deeplink (used by signup/login post-create flow).
   const initialPersonaId = searchParams.get('persona') ?? personas[0]?.id ?? null
 
   const [selectedPersonaId, setSelectedPersonaId] = useState<string | null>(initialPersonaId)

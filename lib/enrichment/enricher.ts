@@ -3,6 +3,7 @@ import { getDvfByCommune } from '@/lib/data-sources/dvf'
 import { getPappersEnrichment } from '@/lib/data-sources/pappers'
 import { searchRpps, pickBestRppsMatch } from '@/lib/data-sources/rpps'
 import { buildDoctolibSearchUrl } from '@/lib/data-sources/doctolib'
+import { computeFinanceDerivatives } from '@/lib/enrichment/finance-derivatives'
 import type {
   BodaccEvent,
   ContexteMarcheImmoLocal,
@@ -172,6 +173,10 @@ export async function enrichProspect(raw: RawProspect): Promise<ProspectEnrichme
       enrichment.resultat_dernier = last.resultat
       enrichment.taux_marge_dernier = last.taux_marge_EBITDA
       enrichment.fonds_propres_dernier = last.fonds_propres
+      // Calcule les dérivées (croissance, marge trend, D/E, etc.) — pure,
+      // utilisé par le scorer patrimoine pour distinguer "5M€ en croissance"
+      // vs "5M€ en déclin".
+      enrichment.finance_derivatives = computeFinanceDerivatives(enrichment.finances)
     }
     if (p.beneficiaires_effectifs.length > 0) {
       enrichment.beneficiaires_effectifs = p.beneficiaires_effectifs.map(b => ({

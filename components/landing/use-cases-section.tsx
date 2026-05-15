@@ -63,7 +63,7 @@ export function UseCasesSection({ onPick }: Props) {
           marginBottom: 40,
         }}
       >
-        Quelques prospects que Charlie identifie aujourd'hui.
+        Quelques prospects que Charlie identifie aujourd&apos;hui.
       </h2>
 
       <div
