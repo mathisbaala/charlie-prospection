@@ -13,20 +13,17 @@ const SUGGESTIONS = [
 const PLACEHOLDER = 'Ex : Chirurgiens lyonnais proches de la retraite…'
 
 const LOADING_PHASES = [
-  'Analyse de votre demande…',
-  'Identification des bases publiques pertinentes…',
-  'Recherche dans Sirene + Annuaire des entreprises…',
-  'Enrichissement via Pappers (finances, gouvernance)…',
-  'Croisement RPPS pour les professionnels de santé…',
-  'Détection signaux BODACC + transactions DVF…',
-  'Calcul des scores patrimoniaux…',
+  'Analyse de votre demande par l’IA…',
+  'Extraction des rôles, secteurs et localisations…',
+  'Conversion en filtres NAF et départements…',
+  'Création de votre première cible…',
 ] as const
 
 interface Props {
   initialDescription?: string
 }
 
-type Phase = 'idle' | 'parsing' | 'searching' | 'done'
+type Phase = 'idle' | 'parsing' | 'done'
 
 export function HeroSearch({ initialDescription = '' }: Props) {
   const router = useRouter()
@@ -85,12 +82,12 @@ export function HeroSearch({ initialDescription = '' }: Props) {
     }
   }, [])
 
-  // Cycle through loading messages every 2.4s while enrichment runs.
+  // Cycle through loading messages every 1.5s while the persona is being created.
   useEffect(() => {
-    if (phase !== 'searching') return
+    if (phase !== 'parsing') return
     const id = setInterval(() => {
       setLoadingPhase(p => (p + 1) % LOADING_PHASES.length)
-    }, 2400)
+    }, 1500)
     return () => clearInterval(id)
   }, [phase])
 
@@ -99,38 +96,29 @@ export function HeroSearch({ initialDescription = '' }: Props) {
     if (!description.trim() || phase !== 'idle') return
     setError(null)
     setPhase('parsing')
+    setLoadingPhase(0)
     try {
-      const parseRes = await fetch('/api/icp/parse', {
+      // Create a new persona via the Cible API. Claude parses + a persona
+      // row is created, then the user lands on /recherche to confirm/refine
+      // their filters and run the search. We no longer auto-run an expensive
+      // enrichment from the landing page — search is now opt-in.
+      const res = await fetch('/api/personas', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ description }),
       })
-      const parseData = await parseRes.json()
-      if (!parseRes.ok) throw new Error(parseData.error ?? 'Erreur lors de l’analyse')
-
-      setPhase('searching')
-      setLoadingPhase(0)
-      const searchRes = await fetch('/api/prospects/search', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          criteria: parseData.icp.parsed_criteria,
-          icp_id: parseData.icp.id,
-          limit: 30,
-        }),
-      })
-      const searchData = await searchRes.json()
-      if (!searchRes.ok) throw new Error(searchData.error ?? 'Erreur lors de la recherche')
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'Erreur lors de la création de la cible')
 
       setPhase('done')
-      router.push('/pipeline')
+      router.push(`/recherche?persona=${data.persona.id}`)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur inconnue')
       setPhase('idle')
     }
   }
 
-  const isLoading = phase === 'parsing' || phase === 'searching'
+  const isLoading = phase === 'parsing'
 
   return (
     <div
@@ -276,7 +264,7 @@ export function HeroSearch({ initialDescription = '' }: Props) {
                 transition: 'opacity 100ms',
               }}
             >
-              {phase === 'parsing' ? 'Analyse…' : phase === 'searching' ? 'Recherche…' : 'Chercher'}
+              {phase === 'parsing' ? 'Création…' : 'Créer la cible'}
             </button>
           </div>
         </form>
@@ -344,12 +332,12 @@ export function HeroSearch({ initialDescription = '' }: Props) {
         )}
       </main>
 
-      {isLoading && <LoadingOverlay phase={phase} message={LOADING_PHASES[loadingPhase]} />}
+      {isLoading && <LoadingOverlay message={LOADING_PHASES[loadingPhase]} />}
     </div>
   )
 }
 
-function LoadingOverlay({ phase, message }: { phase: Phase; message: string }) {
+function LoadingOverlay({ message }: { message: string }) {
   return (
     <div
       role="status"
@@ -388,7 +376,7 @@ function LoadingOverlay({ phase, message }: { phase: Phase; message: string }) {
             marginBottom: 12,
           }}
         >
-          {phase === 'parsing' ? 'Analyse en cours' : 'Enrichissement en cours'}
+          Création de votre cible
         </p>
         <p
           className="font-display"
@@ -405,8 +393,7 @@ function LoadingOverlay({ phase, message }: { phase: Phase; message: string }) {
           {message}
         </p>
         <p style={{ fontSize: 12, color: 'var(--color-muted)', marginTop: 16, lineHeight: 1.5 }}>
-          Cette étape peut prendre 30 à 60 secondes selon le nombre de sources interrogées.
-          Charlie ne ferme pas la page pendant ce temps.
+          Quelques secondes. Vous pourrez ensuite ajuster les filtres à la main avant de lancer la recherche.
         </p>
         <div
           style={{

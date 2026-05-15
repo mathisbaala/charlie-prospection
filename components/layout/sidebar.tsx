@@ -1,14 +1,15 @@
 'use client'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Search, Users, Kanban, MessageSquare, Settings, LogOut } from 'lucide-react'
+import { Search, Target, Kanban, MessageSquare, Settings, LogOut } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
+// Order reflects the natural workflow: define cibles → search → track in suivi → outreach.
 const NAV_ITEMS = [
-  { href: '/pipeline', label: 'Pipeline', icon: Kanban },
-  { href: '/prospects', label: 'Recherche', icon: Search },
-  { href: '/icp', label: 'ICP', icon: Users },
+  { href: '/cible', label: 'Cible', icon: Target },
+  { href: '/recherche', label: 'Recherche', icon: Search },
+  { href: '/suivi', label: 'Suivi', icon: Kanban },
   { href: '/outreach', label: 'Contact', icon: MessageSquare },
 ]
 

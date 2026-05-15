@@ -18,24 +18,27 @@ export default async function Home() {
     .eq('user_id', user.id)
     .single()
 
-  if (!membership) redirect('/icp')
+  // New onboarding: no membership yet → land on /cible to create the first persona.
+  if (!membership) redirect('/cible')
 
-  // Returning user with at least one prospect → straight to the pipeline.
-  // First-time user with empty pipeline → hero search to define their first ICP.
+  // Returning user with at least one prospect in /suivi → straight to the suivi pipeline.
+  // First-time user with empty suivi → hero search to define their first cible.
   const { count } = await supabase
     .from('prospection_prospects')
     .select('*', { count: 'exact', head: true })
     .eq('org_id', membership.org_id)
 
-  if ((count ?? 0) > 0) redirect('/pipeline')
+  if ((count ?? 0) > 0) redirect('/suivi')
 
-  // Reuse existing ICP description if any (so user can refine instead of start over)
-  const { data: existingIcp } = await supabase
+  // Reuse the most-recent persona's description (if any) so the user can refine
+  // instead of starting over — picks the latest by updated_at.
+  const { data: existingPersona } = await supabase
     .from('prospection_icps')
     .select('raw_description')
     .eq('org_id', membership.org_id)
-    .eq('status', 'active')
-    .single()
+    .order('updated_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
 
-  return <HeroSearch initialDescription={existingIcp?.raw_description ?? ''} />
+  return <HeroSearch initialDescription={existingPersona?.raw_description ?? ''} />
 }
