@@ -27,8 +27,11 @@ export async function updateSession(request: NextRequest) {
     request.nextUrl.pathname.startsWith('/signup')
   const isCallbackRoute = request.nextUrl.pathname.startsWith('/callback')
   const isApiRoute = request.nextUrl.pathname.startsWith('/api/')
+  // `/` is the public commercial landing — anonymous visitors must reach it.
+  // The page itself redirects connected users to /suivi or /cible.
+  const isPublicLanding = request.nextUrl.pathname === '/'
 
-  if (!user && !isAuthRoute && !isCallbackRoute && !isApiRoute) {
+  if (!user && !isAuthRoute && !isCallbackRoute && !isApiRoute && !isPublicLanding) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     const redirectResponse = NextResponse.redirect(url)
