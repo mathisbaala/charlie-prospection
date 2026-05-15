@@ -65,3 +65,7 @@ body {
   font-family: var(--font-geist-mono), monospace;
   font-variant-numeric: tabular-nums;
 }
+
+.charlie-connexion-link:hover {
+  color: var(--color-accent);
+}
