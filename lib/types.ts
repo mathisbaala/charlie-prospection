@@ -221,3 +221,31 @@ export interface ProspectSearchResult {
     detected_at: string
   }>
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// APPEND-ONLY (Agent 1 — feat/identification-fix)
+// Augmentation de ParsedIcpCriteria via TypeScript declaration merging :
+// seuils financiers, âge, géofiltrage strict. Tous optionnels pour préserver
+// le contrat de l'interface existant. Produits par le parser Claude
+// (icp-parser.ts) et lus par le moteur de recherche (engine.ts).
+// ─────────────────────────────────────────────────────────────────────────
+
+export interface ParsedIcpCriteria {
+  /** Chiffre d'affaires minimum en euros, si exprimé dans l'ICP. */
+  ca_min?: number
+  /** Chiffre d'affaires maximum en euros. */
+  ca_max?: number
+  /** Effectif salarié minimum. */
+  effectif_min?: number
+  /** Effectif salarié maximum. */
+  effectif_max?: number
+  /** Âge minimum du dirigeant. */
+  age_min?: number
+  /** Âge maximum du dirigeant. */
+  age_max?: number
+  /**
+   * Si true, le moteur n'élargit pas aux départements adjacents.
+   * Si false ou non défini (défaut), une "ville pivot" type Lyon → 69 + adjacents.
+   */
+  geo_strict?: boolean
+}
