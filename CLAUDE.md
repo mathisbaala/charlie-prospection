@@ -1,5 +1,26 @@
 @AGENTS.md
 
+## Code ownership — two-founder split
+
+ALWAYS read OWNERSHIP.md before modifying any file. The project is co-built by
+two founders with strictly separated scopes:
+
+- **Mathis owns the Intelligence layer**: prospect discovery, identification,
+  qualification, enrichment, monitoring. Tabs `/cible`, `/recherche`, `/suivi`.
+  All data sources (Pappers, Sirene, BODACC, INPI, DVF, RPPS), all crons,
+  patrimony scoring, signal pipeline.
+- **Associé owns the Engagement layer**: outreach, contact, campaigns.
+  Tab `/outreach` (to rebuild), message generation, CRM stage progression,
+  interactions log, sequences.
+
+Both touch `prospection_prospects` but with strict write rules: Mathis writes
+`enrichment_data` / `patrimony_score` / `last_signal_at` ; Associé writes
+`crm_stage` and the contact-related parts of `linkedin_data`.
+
+When you (Claude or human dev) work on a file, check OWNERSHIP.md to confirm
+which co-founder owns it. If a new file or table needs to be added, add the
+mention to OWNERSHIP.md in the same PR.
+
 ## Design System
 Always read DESIGN.md before making any visual or UI decisions.
 All font choices, colors, spacing, border-radius, and aesthetic direction are defined there.
