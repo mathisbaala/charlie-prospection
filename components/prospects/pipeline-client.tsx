@@ -421,8 +421,25 @@ function EmptyState() {
           maxWidth: 420,
         }}
       >
-        Lancez une recherche depuis la page Recherche pour commencer.
+        Lancez votre première recherche pour identifier les prospects qui correspondent à votre cible.
       </p>
+      <a
+        href="/"
+        style={{
+          marginTop: 20,
+          display: 'inline-block',
+          padding: '10px 20px',
+          background: 'var(--color-text)',
+          color: 'var(--color-bg)',
+          fontSize: 13,
+          fontWeight: 600,
+          textDecoration: 'none',
+          borderRadius: 2,
+          letterSpacing: '0.01em',
+        }}
+      >
+        Lancer une recherche
+      </a>
     </div>
   )
 }
