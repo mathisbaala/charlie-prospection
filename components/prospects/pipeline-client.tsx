@@ -1,5 +1,6 @@
 'use client'
 import { useMemo, useState } from 'react'
+import Link from 'next/link'
 import { Search } from 'lucide-react'
 import { PipelineDetailPanel } from './pipeline-detail-panel'
 import { titleCase, euros } from './_shared'
@@ -423,7 +424,7 @@ function EmptyState() {
       >
         Lancez votre première recherche pour identifier les prospects qui correspondent à votre cible.
       </p>
-      <a
+      <Link
         href="/"
         style={{
           marginTop: 20,
@@ -439,7 +440,7 @@ function EmptyState() {
         }}
       >
         Lancer une recherche
-      </a>
+      </Link>
     </div>
   )
 }
