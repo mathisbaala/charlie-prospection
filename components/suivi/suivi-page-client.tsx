@@ -2,11 +2,15 @@
 import { useState, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { PipelineClient } from '@/components/prospects/pipeline-client'
+import { PersonaOverviewCards } from './persona-overview-cards'
 import type { Icp, Prospect } from '@/lib/types'
 
 interface Props {
   personas: Icp[]
   prospects: Prospect[]
+  /** Map persona_id → signal count (last 7 days), computed server-side.
+   *  Special key '__orphan__' captures signals on prospects with no icp_id. */
+  signalsByPersona: Record<string, number>
 }
 
 const ORPHAN_TAB_ID = '__orphan__'
@@ -16,7 +20,7 @@ const ORPHAN_TAB_ID = '__orphan__'
  * existing PipelineClient inside a tab per persona. Prospects without an
  * icp_id end up under a "Sans cible" tab so they're still actionable.
  */
-export function SuiviPageClient({ personas, prospects }: Props) {
+export function SuiviPageClient({ personas, prospects, signalsByPersona }: Props) {
   const searchParams = useSearchParams()
   const initialPersona = searchParams.get('persona')
 
@@ -43,6 +47,19 @@ export function SuiviPageClient({ personas, prospects }: Props) {
     if (orphanCount > 0) out.push({ id: ORPHAN_TAB_ID, name: 'Sans cible', count: orphanCount })
     return out
   }, [personas, grouped])
+
+  // Per-persona overview summaries (same set of tabs, with stats decoration).
+  const summaries = useMemo(() => {
+    return tabs.map((t) => ({
+      id: t.id,
+      name: t.name,
+      prospects: grouped.get(t.id) ?? [],
+      signals7d:
+        t.id === ORPHAN_TAB_ID
+          ? (signalsByPersona.__orphan__ ?? 0)
+          : (signalsByPersona[t.id] ?? 0),
+    }))
+  }, [tabs, grouped, signalsByPersona])
 
   // Default selected tab — honor ?persona=, else first tab.
   const [selectedTab, setSelectedTab] = useState<string>(
@@ -79,6 +96,13 @@ export function SuiviPageClient({ personas, prospects }: Props) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: 'calc(100vh - 60px)' }}>
+      {/* Per-persona overview cards (above tabs) */}
+      <PersonaOverviewCards
+        summaries={summaries}
+        selectedId={selectedTab}
+        onSelect={setSelectedTab}
+      />
+
       {/* Persona tabs row */}
       {tabs.length > 1 && (
         <nav
