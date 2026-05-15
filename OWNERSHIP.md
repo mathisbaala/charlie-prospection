@@ -210,6 +210,78 @@ contact, suivi des réponses.
 
 ---
 
+## Stratégie de branches Git
+
+Trois branches **long-lived** :
+
+```
+main             Source de vérité, déployée en production sur Vercel.
+                  Aucun push direct. Tout passe par PR.
+
+intelligence     Branche de travail de Mathis.
+                  Toutes les évolutions de la couche Intelligence
+                  partent d'ici. PR vers main quand stable.
+
+engagement       Branche de travail de l'associé.
+                  Toutes les évolutions de la couche Engagement
+                  partent d'ici. PR vers main quand stable.
+```
+
+### Workflow type — Mathis (Intelligence)
+
+```bash
+# Synchroniser sa branche avec main
+git checkout intelligence
+git pull origin intelligence
+git merge origin/main  # ou rebase si propre
+
+# Travail sur une feature
+git checkout -b intelligence/feat-pappers-modif-cron intelligence
+# … code …
+git push origin intelligence/feat-pappers-modif-cron
+
+# Sur GitHub : PR de la feature branch → intelligence
+# Une fois validée → merge dans intelligence
+# Quand la couche est stable → PR intelligence → main
+```
+
+### Workflow type — Associé (Engagement)
+
+```bash
+git checkout engagement
+git pull origin engagement
+git merge origin/main
+
+git checkout -b engagement/feat-outreach-generator engagement
+# … code …
+git push origin engagement/feat-outreach-generator
+
+# PR de la feature branch → engagement
+# Quand la couche est stable → PR engagement → main
+```
+
+### Règles
+- **Jamais de push direct sur `main`.** Toujours via PR (depuis
+  `intelligence` ou `engagement`).
+- **Jamais de cross-branch direct.** Si tu touches un fichier qui
+  appartient à l'autre couche, c'est qu'il faut probablement passer
+  par `main` (synchro), pas par l'autre branche.
+- Les feature branches courtes peuvent partir de `intelligence` ou
+  `engagement` directement (nommage suggéré : `intelligence/feat-…`
+  ou `engagement/feat-…`).
+- `main` reste **toujours déployable**. Les merges vers `main` doivent
+  être verts (tsc + tests + lint + build).
+- Les migrations Supabase appliquées en prod doivent être présentes sur
+  `main` AVANT le merge du code qui les utilise (pour éviter une fenêtre
+  où le code shippé attend une migration absente).
+
+### En cas de conflit sur un fichier partagé
+`pipeline-detail-panel.tsx`, `lib/types.ts`, et `prospection_prospects`
+sont les zones de friction probable. Quand un conflit survient :
+1. Vérifier OWNERSHIP.md pour confirmer qui possède quelle partie
+2. Coordonner via Slack/Linear (ou tout autre canal) avant de résoudre
+3. Documenter la résolution dans le commit de merge
+
 ## Règles de coordination
 
 ### Avant de modifier
