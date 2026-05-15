@@ -72,9 +72,9 @@ export function Stat({ label, value }: { label: string; value: string }) {
     >
       <p
         style={{
-          fontSize: 10,
+          fontSize: 9.5,
           fontWeight: 700,
-          letterSpacing: '0.08em',
+          letterSpacing: '0.10em',
           textTransform: 'uppercase',
           color: 'var(--color-muted)',
         }}
@@ -84,7 +84,7 @@ export function Stat({ label, value }: { label: string; value: string }) {
       <p
         className="font-mono"
         style={{
-          fontSize: 15,
+          fontSize: 14,
           fontWeight: 600,
           color: 'var(--color-text)',
           marginTop: 4,

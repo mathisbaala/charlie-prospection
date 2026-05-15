@@ -76,31 +76,170 @@ export function PipelineDetailPanel({ prospect, onStageChange, onDelete }: Props
       className="flex-1 flex flex-col overflow-y-auto"
       style={{ background: 'var(--color-surface)' }}
     >
-      {/* ── STICKY HEADER (score-as-hero, dark surface) ───────────── */}
+      {/* ── STICKY HEADER (banque privée: name-as-hero, KPI-as-block) ── */}
       <div
         style={{
           position: 'sticky',
           top: 0,
           zIndex: 5,
-          background: 'var(--color-dark-surface)',
-          padding: '28px 32px 22px 32px',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+          background: 'var(--color-bg)',
+          padding: '24px 32px 20px 32px',
+          borderBottom: '1px solid var(--color-border)',
         }}
       >
-        <div className="flex items-start justify-between" style={{ gap: 12 }}>
-          <p
+        <div className="flex items-start" style={{ gap: 24 }}>
+          {/* Left column: identité de la personne (name-as-hero) */}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="flex items-center" style={{ gap: 8, marginBottom: 6 }}>
+              <span
+                style={{
+                  fontSize: 10,
+                  fontWeight: 700,
+                  letterSpacing: '0.10em',
+                  textTransform: 'uppercase',
+                  color: 'var(--color-accent)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 5,
+                }}
+              >
+                {ed?.rpps ? (
+                  <>
+                    <Stethoscope size={11} />
+                    Professionnel de santé
+                  </>
+                ) : (
+                  <>
+                    <User size={11} />
+                    Dirigeant
+                  </>
+                )}
+              </span>
+            </div>
+
+            <h2
+              className="font-display"
+              style={{
+                fontSize: 26,
+                fontWeight: 600,
+                color: 'var(--color-text)',
+                letterSpacing: '-0.015em',
+                lineHeight: 1.15,
+                margin: 0,
+              }}
+            >
+              {personName}
+            </h2>
+
+            <div
+              className="flex items-center"
+              style={{
+                marginTop: 6,
+                gap: 10,
+                fontSize: 13,
+                color: 'var(--color-muted)',
+                flexWrap: 'wrap',
+                lineHeight: 1.4,
+              }}
+            >
+              <span>{personRole}</span>
+              <span style={{ color: 'var(--color-border)' }}>·</span>
+              <span className="flex items-center" style={{ gap: 4 }}>
+                <Building2 size={11} />
+                {titleCase(companyName)}
+              </span>
+              {ed?.ville && (
+                <>
+                  <span style={{ color: 'var(--color-border)' }}>·</span>
+                  <span className="flex items-center" style={{ gap: 4 }}>
+                    <MapPin size={11} />
+                    {titleCase(ed.ville)}
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Right column: KPI block (score + valorisation, Bloomberg-style) */}
+          <div
             style={{
-              fontSize: 10,
-              fontWeight: 700,
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
-              color: 'rgba(237, 233, 224, 0.55)',
-              marginBottom: 10,
+              flexShrink: 0,
+              width: 220,
+              border: '1px solid var(--color-border)',
+              background: 'var(--color-surface)',
+              padding: '12px 14px',
+              textAlign: 'right',
             }}
           >
-            Score patrimonial
-          </p>
-          {onDelete && (
+            <p
+              style={{
+                fontSize: 10,
+                fontWeight: 700,
+                letterSpacing: '0.10em',
+                textTransform: 'uppercase',
+                color: 'var(--color-muted)',
+                margin: 0,
+                marginBottom: 4,
+              }}
+            >
+              Patrimoine
+            </p>
+            <p
+              className="font-mono"
+              style={{
+                fontSize: 32,
+                fontWeight: 600,
+                color: score != null ? 'var(--color-text)' : 'var(--color-muted)',
+                lineHeight: 1,
+                letterSpacing: '-0.01em',
+                fontVariantNumeric: 'tabular-nums',
+                margin: 0,
+              }}
+            >
+              {score ?? '—'}
+            </p>
+            {valuationLabel && (
+              <>
+                <div
+                  style={{
+                    height: 1,
+                    background: 'var(--color-border)',
+                    margin: '10px 0 8px',
+                  }}
+                />
+                <p
+                  className="font-mono"
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: 'var(--color-text)',
+                    fontVariantNumeric: 'tabular-nums',
+                    margin: 0,
+                    lineHeight: 1.2,
+                  }}
+                >
+                  {valuationLabel}
+                  <span
+                    style={{
+                      fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+                      fontSize: 10,
+                      fontWeight: 500,
+                      color: 'var(--color-muted)',
+                      marginLeft: 4,
+                      letterSpacing: '0.02em',
+                    }}
+                  >
+                    estimé
+                  </span>
+                </p>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Action discrète "retirer" en bas du header, alignée à droite */}
+        {onDelete && (
+          <div className="flex justify-end" style={{ marginTop: 12 }}>
             <button
               type="button"
               onClick={onDelete}
@@ -109,11 +248,11 @@ export function PipelineDetailPanel({ prospect, onStageChange, onDelete }: Props
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: 6,
-                padding: '4px 10px',
+                gap: 5,
+                padding: '3px 8px',
                 background: 'transparent',
-                color: 'rgba(237, 233, 224, 0.55)',
-                border: '1px solid rgba(237, 233, 224, 0.15)',
+                color: 'var(--color-muted)',
+                border: '1px solid var(--color-border)',
                 borderRadius: 2,
                 fontSize: 11,
                 fontWeight: 500,
@@ -121,140 +260,19 @@ export function PipelineDetailPanel({ prospect, onStageChange, onDelete }: Props
                 transition: 'all 100ms',
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.color = 'var(--color-error, #c44)'
-                e.currentTarget.style.borderColor = 'var(--color-error, #c44)'
+                e.currentTarget.style.color = 'var(--color-error)'
+                e.currentTarget.style.borderColor = 'var(--color-error)'
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.color = 'rgba(237, 233, 224, 0.55)'
-                e.currentTarget.style.borderColor = 'rgba(237, 233, 224, 0.15)'
+                e.currentTarget.style.color = 'var(--color-muted)'
+                e.currentTarget.style.borderColor = 'var(--color-border)'
               }}
             >
               <Trash2 size={11} />
-              Retirer
+              Retirer du suivi
             </button>
-          )}
-        </div>
-        <div className="flex items-baseline" style={{ gap: 16, flexWrap: 'wrap' }}>
-          <p
-            className="font-display"
-            style={{
-              fontSize: 88,
-              fontWeight: 800,
-              color: score != null ? 'var(--color-accent)' : 'rgba(237, 233, 224, 0.45)',
-              lineHeight: 0.95,
-              letterSpacing: '-0.03em',
-              fontVariantNumeric: 'tabular-nums',
-            }}
-          >
-            {score ?? '—'}
-            {score != null && (
-              <span
-                style={{
-                  fontSize: 28,
-                  fontWeight: 600,
-                  color: 'rgba(188, 107, 42, 0.55)',
-                  marginLeft: 4,
-                }}
-              >
-                /100
-              </span>
-            )}
-          </p>
-          {valuationLabel && (
-            <div style={{ minWidth: 0 }}>
-              <p
-                style={{
-                  fontSize: 10,
-                  fontWeight: 700,
-                  letterSpacing: '0.08em',
-                  textTransform: 'uppercase',
-                  color: 'rgba(237, 233, 224, 0.45)',
-                  marginBottom: 2,
-                }}
-              >
-                Valorisation estimée
-              </p>
-              <p
-                className="font-mono"
-                style={{
-                  fontSize: 18,
-                  fontWeight: 600,
-                  color: '#FDFAF5',
-                  letterSpacing: '-0.01em',
-                  fontVariantNumeric: 'tabular-nums',
-                }}
-              >
-                {valuationLabel}
-              </p>
-            </div>
-          )}
-        </div>
-
-        {/* Name comes AFTER the score per DESIGN.md score-as-hero rule */}
-        <h2
-          className="font-display"
-          style={{
-            marginTop: 16,
-            fontSize: 22,
-            fontWeight: 600,
-            color: '#FDFAF5',
-            letterSpacing: '-0.015em',
-            lineHeight: 1.2,
-          }}
-        >
-          {personName}
-        </h2>
-
-        <div
-          className="flex items-center"
-          style={{
-            marginTop: 6,
-            gap: 14,
-            fontSize: 12,
-            color: 'rgba(237, 233, 224, 0.65)',
-            flexWrap: 'wrap',
-          }}
-        >
-          <span
-            style={{
-              fontSize: 10,
-              fontWeight: 700,
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
-              color: 'var(--color-accent)',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 5,
-            }}
-          >
-            {ed?.rpps ? (
-              <>
-                <Stethoscope size={11} />
-                Professionnel de santé
-              </>
-            ) : (
-              <>
-                <User size={11} />
-                Dirigeant
-              </>
-            )}
-          </span>
-          <span>{personRole}</span>
-          <span style={{ color: 'rgba(237, 233, 224, 0.35)' }}>·</span>
-          <span className="flex items-center" style={{ gap: 4 }}>
-            <Building2 size={11} />
-            {titleCase(companyName)}
-          </span>
-          {ed?.ville && (
-            <>
-              <span style={{ color: 'rgba(237, 233, 224, 0.35)' }}>·</span>
-              <span className="flex items-center" style={{ gap: 4 }}>
-                <MapPin size={11} />
-                {titleCase(ed.ville)}
-              </span>
-            </>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* ── CRM STAGE SELECTOR (under header, above tabs) ─────────── */}
