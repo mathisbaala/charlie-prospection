@@ -52,10 +52,10 @@ async function runIngest(): Promise<{
   skipped_duplicates: number
   skipped_invalid: number
 }> {
-  const token = process.env.INSEE_SIRENE_TOKEN
-  if (!token) {
+  const apiKey = process.env.INSEE_SIRENE_API_KEY
+  if (!apiKey) {
     // Graceful skip — code is live, waiting for credentials.
-    throw new Error('INSEE_SIRENE_TOKEN not set — cron skipped')
+    throw new Error('INSEE_SIRENE_API_KEY not set — cron skipped')
   }
 
   const supabase = createServiceClient(
@@ -71,7 +71,7 @@ async function runIngest(): Promise<{
   const untilDate = now.toISOString().slice(0, 10)
   const sinceDate = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
 
-  const records = await fetchSireneCreations({ sinceDate, untilDate, token })
+  const records = await fetchSireneCreations({ sinceDate, untilDate, apiKey })
 
   const rows: SignalsInboxInsert[] = []
   let skippedInvalid = 0
@@ -115,7 +115,7 @@ export async function GET(req: NextRequest) {
     const message = err instanceof Error ? err.message : 'unknown error'
     // Treat missing token as a "skipped" 200, not a 500. The cron is wired up
     // but waiting for credentials — we don't want Vercel to alarm on this.
-    if (message.includes('INSEE_SIRENE_TOKEN not set')) {
+    if (message.includes('INSEE_SIRENE_API_KEY not set')) {
       return NextResponse.json({ ok: true, skipped: true, reason: message })
     }
     return NextResponse.json({ ok: false, error: message }, { status: 500 })

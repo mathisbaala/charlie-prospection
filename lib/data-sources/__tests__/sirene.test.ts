@@ -13,6 +13,10 @@ describe('normaliseSireneNaf', () => {
     expect(normaliseSireneNaf('')).toBe(null)
   })
 
+  it('treats INSEE redaction `[ND]` as missing', () => {
+    expect(normaliseSireneNaf('[ND]')).toBe(null)
+  })
+
   it('leaves an already-clean code untouched', () => {
     expect(normaliseSireneNaf('8621Z')).toBe('8621Z')
   })
@@ -39,6 +43,10 @@ describe('extractDepartementFromCpFR', () => {
     expect(extractDepartementFromCpFR(null)).toBe(null)
     expect(extractDepartementFromCpFR('XYZ')).toBe(null)
   })
+
+  it('treats INSEE redaction `[ND]` as missing', () => {
+    expect(extractDepartementFromCpFR('[ND]')).toBe(null)
+  })
 })
 
 describe('resolveSireneName', () => {
@@ -60,6 +68,26 @@ describe('resolveSireneName', () => {
 
   it('returns null when nothing usable', () => {
     const et = { siret: '12345678900015', uniteLegale: {} }
+    expect(resolveSireneName(et)).toBe(null)
+  })
+
+  it('ignores `[ND]` redaction in denomination', () => {
+    const et = {
+      siret: '12345678900015',
+      uniteLegale: {
+        denominationUniteLegale: '[ND]',
+        nomUniteLegale: 'Dupont',
+        prenom1UniteLegale: 'Marie',
+      },
+    }
+    expect(resolveSireneName(et)).toBe('Marie Dupont')
+  })
+
+  it('returns null when both denomination and name are redacted', () => {
+    const et = {
+      siret: '12345678900015',
+      uniteLegale: { denominationUniteLegale: '[ND]', nomUniteLegale: '[ND]' },
+    }
     expect(resolveSireneName(et)).toBe(null)
   })
 })
