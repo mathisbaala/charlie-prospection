@@ -4,7 +4,7 @@
 -- cron jobs — RLS is intentionally disabled.
 
 create table prospection_signals_inbox (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   source text not null,                         -- 'bodacc' | 'inpi' | 'pappers_modif'
   external_id text not null,                    -- stable id from the source
   date_event timestamptz not null,
