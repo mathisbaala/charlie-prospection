@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { CiblePageClient } from '@/components/cible/cible-page-client'
+import { normaliseProspectCount } from '@/lib/personas/helpers'
 import type { Icp } from '@/lib/types'
 
 /**
@@ -31,11 +32,9 @@ export default async function CiblePage() {
   // PostgREST returns the aggregate as `[{count: N}]` — flatten to a number
   // on each persona row so the client can use it directly for delete-confirm
   // and the persona-list badge.
-  const normalised = (personas ?? []).map((p: { prospect_count?: Array<{ count: number }> | number } & Record<string, unknown>) => ({
+  const normalised = (personas ?? []).map((p: { prospect_count?: unknown } & Record<string, unknown>) => ({
     ...p,
-    prospect_count: Array.isArray(p.prospect_count)
-      ? (p.prospect_count[0]?.count ?? 0)
-      : (typeof p.prospect_count === 'number' ? p.prospect_count : 0),
+    prospect_count: normaliseProspectCount(p.prospect_count),
   })) as Icp[]
 
   return <CiblePageClient initialPersonas={normalised} />

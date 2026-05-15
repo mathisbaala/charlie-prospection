@@ -11,6 +11,7 @@ import {
   Trash2,
   Send,
 } from 'lucide-react'
+import { ALLOWED_ACTIVITY_KINDS } from '@/lib/personas/activity-helpers'
 import type { ActivityKind, ProspectActivity } from '@/lib/types'
 
 interface Props {
@@ -35,7 +36,9 @@ const KIND_ICON: Record<ActivityKind, React.ElementType> = {
   other: HelpCircle,
 }
 
-const ORDERED_KINDS: ActivityKind[] = ['note', 'call', 'email_sent', 'linkedin_message', 'meeting', 'other']
+// Use the canonical list from activity-helpers so the picker + the server
+// validator stay in sync.
+const ORDERED_KINDS: readonly ActivityKind[] = ALLOWED_ACTIVITY_KINDS
 
 function formatWhen(iso: string): string {
   const d = new Date(iso)

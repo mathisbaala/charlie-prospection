@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { parseIcp } from '@/lib/claude/icp-parser'
-import type { ParsedIcpCriteria, SignalType } from '@/lib/types'
+import { mergeCriteria } from '@/lib/personas/helpers'
+import type { ParsedIcpCriteria } from '@/lib/types'
 
 /**
  * POST /api/personas/[id]/reparse — re-run Claude on the current
@@ -70,42 +71,3 @@ export async function POST(_request: Request, ctx: { params: Promise<{ id: strin
   return NextResponse.json({ persona })
 }
 
-/** Deduplicated union (case-insensitive on first match) for array fields. */
-function unionDedup(a: string[] | undefined, b: string[] | undefined): string[] {
-  const seen = new Map<string, string>()
-  for (const x of a ?? []) {
-    const k = x.trim().toLowerCase()
-    if (k && !seen.has(k)) seen.set(k, x.trim())
-  }
-  for (const x of b ?? []) {
-    const k = x.trim().toLowerCase()
-    if (k && !seen.has(k)) seen.set(k, x.trim())
-  }
-  return Array.from(seen.values())
-}
-
-/** Merge fresh Claude criteria into the user's current edits. */
-function mergeCriteria(current: ParsedIcpCriteria, fresh: ParsedIcpCriteria): ParsedIcpCriteria {
-  return {
-    // Arrays: union — preserve user-added tags
-    roles: unionDedup(current.roles, fresh.roles),
-    sectors: unionDedup(current.sectors, fresh.sectors),
-    locations: unionDedup(current.locations, fresh.locations),
-    keywords: unionDedup(current.keywords, fresh.keywords),
-    signal_priorities: unionDedup(
-      current.signal_priorities,
-      fresh.signal_priorities,
-    ) as SignalType[],
-    // Scalars: prefer fresh when defined, fall back to current
-    target_type: fresh.target_type ?? current.target_type,
-    seniority_min_years: fresh.seniority_min_years ?? current.seniority_min_years,
-    patrimony_level: fresh.patrimony_level ?? current.patrimony_level,
-    ca_min: fresh.ca_min ?? current.ca_min,
-    ca_max: fresh.ca_max ?? current.ca_max,
-    effectif_min: fresh.effectif_min ?? current.effectif_min,
-    effectif_max: fresh.effectif_max ?? current.effectif_max,
-    age_min: fresh.age_min ?? current.age_min,
-    age_max: fresh.age_max ?? current.age_max,
-    geo_strict: fresh.geo_strict ?? current.geo_strict,
-  }
-}

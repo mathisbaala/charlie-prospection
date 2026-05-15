@@ -1,15 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import type { ActivityKind } from '@/lib/types'
-
-const ALLOWED_KINDS: ActivityKind[] = [
-  'note',
-  'call',
-  'email_sent',
-  'linkedin_message',
-  'meeting',
-  'other',
-]
+import { parseActivityInput } from '@/lib/personas/activity-helpers'
 
 /**
  * GET /api/prospects/[id]/activity — list activity log for a prospect.
@@ -67,16 +58,10 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
   if (pErr) return NextResponse.json({ error: pErr.message }, { status: 500 })
   if (!prospect) return NextResponse.json({ error: 'Prospect introuvable' }, { status: 404 })
 
-  const body = await request.json().catch(() => ({}))
-  const kind = body?.kind as ActivityKind | undefined
-  const text = (body?.body as string | undefined)?.trim()
-  const occurredAt = typeof body?.occurred_at === 'string' ? body.occurred_at : undefined
-
-  if (!kind || !ALLOWED_KINDS.includes(kind)) {
-    return NextResponse.json({ error: 'kind invalide' }, { status: 400 })
-  }
-  if (!text) {
-    return NextResponse.json({ error: 'body requis' }, { status: 400 })
+  const rawBody = await request.json().catch(() => null)
+  const parsed = parseActivityInput(rawBody)
+  if (!parsed.ok) {
+    return NextResponse.json({ error: parsed.error }, { status: 400 })
   }
 
   const { data, error } = await supabase
@@ -84,9 +69,9 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
     .insert({
       prospect_id: id,
       org_id: membership.org_id,
-      kind,
-      body: text,
-      occurred_at: occurredAt,
+      kind: parsed.kind,
+      body: parsed.body,
+      occurred_at: parsed.occurredAt,
       created_by: user.id,
     })
     .select()

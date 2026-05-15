@@ -1,12 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { parseIcp } from '@/lib/claude/icp-parser'
-
-/** Persona name derivation when the user didn't provide one. */
-function deriveName(description: string): string {
-  const trimmed = description.trim().slice(0, 60).trim()
-  return trimmed.length > 0 ? trimmed : 'Persona principale'
-}
+import { deriveName, normaliseProspectCount } from '@/lib/personas/helpers'
 
 async function getMembership() {
   const supabase = await createClient()
@@ -43,11 +38,9 @@ export async function GET() {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   // PostgREST returns aggregate as { count } objects; normalise to a flat number.
-  const personas = (data ?? []).map((p: { prospect_count?: Array<{ count: number }> | number } & Record<string, unknown>) => ({
+  const personas = (data ?? []).map((p: { prospect_count?: unknown } & Record<string, unknown>) => ({
     ...p,
-    prospect_count: Array.isArray(p.prospect_count)
-      ? (p.prospect_count[0]?.count ?? 0)
-      : (typeof p.prospect_count === 'number' ? p.prospect_count : 0),
+    prospect_count: normaliseProspectCount(p.prospect_count),
   }))
 
   return NextResponse.json({ personas })
