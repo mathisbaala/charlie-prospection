@@ -1,12 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import {
+  applyStrictBoost,
   canonicalPersonKey,
   parseEffectifTranche,
   _internals,
   searchProspects,
   type RawProspect,
 } from '../engine'
-import type { ParsedIcpCriteria } from '@/lib/types'
+import type { ParsedIcpCriteria, StrictFilters } from '@/lib/types'
 
 // Mock data sources to keep tests hermetic (no network).
 vi.mock('@/lib/data-sources/pappers', () => ({
@@ -352,5 +353,125 @@ describe('searchProspects — department filtering', () => {
     )
     // Should accept the Isère prospect (adjacent to Rhône)
     expect(results.some(r => r.departement === '38')).toBe(true)
+  })
+})
+
+describe('applyStrictBoost', () => {
+  function p(overrides: Partial<RawProspect> = {}): RawProspect {
+    return {
+      uid: 'x',
+      source: 'pappers',
+      source_type: 'personne_morale',
+      entreprise_nom: 'ACME',
+      siren: '123456789',
+      code_naf: '8621Z',
+      libelle_naf: 'Pratique médicale générale',
+      date_creation: '2018-01-01',
+      tranche_effectifs: '21',
+      adresse: '',
+      code_postal: '75001',
+      ville: 'Paris',
+      departement: '75',
+      dirigeant_nom: 'Durand',
+      dirigeant_prenom: 'Jean',
+      dirigeant_qualite: 'Directeur général',
+      dirigeant_annee_naissance: 1980,
+      linkedin_search_url: '',
+      score_initial: 50,
+      ...overrides,
+    }
+  }
+
+  it('returns prospects unchanged when no strict filters set', () => {
+    const out = applyStrictBoost([p()], { roles: [], sectors: [], locations: [], keywords: [], signal_priorities: [] }, {})
+    expect(out[0].score_initial).toBe(50)
+  })
+
+  it('boosts when strict role matches dirigeant_qualite (substring)', () => {
+    const criteria: ParsedIcpCriteria = { roles: ['directeur'], sectors: [], locations: [], keywords: [], signal_priorities: [] }
+    const strict: StrictFilters = { roles: true }
+    const out = applyStrictBoost([p()], criteria, strict)
+    expect(out[0].score_initial).toBeGreaterThan(50)
+    expect(out[0].score_initial).toBe(57) // 50 * 1.15 → 57.4999… (float) → 57
+  })
+
+  it('does not boost when strict flag is set but role does not match', () => {
+    const criteria: ParsedIcpCriteria = { roles: ['avocat'], sectors: [], locations: [], keywords: [], signal_priorities: [] }
+    const strict: StrictFilters = { roles: true }
+    const out = applyStrictBoost([p()], criteria, strict)
+    expect(out[0].score_initial).toBe(50)
+  })
+
+  it('boosts when strict sector matches libelle_naf', () => {
+    const criteria: ParsedIcpCriteria = { roles: [], sectors: ['Pratique médicale'], locations: [], keywords: [], signal_priorities: [] }
+    const out = applyStrictBoost([p()], criteria, { sectors: true })
+    expect(out[0].score_initial).toBe(57)
+  })
+
+  it('boosts when strict target_type matches', () => {
+    const criteria: ParsedIcpCriteria = {
+      target_type: 'personne_morale',
+      roles: [], sectors: [], locations: [], keywords: [], signal_priorities: [],
+    }
+    const out = applyStrictBoost([p()], criteria, { target_type: true })
+    expect(out[0].score_initial).toBe(57)
+  })
+
+  it('boosts target_type=both for both source types', () => {
+    const criteria: ParsedIcpCriteria = {
+      target_type: 'both',
+      roles: [], sectors: [], locations: [], keywords: [], signal_priorities: [],
+    }
+    const morale = p({ source_type: 'personne_morale', score_initial: 40 })
+    const physique = p({ source_type: 'personne_physique', score_initial: 40, uid: 'y' })
+    const out = applyStrictBoost([morale, physique], criteria, { target_type: true })
+    expect(out[0].score_initial).toBe(46) // 40 * 1.15
+    expect(out[1].score_initial).toBe(46)
+  })
+
+  it('boosts when age strict and age within range', () => {
+    // 2026 - 1980 = 46 years
+    const criteria: ParsedIcpCriteria = {
+      roles: [], sectors: [], locations: [], keywords: [], signal_priorities: [],
+      age_min: 40, age_max: 55,
+    }
+    const out = applyStrictBoost([p()], criteria, { age_min: true })
+    expect(out[0].score_initial).toBe(57)
+  })
+
+  it('does not boost age when birth year missing', () => {
+    const criteria: ParsedIcpCriteria = {
+      roles: [], sectors: [], locations: [], keywords: [], signal_priorities: [],
+      age_min: 40,
+    }
+    const out = applyStrictBoost([p({ dirigeant_annee_naissance: undefined })], criteria, { age_min: true })
+    expect(out[0].score_initial).toBe(50)
+  })
+
+  it('compounds multipliers across multiple strict matches', () => {
+    const criteria: ParsedIcpCriteria = {
+      target_type: 'personne_morale',
+      roles: ['directeur'],
+      sectors: ['médicale'],
+      locations: [], keywords: [], signal_priorities: [],
+    }
+    const out = applyStrictBoost([p()], criteria, { target_type: true, roles: true, sectors: true })
+    // 50 * 1.15 * 1.15 * 1.15 ≈ 75.96 → 76
+    expect(out[0].score_initial).toBe(76)
+  })
+
+  it('caps the score at 100 even with multiple matches', () => {
+    const criteria: ParsedIcpCriteria = {
+      target_type: 'personne_morale',
+      roles: ['directeur'],
+      sectors: ['médicale'],
+      locations: [], keywords: [], signal_priorities: [],
+    }
+    const out = applyStrictBoost(
+      [p({ score_initial: 90 })],
+      criteria,
+      { target_type: true, roles: true, sectors: true },
+    )
+    expect(out[0].score_initial).toBe(100)
   })
 })

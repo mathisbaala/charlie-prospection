@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { searchProspects } from '@/lib/prospect-search/engine'
 import { enrichProspect } from '@/lib/enrichment/enricher'
 import { scorePatrimony } from '@/lib/enrichment/patrimony-scorer'
-import type { Icp, ParsedIcpCriteria, SearchCandidate } from '@/lib/types'
+import type { Icp, ParsedIcpCriteria, SearchCandidate, StrictFilters } from '@/lib/types'
 
 export const maxDuration = 300
 
@@ -50,8 +50,9 @@ export async function POST(request: Request) {
 
   const criteria: ParsedIcpCriteria = (persona as Icp).parsed_criteria
   if (!criteria) return NextResponse.json({ error: 'Critères vides' }, { status: 400 })
+  const strictFilters: StrictFilters = (persona as Icp).strict_filters ?? {}
 
-  const rawProspects = await searchProspects(criteria, { limit })
+  const rawProspects = await searchProspects(criteria, { limit, strictFilters })
   if (rawProspects.length === 0) {
     return NextResponse.json({ candidates: [] })
   }

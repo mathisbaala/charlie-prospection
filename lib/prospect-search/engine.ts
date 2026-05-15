@@ -17,7 +17,7 @@ import {
   mapLocationsToDepartements,
   expandWithAdjacent,
 } from './naf-mapper'
-import type { ParsedIcpCriteria } from '@/lib/types'
+import type { ParsedIcpCriteria, StrictFilters } from '@/lib/types'
 
 export interface RawProspect {
   uid: string
@@ -538,11 +538,78 @@ async function searchFromAE(
  * Adjacence départementale activée par défaut (criteria.geo_strict = true pour
  * désactiver). Filtres durs effectif/âge appliqués post-fetch.
  */
+/**
+ * Multiplier appliqué à `score_initial` quand un critère strict matche.
+ * Plusieurs critères stricts qui matchent se composent (1.15 × 1.15 × …).
+ * Score plafonné à 100 après application.
+ */
+const STRICT_BOOST = 1.15
+
+/**
+ * Boost soft (multiplicateur) appliqué aux prospects matchant les critères
+ * que l'utilisateur a marqués comme "Strict" dans /cible. C'est la
+ * sémantique choisie : pas d'exclusion dure, juste un poids fort dans le
+ * ranking. Les prospects qui ne matchent pas restent visibles, en bas de
+ * liste.
+ *
+ * Critères vérifiables à ce stade (pré-enrichissement) :
+ *   - target_type    via source_type
+ *   - roles          via dirigeant_qualite (substring case-insensitive)
+ *   - sectors        via libelle_naf (substring case-insensitive)
+ *   - effectif_min/max via score_initial proxy (rough — only target>=10 boost)
+ *   - age_min/max    via dirigeant_annee_naissance
+ *
+ * Critères ignorés ici (data non disponible avant enrichissement) :
+ *   - ca_min/max, patrimony_level, keywords, signal_priorities
+ *   - locations / geo_strict (déjà appliqués comme filtres durs)
+ */
+export function applyStrictBoost(
+  prospects: RawProspect[],
+  criteria: ParsedIcpCriteria,
+  strictFilters: StrictFilters,
+): RawProspect[] {
+  const nowYear = new Date().getFullYear()
+
+  return prospects.map((p) => {
+    let multiplier = 1
+
+    if (strictFilters.target_type && criteria.target_type) {
+      if (criteria.target_type === 'both' || criteria.target_type === p.source_type) {
+        multiplier *= STRICT_BOOST
+      }
+    }
+
+    if (strictFilters.roles && criteria.roles?.length) {
+      const qualite = (p.dirigeant_qualite ?? '').toLowerCase()
+      const matched = criteria.roles.some((r) => qualite.includes(r.toLowerCase()))
+      if (matched) multiplier *= STRICT_BOOST
+    }
+
+    if (strictFilters.sectors && criteria.sectors?.length) {
+      const naf = (p.libelle_naf ?? '').toLowerCase()
+      const matched = criteria.sectors.some((s) => naf.includes(s.toLowerCase()))
+      if (matched) multiplier *= STRICT_BOOST
+    }
+
+    const ageStrict = strictFilters.age_min || strictFilters.age_max
+    if (ageStrict && p.dirigeant_annee_naissance) {
+      const age = nowYear - p.dirigeant_annee_naissance
+      const minOk = criteria.age_min == null || age >= criteria.age_min
+      const maxOk = criteria.age_max == null || age <= criteria.age_max
+      if (minOk && maxOk) multiplier *= STRICT_BOOST
+    }
+
+    if (multiplier === 1) return p
+    return { ...p, score_initial: Math.min(100, Math.round(p.score_initial * multiplier)) }
+  })
+}
+
 export async function searchProspects(
   criteria: ParsedIcpCriteria,
-  options: { limit?: number } = {}
+  options: { limit?: number; strictFilters?: StrictFilters } = {}
 ): Promise<RawProspect[]> {
   const limit = options.limit ?? 30
+  const strictFilters = options.strictFilters ?? {}
   const { effective } = resolveDepartements(criteria)
   const allowedDepts = new Set(effective)
 
@@ -581,7 +648,10 @@ export async function searchProspects(
     ? merged.filter(p => !p.departement || allowedDepts.has(p.departement))
     : merged
 
-  return filtered
+  // Boost soft des critères marqués "Strict" en /cible. Ne filtre pas, ranke.
+  const boosted = applyStrictBoost(filtered, criteria, strictFilters)
+
+  return boosted
     .sort((a, b) => b.score_initial - a.score_initial)
     .slice(0, limit)
 }
