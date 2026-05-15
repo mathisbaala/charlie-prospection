@@ -108,14 +108,30 @@ export async function POST(request: Request) {
       prospectId = inserted.id
     }
 
-    // Backfill 1y of past signals matching this prospect's SIREN.
-    // Skipped if SIREN is missing from enrichment data.
-    const siren = candidate.enrichment_data?.siren
+    // Backfill 1y de signaux pour TOUTES les sociétés de la personne — principale
+    // ET portfolio (SCI, holdings, autres sociétés du dirigeant). Principe
+    // directeur : un prospect = une personne, ses sociétés sont des leviers
+    // patrimoniaux. Une cession sur la SCI du dirigeant est un signal sur la
+    // personne, pas sur l'entreprise.
+    const principalSiren = candidate.enrichment_data?.siren
+    const portfolioSirens =
+      candidate.enrichment_data?.personal_portfolio?.entites
+        ?.map((e) => e.siren)
+        .filter((s): s is string => typeof s === 'string' && s.length >= 9) ?? []
+    // Dédup : la principale est aussi dans le portfolio comme 'principale'
+    const allSirens = Array.from(
+      new Set([principalSiren, ...portfolioSirens].filter((s): s is string => !!s)),
+    )
+
     let signalsCount = 0
-    if (siren && prospectId) {
+    if (allSirens.length > 0 && prospectId) {
       const { data: count, error: rpcErr } = await supabase.rpc(
-        'backfill_signals_for_prospect',
-        { p_prospect_id: prospectId, p_org_id: membership.org_id, p_siren: siren },
+        'backfill_signals_for_prospect_v2',
+        {
+          p_prospect_id: prospectId,
+          p_org_id: membership.org_id,
+          p_sirens: allSirens,
+        },
       )
       if (!rpcErr && typeof count === 'number') signalsCount = count
     }

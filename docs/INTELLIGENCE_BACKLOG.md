@@ -5,8 +5,18 @@
 > touche outreach / contact / pipeline-stage / campagnes est dans le
 > backlog Engagement (associé).
 >
-> Mise à jour : 2026-05-15. Faire évoluer ce fichier en même temps que
+> Mise à jour : 2026-05-16. Faire évoluer ce fichier en même temps que
 > les PR.
+
+## ⚠️ Principe directeur — person-centric
+
+Tout chantier dans ce backlog doit respecter le principe défini dans
+CLAUDE.md §"Personne first, société = moyen" : les CGP cherchent des
+**personnes humaines**, les sociétés (principale, SCI, holdings,
+autres) sont des **moyens** d'identifier / d'enrichir / de surveiller.
+
+Tout PR qui structure une feature "côté société" plutôt que "côté
+personne" doit être justifié explicitement.
 
 ## Légende priorité
 
