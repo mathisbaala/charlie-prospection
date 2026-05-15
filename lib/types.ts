@@ -189,9 +189,16 @@ export interface ProspectEnrichmentData {
   // Signaux BODACC
   bodacc_events?: BodaccEvent[]
 
-  // Transactions immobilières (DVF)
+  // Transactions immobilières (DVF) — contexte marché, jamais patrimoine personnel
   dvf_transactions?: DvfTransaction[]
-  patrimoine_immo_estime?: number
+  /**
+   * Contexte du marché immobilier local (médiane de la zone du siège).
+   * Indicateur de zone, PAS le patrimoine immobilier du dirigeant.
+   */
+  contexte_marche_immo_local?: ContexteMarcheImmoLocal
+
+  // Facteurs dérivés pour le scoring
+  potentiel_rpps?: PotentielRppsNiveau
 
   // LinkedIn indirect
   linkedin_search_url?: string
@@ -201,6 +208,8 @@ export interface ProspectEnrichmentData {
   valeur_entreprise_estimee?: number
   revenus_implicites_estimes?: number
   patrimoine_total_estime?: number
+  score_breakdown?: PatrimonyScoreBreakdown
+  facteurs_cles?: string[]
 
   // Métadonnées
   sources_utilisees?: string[]
@@ -248,4 +257,34 @@ export interface ParsedIcpCriteria {
    * Si false ou non défini (défaut), une "ville pivot" type Lyon → 69 + adjacents.
    */
   geo_strict?: boolean
+}
+
+// ── Append: contexte marché immo + scoring breakdown + RPPS potentiel ────────
+// (Agent 2 — feat/enrichment-quality)
+
+export interface ContexteMarcheImmoLocal {
+  mediane_zone: number
+  nb_transactions_zone: number
+  ville: string
+}
+
+export type PotentielRppsNiveau = 'faible' | 'moyen' | 'fort' | 'tres_fort'
+
+export interface PatrimonyScoreBreakdown {
+  patrimoine_professionnel: number // 0-100
+  patrimoine_immobilier: number    // 0-100 — patrimoine perso inféré, pas DVF zone
+  signaux_liquidite: number        // 0-100
+  age_carriere: number             // 0-100
+  qualite_donnees: number          // 0-100
+}
+
+export interface PatrimonyScoreResult {
+  score: number
+  breakdown: PatrimonyScoreBreakdown
+  facteurs_cles: string[]
+  patrimoine_total_estime: number | null
+  valeur_entreprise_estimee: number | null
+  revenus_implicites_estimes: number | null
+  niveau: 'faible' | 'moyen' | 'fort' | 'prioritaire'
+  raison_principale: string
 }

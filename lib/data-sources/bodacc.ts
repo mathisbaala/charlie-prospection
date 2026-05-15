@@ -1,3 +1,5 @@
+import { timedFetch } from '@/lib/observability/logger'
+
 const BASE = 'https://bodacc-datadila.opendatasoft.com/api/explore/v2.1/catalog/datasets/annonces-commerciales/records'
 
 export interface BodaccRecord {
@@ -15,7 +17,7 @@ export async function getBodaccBySiren(siren: string, limit = 10): Promise<Bodac
   const where = `registre_rc_cs like "${siren}"`
   const url = `${BASE}?where=${encodeURIComponent(where)}&limit=${limit}&order_by=dateparution%20desc`
   try {
-    const res = await fetch(url, { next: { revalidate: 3600 } })
+    const res = await timedFetch('bodacc', 'getBodaccBySiren', url, { next: { revalidate: 3600 } })
     if (!res.ok) return []
     const data = await res.json()
     return data.results ?? []
@@ -28,7 +30,7 @@ export async function getBodaccByName(nom: string, limit = 5): Promise<BodaccRec
   const where = `commercant like "${nom.toUpperCase()}"`
   const url = `${BASE}?where=${encodeURIComponent(where)}&limit=${limit}&order_by=dateparution%20desc`
   try {
-    const res = await fetch(url, { next: { revalidate: 3600 } })
+    const res = await timedFetch('bodacc', 'getBodaccByName', url, { next: { revalidate: 3600 } })
     if (!res.ok) return []
     const data = await res.json()
     return data.results ?? []

@@ -1,3 +1,5 @@
+import { timedFetch } from '@/lib/observability/logger'
+
 const BASE = 'https://recherche-entreprises.api.gouv.fr'
 
 export interface AEDirigeant {
@@ -47,7 +49,7 @@ export async function searchEntreprises(params: {
   // include_dirigeants ensures the dirigeants array is populated in each result
   url.searchParams.set('include_dirigeants', 'true')
 
-  const res = await fetch(url.toString(), { next: { revalidate: 3600 } })
+  const res = await timedFetch('annuaire_entreprises', 'searchEntreprises', url.toString(), { next: { revalidate: 3600 } })
   if (!res.ok) throw new Error(`AE API ${res.status}: ${url}`)
   const data = await res.json()
   return {
@@ -57,7 +59,7 @@ export async function searchEntreprises(params: {
 }
 
 export async function getEntrepriseBySiren(siren: string): Promise<AEResult | null> {
-  const res = await fetch(`${BASE}/search?q=${siren}&per_page=1`, { next: { revalidate: 3600 } })
+  const res = await timedFetch('annuaire_entreprises', 'getEntrepriseBySiren', `${BASE}/search?q=${siren}&per_page=1`, { next: { revalidate: 3600 } })
   if (!res.ok) return null
   const data = await res.json()
   return data.results?.[0] ?? null
