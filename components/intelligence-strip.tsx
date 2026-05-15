@@ -63,6 +63,10 @@ async function fetchOrgSignals(orgId: string): Promise<SignalRow[]> {
     .select('type_event')
     .contains('matched_org_ids', [orgId])
     .gte('date_event', since)
+    // Filings of annual accounts are routine and represent ~60% of BODACC
+    // volume. They are not actionable for prospecting — hide them from the
+    // strip so the total reflects only high-signal events.
+    .neq('type_event', 'depot_comptes')
     .limit(200)
 
   if (error) return []

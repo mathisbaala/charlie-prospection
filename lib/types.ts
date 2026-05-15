@@ -95,7 +95,9 @@ export interface OutreachMessage {
 export interface BodaccEvent {
   id: string
   date: string
-  type: 'cession' | 'creation' | 'radiation' | 'modification' | 'procedure_collective' | 'autre'
+  // Aligned with InboxEventType (Agent 3) so we keep one event taxonomy across
+  // the per-SIREN fiche enrichment and the firehose-ingested signals inbox.
+  type: InboxEventType
   libelle: string
   source: 'bodacc'
 }
@@ -301,6 +303,7 @@ export type InboxEventType =
   | 'procedure_collective'
   | 'modif_capital'
   | 'modif_beneficiaire'
+  | 'depot_comptes'
   | 'autre'
 
 export interface SignalsInboxRow {

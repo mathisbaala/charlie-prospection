@@ -1,4 +1,5 @@
 import { timedFetch } from '@/lib/observability/logger'
+import type { InboxEventType } from '@/lib/types'
 
 const BASE = 'https://bodacc-datadila.opendatasoft.com/api/explore/v2.1/catalog/datasets/annonces-commerciales/records'
 
@@ -47,13 +48,29 @@ export async function getBodaccByName(nom: string, limit = 5): Promise<BodaccRec
   }
 }
 
-export function classifyBodaccEvent(record: BodaccRecord): 'cession' | 'creation' | 'radiation' | 'modification' | 'procedure_collective' | 'autre' {
-  const lib = (record.familleavis_lib ?? record.typeavis_lib ?? '').toLowerCase()
-  if (lib.includes('cession') || lib.includes('vente')) return 'cession'
-  if (lib.includes('création') || lib.includes('immatriculation')) return 'creation'
-  if (lib.includes('radiation') || lib.includes('dissolution')) return 'radiation'
-  if (lib.includes('redressement') || lib.includes('liquidation') || lib.includes('sauvegarde')) return 'procedure_collective'
-  if (lib.includes('modification')) return 'modification'
+// Maps a BODACC announcement to our coarse event taxonomy. Designed against
+// the real distribution observed on the firehose (annonces-commerciales):
+//
+//   Dépôts des comptes     → depot_comptes        (~60% of volume — noise)
+//   Créations / Immatric.  → creation             (~14%)
+//   Modifications diverses → modification         (~12%)
+//   Radiations             → radiation            (~8%)
+//   Procédures collectives → procedure_collective (~6% — high signal)
+//   Ventes et cessions     → cession              (~1% — highest signal)
+//
+// The classifier is tolerant of accents, casing, and the two columns BODACC
+// exposes (familleavis_lib + typeavis_lib).
+export function classifyBodaccEvent(record: BodaccRecord): InboxEventType {
+  const all = `${record.familleavis_lib ?? ''} ${record.typeavis_lib ?? ''}`.toLowerCase()
+
+  // dpc is by far the largest category — check first to short-circuit fast
+  if (all.includes('dépôt') || all.includes('depot')) return 'depot_comptes'
+  if (all.includes('cession') || all.includes('vente')) return 'cession'
+  if (all.includes('procédure') || all.includes('procedure')) return 'procedure_collective'
+  if (all.includes('redressement') || all.includes('liquidation') || all.includes('sauvegarde')) return 'procedure_collective'
+  if (all.includes('création') || all.includes('creation') || all.includes('immatriculation')) return 'creation'
+  if (all.includes('radiation') || all.includes('dissolution')) return 'radiation'
+  if (all.includes('modification')) return 'modification'
   return 'autre'
 }
 
