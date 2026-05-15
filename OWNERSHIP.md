@@ -68,7 +68,9 @@ tout sur eux, et détecte en continu les moments d'opportunité.
 - `components/prospects/pipeline-detail-panel.tsx` — fiche détaillée (tabs Fiche / Signaux **owned Mathis**, tabs Interactions / Pipeline **owned Associé** — voir frontière)
 - `components/prospects/prospect-fiche-content.tsx` — corps de la fiche patrimoniale
 - `components/prospects/signal-badge.tsx`, `_shared.tsx`
-- `components/search/hero-search.tsx` — hero d'onboarding
+- `components/landing/**` — landing publique commerciale `/`
+  (public-header, landing-hero, use-cases-section, blurred-preview,
+  loading-overlay, landing-public orchestrateur)
 
 ### Libs (`lib/...`)
 - `lib/prospect-search/**` — moteur de recherche, NAF mapper, dédup canonique
