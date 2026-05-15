@@ -293,7 +293,7 @@ export interface PatrimonyScoreResult {
 
 // ── Signals inbox (Agent 3 — signal-first) ─────────────────────────────────
 
-export type InboxSource = 'bodacc' | 'inpi' | 'pappers_modif'
+export type InboxSource = 'bodacc' | 'sirene' | 'inpi' | 'pappers_modif'
 
 export type InboxEventType =
   | 'cession'
