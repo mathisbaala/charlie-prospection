@@ -1,4 +1,5 @@
 import { timedFetch } from '@/lib/observability/logger'
+import { tryConsumeQuota } from '@/lib/observability/api-quota'
 
 /**
  * INSEE Sirene API v3.11 — firehose of French entity creations.
@@ -123,6 +124,10 @@ export async function fetchSireneCreations(options: {
 
   let debut = 0
   while (out.length < max) {
+    // Daily quota — each page is one Sirene API call. Stop ingesting (return
+    // partial results) when cap is reached rather than hammering the API.
+    if (!(await tryConsumeQuota('sirene'))) break
+
     const url = `${BASE}?q=${encodeURIComponent(query)}&nombre=${pageSize}&debut=${debut}`
     let res: Response
     try {

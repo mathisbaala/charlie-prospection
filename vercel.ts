@@ -34,6 +34,10 @@ export const config: VercelConfig = {
     { path: '/api/cron/inpi-ingest', schedule: '45 5 * * *' },
     { path: '/api/cron/bodacc-ingest', schedule: '0 6 * * *' },
     { path: '/api/cron/match-icps', schedule: '30 6 * * *' },
+    // Refresh enrichment for /suivi prospects whose data is > 7 days old.
+    // Runs once per day with a small batch (10 prospects) to bound Pappers
+    // cost — over time every tracked prospect gets refreshed in rotation.
+    { path: '/api/cron/refresh-enrichment', schedule: '0 4 * * *' },
   ],
 }
 

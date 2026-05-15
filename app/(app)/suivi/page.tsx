@@ -5,6 +5,10 @@ import { IntelligenceStripV2 } from '@/components/suivi/intelligence-strip-v2'
 import { SuiviPageClient } from '@/components/suivi/suivi-page-client'
 import type { Icp, Prospect } from '@/lib/types'
 
+interface PageProps {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>
+}
+
 /**
  * /suivi — pipeline of tracked prospects, grouped by persona, with
  * per-persona overview cards at the top.
@@ -12,7 +16,7 @@ import type { Icp, Prospect } from '@/lib/types'
  * Only prospects with icp_id set OR added via /recherche end up here — the
  * point of /suivi is curated monitoring.
  */
-export default async function SuiviPage() {
+export default async function SuiviPage({ searchParams: searchParamsPromise }: PageProps) {
   const supabase = await createClient()
   const {
     data: { user },
@@ -26,9 +30,16 @@ export default async function SuiviPage() {
     .maybeSingle()
   if (!membership) redirect('/')
 
+  // Pagination via ?page=N — defaults to 1. Page size is fixed at 200 to keep
+  // the list responsive; orgs with more prospects can navigate next/prev.
+  const sp = (await searchParamsPromise) ?? {}
+  const pageSize = 200
+  const page = Math.max(1, parseInt((sp.page as string) ?? '1', 10) || 1)
+  const offset = (page - 1) * pageSize
+
   // Personas + prospects. We compute the overview cards on the server so the
   // client doesn't need a separate fetch round-trip.
-  const [{ data: personas }, { data: prospects }] = await Promise.all([
+  const [{ data: personas }, { data: prospects, count: totalProspects }] = await Promise.all([
     supabase
       .from('prospection_icps')
       .select('*')
@@ -36,10 +47,10 @@ export default async function SuiviPage() {
       .order('updated_at', { ascending: false }),
     supabase
       .from('prospection_prospects')
-      .select('*')
+      .select('*', { count: 'exact' })
       .eq('org_id', membership.org_id)
       .order('patrimony_score', { ascending: false })
-      .limit(200),
+      .range(offset, offset + pageSize - 1),
   ])
 
   // Per-persona signal counts (last 7 days, excluding depot_comptes noise).
@@ -78,6 +89,11 @@ export default async function SuiviPage() {
         personas={(personas ?? []) as Icp[]}
         prospects={(prospects ?? []) as Prospect[]}
         signalsByPersona={Object.fromEntries(signalsByPersona)}
+        pagination={{
+          page,
+          pageSize,
+          total: totalProspects ?? prospects?.length ?? 0,
+        }}
       />
     </>
   )

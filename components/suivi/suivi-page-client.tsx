@@ -1,6 +1,7 @@
 'use client'
 import { useState, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { Download } from 'lucide-react'
 import { PipelineClient } from '@/components/prospects/pipeline-client'
 import { PersonaOverviewCards } from './persona-overview-cards'
 import type { Icp, Prospect } from '@/lib/types'
@@ -11,6 +12,8 @@ interface Props {
   /** Map persona_id → signal count (last 7 days), computed server-side.
    *  Special key '__orphan__' captures signals on prospects with no icp_id. */
   signalsByPersona: Record<string, number>
+  /** Server-side pagination metadata. Pagination UI only renders when total > pageSize. */
+  pagination: { page: number; pageSize: number; total: number }
 }
 
 const ORPHAN_TAB_ID = '__orphan__'
@@ -20,7 +23,7 @@ const ORPHAN_TAB_ID = '__orphan__'
  * existing PipelineClient inside a tab per persona. Prospects without an
  * icp_id end up under a "Sans cible" tab so they're still actionable.
  */
-export function SuiviPageClient({ personas, prospects, signalsByPersona }: Props) {
+export function SuiviPageClient({ personas, prospects, signalsByPersona, pagination }: Props) {
   const searchParams = useSearchParams()
   const initialPersona = searchParams.get('persona')
 
@@ -103,6 +106,51 @@ export function SuiviPageClient({ personas, prospects, signalsByPersona }: Props
         onSelect={setSelectedTab}
       />
 
+      {/* Toolbar — total count + CSV export */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '8px 32px',
+          background: 'var(--color-bg)',
+          borderBottom: '1px solid var(--color-border)',
+          fontSize: 11,
+          color: 'var(--color-muted)',
+        }}
+      >
+        <span>
+          {pagination.total} prospect{pagination.total > 1 ? 's' : ''} en suivi
+          {selectedTab && selectedTab !== ORPHAN_TAB_ID && currentProspects.length !== pagination.total
+            ? ` · ${currentProspects.length} dans cette cible`
+            : ''}
+        </span>
+        <a
+          href={
+            selectedTab && selectedTab !== ORPHAN_TAB_ID
+              ? `/api/suivi/export?persona=${selectedTab}`
+              : '/api/suivi/export'
+          }
+          download
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 5,
+            padding: '4px 10px',
+            fontSize: 11,
+            fontWeight: 500,
+            color: 'var(--color-text)',
+            background: 'var(--color-surface)',
+            border: '1px solid var(--color-border)',
+            borderRadius: 2,
+            textDecoration: 'none',
+          }}
+        >
+          <Download size={11} />
+          Export CSV
+        </a>
+      </div>
+
       {/* Persona tabs row */}
       {tabs.length > 1 && (
         <nav
@@ -165,6 +213,99 @@ export function SuiviPageClient({ personas, prospects, signalsByPersona }: Props
           remount when switching personas (so the selected prospect state
           doesn't leak across groups). */}
       <PipelineClient key={selectedTab} initialProspects={currentProspects} />
+
+      {/* Server-side pagination — only rendered when there's more than one page. */}
+      {pagination.total > pagination.pageSize && (
+        <SuiviPagination
+          page={pagination.page}
+          pageSize={pagination.pageSize}
+          total={pagination.total}
+        />
+      )}
     </div>
+  )
+}
+
+function SuiviPagination({
+  page,
+  pageSize,
+  total,
+}: {
+  page: number
+  pageSize: number
+  total: number
+}) {
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
+  const from = (page - 1) * pageSize + 1
+  const to = Math.min(page * pageSize, total)
+
+  return (
+    <nav
+      aria-label="Pagination"
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '12px 32px',
+        borderTop: '1px solid var(--color-border)',
+        background: 'var(--color-surface)',
+        fontSize: 12,
+        color: 'var(--color-muted)',
+      }}
+    >
+      <span style={{ fontVariantNumeric: 'tabular-nums', fontFamily: 'var(--font-mono, monospace)' }}>
+        {from}–{to} sur {total}
+      </span>
+      <div style={{ display: 'flex', gap: 6 }}>
+        <PageLink page={Math.max(1, page - 1)} disabled={page <= 1}>
+          ← Précédent
+        </PageLink>
+        <span
+          style={{
+            padding: '6px 10px',
+            fontSize: 12,
+            color: 'var(--color-text)',
+            fontVariantNumeric: 'tabular-nums',
+            fontFamily: 'var(--font-mono, monospace)',
+          }}
+        >
+          Page {page} / {totalPages}
+        </span>
+        <PageLink page={Math.min(totalPages, page + 1)} disabled={page >= totalPages}>
+          Suivant →
+        </PageLink>
+      </div>
+    </nav>
+  )
+}
+
+function PageLink({
+  page,
+  disabled,
+  children,
+}: {
+  page: number
+  disabled?: boolean
+  children: React.ReactNode
+}) {
+  const Tag = disabled ? 'span' : 'a'
+  return (
+    <Tag
+      href={disabled ? undefined : `?page=${page}`}
+      style={{
+        padding: '6px 12px',
+        fontSize: 12,
+        fontWeight: 500,
+        background: 'var(--color-bg)',
+        color: disabled ? 'var(--color-muted)' : 'var(--color-text)',
+        border: '1px solid var(--color-border)',
+        borderRadius: 2,
+        textDecoration: 'none',
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        opacity: disabled ? 0.4 : 1,
+      }}
+    >
+      {children}
+    </Tag>
   )
 }

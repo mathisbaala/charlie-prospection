@@ -1,4 +1,5 @@
 import { timedFetch } from '@/lib/observability/logger'
+import { tryConsumeQuota } from '@/lib/observability/api-quota'
 
 const BASE = 'https://api.pappers.fr/v2'
 
@@ -71,6 +72,10 @@ export async function searchEntreprises(params: {
   par_page?: number
   page?: number
 }): Promise<{ resultats: PappersEntreprise[]; total: number }> {
+  // Daily-cap guard. If the org has burned through the budget, return an empty
+  // result instead of hitting Pappers — callers degrade gracefully.
+  if (!(await tryConsumeQuota('pappers'))) return { resultats: [], total: 0 }
+
   const url = new URL(`${BASE}/recherche`)
   url.searchParams.set('api_token', token())
   if (params.q) url.searchParams.set('q', params.q)
@@ -92,6 +97,7 @@ export async function searchEntreprises(params: {
 // Fetch full company details to get representants (people)
 // /recherche doesn't include them inline — only /entreprise does
 export async function getEntrepriseRepresentants(siren: string): Promise<PappersRepresentant[]> {
+  if (!(await tryConsumeQuota('pappers'))) return []
   try {
     const url = `${BASE}/entreprise?api_token=${token()}&siren=${siren}`
     const res = await timedFetch('pappers', 'getEntrepriseRepresentants', url, { next: { revalidate: 86400 } })
@@ -145,6 +151,7 @@ export interface PappersEnrichment {
 
 // Fetch the full enrichment payload for a SIREN — finances, BEs, procédures collectives
 export async function getPappersEnrichment(siren: string): Promise<PappersEnrichment | null> {
+  if (!(await tryConsumeQuota('pappers'))) return null
   try {
     const url = `${BASE}/entreprise?api_token=${token()}&siren=${siren}`
     const res = await timedFetch('pappers', 'getPappersEnrichment', url, { next: { revalidate: 86400 } })
@@ -172,6 +179,8 @@ export async function searchPersonnes(params: {
   par_page?: number
   page?: number
 }): Promise<{ resultats: PappersPersonne[]; total: number }> {
+  if (!(await tryConsumeQuota('pappers'))) return { resultats: [], total: 0 }
+
   const url = new URL(`${BASE}/recherche-dirigeants`)
   url.searchParams.set('api_token', token())
   url.searchParams.set('q', params.q)
