@@ -288,3 +288,37 @@ export interface PatrimonyScoreResult {
   niveau: 'faible' | 'moyen' | 'fort' | 'prioritaire'
   raison_principale: string
 }
+
+// ── Signals inbox (Agent 3 — signal-first) ─────────────────────────────────
+
+export type InboxSource = 'bodacc' | 'inpi' | 'pappers_modif'
+
+export type InboxEventType =
+  | 'cession'
+  | 'creation'
+  | 'radiation'
+  | 'modification'
+  | 'procedure_collective'
+  | 'modif_capital'
+  | 'modif_beneficiaire'
+  | 'autre'
+
+export interface SignalsInboxRow {
+  id: string
+  source: InboxSource
+  external_id: string
+  date_event: string
+  siren: string | null
+  entreprise_nom: string | null
+  code_naf: string | null
+  departement: string | null
+  type_event: InboxEventType
+  raw_data: Record<string, unknown>
+  matched_org_ids: string[]
+  ingested_at: string
+}
+
+// Row used at insert time (no id / ingested_at yet)
+export type SignalsInboxInsert = Omit<SignalsInboxRow, 'id' | 'ingested_at' | 'matched_org_ids'> & {
+  matched_org_ids?: string[]
+}
