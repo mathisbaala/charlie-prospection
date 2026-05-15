@@ -105,20 +105,23 @@ export function CandidateList({ candidates, selected, onToggle }: Props) {
                 {isSelected && <Check size={12} color="#fff" strokeWidth={3} />}
               </div>
 
-              {/* Score (hero) */}
+              {/* Score (hero) — Fraunces serif echoes the 88px hero in the
+                  detail panel; niveau label below stays in body font for
+                  data discipline. */}
               <div
                 style={{
                   textAlign: 'right',
-                  fontFamily: 'var(--font-mono, monospace)',
                   fontVariantNumeric: 'tabular-nums',
                 }}
               >
                 <div
+                  className="font-display"
                   style={{
-                    fontSize: 22,
-                    fontWeight: 600,
+                    fontSize: 26,
+                    fontWeight: 700,
                     color: NIVEAU_COLOR[c.niveau],
-                    lineHeight: 1,
+                    lineHeight: 0.95,
+                    letterSpacing: '-0.02em',
                   }}
                 >
                   {c.patrimony_score}
@@ -126,10 +129,11 @@ export function CandidateList({ candidates, selected, onToggle }: Props) {
                 <div
                   style={{
                     fontSize: 9,
+                    fontWeight: 700,
                     textTransform: 'uppercase',
-                    letterSpacing: '0.05em',
+                    letterSpacing: '0.08em',
                     color: 'var(--color-muted)',
-                    marginTop: 2,
+                    marginTop: 3,
                   }}
                 >
                   {NIVEAU_LABEL[c.niveau]}

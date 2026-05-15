@@ -473,7 +473,7 @@ function PipelineTimeline({
                   display: 'inline-flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  color: isCurrent ? '#fff' : 'var(--color-accent)',
+                  color: isCurrent ? '#FDFAF5' : 'var(--color-accent)',
                 }}
               >
                 {isPast && <Check size={9} strokeWidth={3} />}

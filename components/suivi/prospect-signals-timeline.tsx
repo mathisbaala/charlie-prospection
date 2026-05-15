@@ -175,7 +175,7 @@ export function ProspectSignalsTimeline({ prospectId }: Props) {
                 fontSize: 11,
                 fontWeight: 500,
                 background: active ? 'var(--color-accent)' : 'var(--color-bg)',
-                color: active ? '#fff' : 'var(--color-text)',
+                color: active ? '#FDFAF5' : 'var(--color-text)',
                 border: `1px solid ${active ? 'var(--color-accent)' : 'var(--color-border)'}`,
                 borderRadius: 2,
                 cursor: 'pointer',

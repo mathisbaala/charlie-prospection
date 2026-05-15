@@ -119,7 +119,7 @@ export function PersonaList({ personas, selectedId, onSelect, onNew }: Props) {
             gap: 6,
             padding: '8px 12px',
             background: selectedId === null ? 'var(--color-accent)' : 'transparent',
-            color: selectedId === null ? '#fff' : 'var(--color-accent)',
+            color: selectedId === null ? '#FDFAF5' : 'var(--color-accent)',
             border: '1px solid var(--color-accent)',
             borderRadius: 2,
             fontSize: 12,

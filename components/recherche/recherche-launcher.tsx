@@ -90,7 +90,7 @@ export function RechercheLauncher({
           className="inline-flex items-center gap-2 transition-opacity disabled:opacity-40"
           style={{
             background: 'var(--color-accent)',
-            color: '#fff',
+            color: '#FDFAF5',
             padding: '10px 16px',
             fontSize: 13,
             fontWeight: 600,

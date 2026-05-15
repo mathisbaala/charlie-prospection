@@ -37,7 +37,7 @@ export function StrictToggle({ active, onToggle, label = 'Strict' }: Props) {
         borderRadius: 2,
         border: '1px solid var(--color-accent)',
         background: active ? 'var(--color-accent)' : 'transparent',
-        color: active ? '#fff' : 'var(--color-accent)',
+        color: active ? '#FDFAF5' : 'var(--color-accent)',
         cursor: 'pointer',
         lineHeight: 1.4,
       }}

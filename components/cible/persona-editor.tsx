@@ -376,7 +376,7 @@ function ActionButton({
       className="inline-flex items-center gap-2 transition-opacity disabled:opacity-40"
       style={{
         background: primary ? 'var(--color-accent)' : 'transparent',
-        color: primary ? '#fff' : 'var(--color-text)',
+        color: primary ? '#FDFAF5' : 'var(--color-text)',
         padding: '9px 14px',
         fontSize: 13,
         fontWeight: 600,

@@ -157,7 +157,7 @@ export function ProspectActivityLog({ prospectId }: Props) {
                   fontSize: 11,
                   fontWeight: 500,
                   background: active ? 'var(--color-accent)' : 'var(--color-bg)',
-                  color: active ? '#fff' : 'var(--color-text)',
+                  color: active ? '#FDFAF5' : 'var(--color-text)',
                   border: `1px solid ${active ? 'var(--color-accent)' : 'var(--color-border)'}`,
                   borderRadius: 2,
                   cursor: 'pointer',
@@ -206,7 +206,7 @@ export function ProspectActivityLog({ prospectId }: Props) {
             className="inline-flex items-center gap-2 transition-opacity disabled:opacity-40"
             style={{
               background: 'var(--color-accent)',
-              color: '#fff',
+              color: '#FDFAF5',
               padding: '6px 12px',
               fontSize: 12,
               fontWeight: 600,

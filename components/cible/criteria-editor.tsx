@@ -251,7 +251,7 @@ function chipStyle(active: boolean): React.CSSProperties {
     fontWeight: 500,
     borderRadius: 2,
     background: active ? 'var(--color-accent)' : 'var(--color-bg)',
-    color: active ? '#fff' : 'var(--color-text)',
+    color: active ? '#FDFAF5' : 'var(--color-text)',
     border: `1px solid ${active ? 'var(--color-accent)' : 'var(--color-border)'}`,
     cursor: 'pointer',
   }

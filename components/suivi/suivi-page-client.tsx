@@ -112,18 +112,45 @@ export function SuiviPageClient({ personas, prospects, signalsByPersona, paginat
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '8px 32px',
+          padding: '10px 32px',
           background: 'var(--color-bg)',
           borderBottom: '1px solid var(--color-border)',
           fontSize: 11,
           color: 'var(--color-muted)',
         }}
       >
-        <span>
-          {pagination.total} prospect{pagination.total > 1 ? 's' : ''} en suivi
-          {selectedTab && selectedTab !== ORPHAN_TAB_ID && currentProspects.length !== pagination.total
-            ? ` · ${currentProspects.length} dans cette cible`
-            : ''}
+        <span
+          style={{
+            fontVariantNumeric: 'tabular-nums',
+            letterSpacing: '0.01em',
+          }}
+        >
+          <strong
+            style={{
+              fontWeight: 700,
+              color: 'var(--color-text)',
+              fontFamily: 'var(--font-mono, monospace)',
+            }}
+          >
+            {pagination.total}
+          </strong>{' '}
+          prospect{pagination.total > 1 ? 's' : ''} en suivi
+          {selectedTab && selectedTab !== ORPHAN_TAB_ID && currentProspects.length !== pagination.total ? (
+            <>
+              {' '}
+              ·{' '}
+              <strong
+                style={{
+                  fontWeight: 700,
+                  color: 'var(--color-text)',
+                  fontFamily: 'var(--font-mono, monospace)',
+                }}
+              >
+                {currentProspects.length}
+              </strong>{' '}
+              dans cette cible
+            </>
+          ) : null}
         </span>
         <a
           href={
