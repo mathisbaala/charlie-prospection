@@ -2,10 +2,11 @@
 import { useState } from 'react'
 import { Building2, MapPin, Stethoscope, User, Check } from 'lucide-react'
 import { ProspectFicheContent } from './prospect-fiche-content'
+import { ProspectSignalsTimeline } from '@/components/suivi/prospect-signals-timeline'
 import { titleCase } from './_shared'
 import type { CrmStage, Prospect, ProspectEnrichmentData } from '@/lib/types'
 
-type Tab = 'fiche' | 'pipeline'
+type Tab = 'fiche' | 'signals' | 'pipeline'
 
 // Stage history order — `lost` is intentionally excluded from the timeline
 // (it's a terminal "out" state, not part of forward progression).
@@ -279,6 +280,9 @@ export function PipelineDetailPanel({ prospect, onStageChange }: Props) {
         <TabButton active={tab === 'fiche'} onClick={() => setTab('fiche')}>
           Fiche
         </TabButton>
+        <TabButton active={tab === 'signals'} onClick={() => setTab('signals')}>
+          Signaux
+        </TabButton>
         <TabButton active={tab === 'pipeline'} onClick={() => setTab('pipeline')}>
           Pipeline
         </TabButton>
@@ -286,9 +290,9 @@ export function PipelineDetailPanel({ prospect, onStageChange }: Props) {
 
       {/* ── TAB CONTENT ─────────────────────────────────────────── */}
       <div style={{ padding: '24px 32px 48px 32px' }}>
-        {tab === 'fiche' ? (
-          <ProspectFicheContent prospect={prospect} />
-        ) : (
+        {tab === 'fiche' && <ProspectFicheContent prospect={prospect} />}
+        {tab === 'signals' && <ProspectSignalsTimeline prospectId={prospect.id} />}
+        {tab === 'pipeline' && (
           <PipelineTimeline currentStage={prospect.crm_stage} onStageChange={onStageChange} />
         )}
       </div>

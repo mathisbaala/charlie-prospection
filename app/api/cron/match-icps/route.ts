@@ -31,6 +31,7 @@ async function runMatching(): Promise<{
   icps_skipped_empty: number
   total_matches: number
   per_icp: Array<{ icp_id: string; org_id: string; matches: number }>
+  per_prospect_signals_emitted: number
 }> {
   const supabase = createServiceClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -78,11 +79,23 @@ async function runMatching(): Promise<{
     perIcp.push({ icp_id: icp.id, org_id: icp.org_id, matches: count })
   }
 
+  // Pass 2 (PR 4): per-prospect SIREN-based matching for prospects in /suivi.
+  // Joins fresh inbox rows (last 2 days) to prospection_prospects by SIREN
+  // and inserts deduped rows into prospection_signals. Idempotent.
+  // The legacy org-wide pass above is kept for backwards compat with the
+  // legacy IntelligenceStrip V1 — both run on every cron tick during the
+  // transition window.
+  const { data: emitted } = await supabase.rpc('emit_signals_for_tracked_sirens', {
+    p_since: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+  })
+  const perProspectSignalsEmitted = typeof emitted === 'number' ? emitted : 0
+
   return {
     icps_evaluated: (icps ?? []).length,
     icps_skipped_empty: skippedEmpty,
     total_matches: totalMatches,
     per_icp: perIcp,
+    per_prospect_signals_emitted: perProspectSignalsEmitted,
   }
 }
 
