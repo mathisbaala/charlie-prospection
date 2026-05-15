@@ -46,7 +46,7 @@ export function Section({
           letterSpacing: '0.08em',
           textTransform: 'uppercase',
           color: 'var(--color-muted)',
-          marginBottom: 12,
+          marginBottom: 14,
         }}
       >
         <span style={{ color: 'var(--color-accent)', display: 'inline-flex' }}>{icon}</span>
@@ -99,7 +99,7 @@ export function Stat({ label, value }: { label: string; value: string }) {
 
 /** Vertical stack of label/value rows */
 export function DataList({ children }: { children: React.ReactNode }) {
-  return <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>{children}</div>
+  return <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>{children}</div>
 }
 
 /** Single label/value row inside a DataList */

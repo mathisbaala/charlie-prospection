@@ -90,7 +90,10 @@ export function PipelineDetailPanel({ prospect, onStageChange, onDelete }: Props
         <div className="flex items-start" style={{ gap: 24 }}>
           {/* Left column: identité de la personne (name-as-hero) */}
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div className="flex items-center" style={{ gap: 8, marginBottom: 6 }}>
+            <div
+              className="flex items-center justify-between"
+              style={{ gap: 8, marginBottom: 8 }}
+            >
               <span
                 style={{
                   fontSize: 10,
@@ -115,6 +118,35 @@ export function PipelineDetailPanel({ prospect, onStageChange, onDelete }: Props
                   </>
                 )}
               </span>
+              {onDelete && (
+                <button
+                  type="button"
+                  onClick={onDelete}
+                  aria-label="Supprimer ce prospect du suivi"
+                  title="Retirer du suivi"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 22,
+                    height: 22,
+                    background: 'transparent',
+                    color: 'var(--color-muted)',
+                    border: 'none',
+                    cursor: 'pointer',
+                    transition: 'color 100ms',
+                    flexShrink: 0,
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.color = 'var(--color-error)'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.color = 'var(--color-muted)'
+                  }}
+                >
+                  <Trash2 size={13} />
+                </button>
+              )}
             </div>
 
             <h2
@@ -166,8 +198,8 @@ export function PipelineDetailPanel({ prospect, onStageChange, onDelete }: Props
               flexShrink: 0,
               width: 220,
               border: '1px solid var(--color-border)',
-              background: 'var(--color-surface)',
-              padding: '12px 14px',
+              background: 'var(--color-bg)',
+              padding: '14px 16px',
               textAlign: 'right',
             }}
           >
@@ -237,53 +269,16 @@ export function PipelineDetailPanel({ prospect, onStageChange, onDelete }: Props
           </div>
         </div>
 
-        {/* Action discrète "retirer" en bas du header, alignée à droite */}
-        {onDelete && (
-          <div className="flex justify-end" style={{ marginTop: 12 }}>
-            <button
-              type="button"
-              onClick={onDelete}
-              aria-label="Supprimer ce prospect du suivi"
-              title="Supprimer du suivi"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 5,
-                padding: '3px 8px',
-                background: 'transparent',
-                color: 'var(--color-muted)',
-                border: '1px solid var(--color-border)',
-                borderRadius: 2,
-                fontSize: 11,
-                fontWeight: 500,
-                cursor: 'pointer',
-                transition: 'all 100ms',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.color = 'var(--color-error)'
-                e.currentTarget.style.borderColor = 'var(--color-error)'
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.color = 'var(--color-muted)'
-                e.currentTarget.style.borderColor = 'var(--color-border)'
-              }}
-            >
-              <Trash2 size={11} />
-              Retirer du suivi
-            </button>
-          </div>
-        )}
       </div>
 
-      {/* ── CRM STAGE SELECTOR (under header, above tabs) ─────────── */}
+      {/* ── CRM STAGE SELECTOR (under header, above tabs — no border, fused with tabs) ─ */}
       {onStageChange && (
         <div
           className="flex"
           style={{
             background: 'var(--color-surface)',
-            padding: '12px 32px',
+            padding: '14px 32px 12px',
             gap: 6,
-            borderBottom: '1px solid var(--color-border)',
             flexWrap: 'wrap',
           }}
         >
@@ -325,13 +320,13 @@ export function PipelineDetailPanel({ prospect, onStageChange, onDelete }: Props
         </div>
       )}
 
-      {/* ── TABS ─────────────────────────────────────────────────── */}
+      {/* ── TABS (aligned to header content via padding offset) ───── */}
       <div
         className="flex"
         style={{
           background: 'var(--color-surface)',
           borderBottom: '1px solid var(--color-border)',
-          padding: '0 32px',
+          padding: '0 18px',
           gap: 4,
         }}
       >
@@ -401,8 +396,7 @@ function TabButton({
       onClick={onClick}
       className="transition-colors"
       style={{
-        padding: '14px 4px',
-        marginRight: 20,
+        padding: '12px 14px',
         fontSize: 13,
         fontWeight: active ? 600 : 500,
         color: active ? 'var(--color-text)' : 'var(--color-muted)',
