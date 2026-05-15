@@ -5,6 +5,8 @@
 // One click brings the user to a filtered Doctolib page that typically
 // shows 1-3 candidates max.
 
+import { slugify } from '@/lib/utils/slugify'
+
 const PROFESSION_SLUG: Record<string, string> = {
   'médecin généraliste': 'medecin-generaliste',
   'medecin generaliste': 'medecin-generaliste',
@@ -44,19 +46,6 @@ const PROFESSION_SLUG: Record<string, string> = {
   'veterinaire': 'veterinaire',
   'chirurgien-dentiste qualifié en orthopédie dento-faciale': 'orthodontiste',
   'orthodontiste': 'orthodontiste',
-}
-
-function slugify(input: string): string {
-  // Strip diacritics via the Mn (Mark, Nonspacing) Unicode property class —
-  // matches the pattern used in lib/prospect-search/naf-mapper.ts and is more
-  // robust than a raw combining-character regex (which can silently break if
-  // the source file's encoding is ever mangled).
-  return input
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/\p{Mn}/gu, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
 }
 
 function professionSlug(profession?: string): string | null {
