@@ -146,6 +146,7 @@ de classifier.
 | `ANTHROPIC_API_KEY` | Claude pour parser + scoring | .env.local + Vercel |
 | `PAPPERS_API_KEY` | Pappers v2 (plan payant 500/mois) | .env.local + Vercel |
 | `PAPPERS_MONTHLY_LIMIT` | Cap mensuel Pappers (défaut 500 — match l'abo) | Vercel (optional) |
+| `PAPPERS_PREMIUM_ENABLED` | `1` pour activer Premium (actes/comptes/BODACC enrichis, cf §Premium) | Vercel (optional) |
 | `INSEE_SIRENE_API_KEY` | INSEE Sirene v3.11 | .env.local + Vercel |
 | `SIRENE_DAILY_LIMIT` | Cap quota quotidien (défaut 1000) | Vercel (optional) |
 | `INPI_API_TOKEN`, `INPI_API_BASE` | INPI RNE (en attente activation) | Vercel |
@@ -164,7 +165,38 @@ de classifier.
 | `match-icps` | 06:30 | Match SIREN per-prospect → signals + matched_org_ids |
 | `refresh-enrichment` | 04:00 | Re-run enrichProspect sur 10 prospects > 7j |
 
-## 10. Aide-mémoire
+## Pappers Premium (actes / comptes / BODACC enrichis)
+
+Le plan Pappers payant (500 jetons/mois) débloque 3 dimensions Premium
+récupérables en activant des query flags sur `/entreprise`. **Coût = 1 jeton
+par appel** quels que soient les flags activés — les flags n'augmentent pas
+le coût, ils ajoutent juste des champs à la réponse.
+
+Pour activer :
+1. Poser `PAPPERS_PREMIUM_ENABLED=1` dans Vercel env vars (prod + preview)
+2. Redéployer
+3. Vérifier `select enrichment_data->'pappers_premium' from prospection_prospects
+   where enrichment_data ? 'pappers_premium' limit 5;` après la prochaine
+   passe `refresh-enrichment` ou un nouvel ajout au /suivi
+
+Ce qu'on récupère :
+
+| Dimension | Champ | Utilité |
+|---|---|---|
+| **Actes juridiques OCR** | `depots_actes[]` | Cessions de parts datées, donations, modifications de capital détaillées — signaux patrimoniaux les plus forts (un acte est >> qu'un événement BODACC brut) |
+| **Comptes annuels** | `comptes[]` | Bilans PDF + XLSX par exercice avec tokens de download |
+| **BODACC enrichies** | `publications_bodacc[]` | Annonces avec dirigeants nommés, capital exact, description normalisée |
+
+**Monitoring du quota** : `lib/data-sources/pappers.ts → getPappersTokenStatus()`
+appelle `/suivi-jetons` (gratuit, ne consomme pas de jeton) et retourne
+`{ jetons_abonnement, jetons_abonnement_utilises, remaining }`. À brancher
+dans un endpoint admin ou un widget de jauge dans l'UI.
+
+**Garde-fou** : si tu actives `premium: true` dans le code sans poser l'env
+var, le wrapper log un warn et bascule en mode standard (pas d'abus
+accidentel).
+
+## Aide-mémoire
 
 - `OWNERSHIP.md` — qui touche quoi (consulter avant de modifier un fichier partagé)
 - `DESIGN.md` — design system, anti-patterns, palette, typo

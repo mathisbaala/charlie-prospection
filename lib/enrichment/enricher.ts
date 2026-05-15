@@ -135,7 +135,14 @@ export async function enrichProspect(raw: RawProspect): Promise<ProspectEnrichme
   const [bodaccResult, pappersResult, rppsResult, codeCommune, personnePappersResult] =
     await Promise.allSettled([
       raw.siren ? getBodaccBySiren(raw.siren, 10) : Promise.resolve([]),
-      raw.siren ? getPappersEnrichment(raw.siren) : Promise.resolve(null),
+      // Activer le payload Premium si l'env var est posée — coût identique
+      // (1 jeton) mais on récupère en plus depots_actes / comptes / publications_bodacc
+      // dans la même réponse. Voir lib/data-sources/pappers.ts → PappersPremiumData.
+      raw.siren
+        ? getPappersEnrichment(raw.siren, {
+            premium: process.env.PAPPERS_PREMIUM_ENABLED === '1',
+          })
+        : Promise.resolve(null),
       isHealthProfessional(raw.code_naf) && raw.dirigeant_nom
         ? searchRpps({
             nom: raw.dirigeant_nom,
@@ -207,6 +214,15 @@ export async function enrichProspect(raw: RawProspect): Promise<ProspectEnrichme
     enrichment.numero_tva = p.numero_tva_intracommunautaire
     enrichment.nb_etablissements = p.nb_etablissements
     enrichment.sources_utilisees?.push('pappers_finances')
+    // Persistance du payload Premium (actes juridiques OCR, comptes annuels
+    // complets, publications BODACC enrichies) si l'appel a été fait avec le
+    // flag. On stocke brut pour qu'un futur module signal-mining puisse
+    // reparser sans réappeler Pappers (le payload coûte déjà 1 jeton de toute
+    // façon, autant capitaliser dessus).
+    if (p.premium) {
+      enrichment.pappers_premium = p.premium
+      enrichment.sources_utilisees?.push('pappers_premium')
+    }
   }
 
   // ── Portefeuille patrimonial du dirigeant ──────────────

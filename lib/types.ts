@@ -1,3 +1,6 @@
+import type { PappersPremiumData } from '@/lib/data-sources/pappers'
+
+export type { PappersPremiumData }
 export type Plan = 'starter' | 'pro'
 export type OrgRole = 'owner' | 'member'
 export type CrmStage = 'new' | 'to_contact' | 'contacted' | 'meeting' | 'client' | 'lost'
@@ -270,6 +273,13 @@ export interface ProspectEnrichmentData {
   // personnes physiques, pas des sociétés.
   // Voir lib/enrichment/personal-portfolio.ts
   personal_portfolio?: PersonalPortfolio
+
+  // Données Premium Pappers — populé uniquement quand PAPPERS_PREMIUM_ENABLED=1
+  // et qu'on appelle getPappersEnrichment(siren, { premium: true }).
+  // Coût : 1 jeton Pappers (même coût que l'enrichissement standard, les
+  // flags Premium n'ajoutent que des champs à la réponse).
+  // Voir lib/data-sources/pappers.ts → PappersPremiumData.
+  pappers_premium?: PappersPremiumData
 
   // Scores calculés
   valeur_entreprise_estimee?: number

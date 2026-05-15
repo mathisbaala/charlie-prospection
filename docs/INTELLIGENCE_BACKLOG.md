@@ -20,10 +20,42 @@ personne" doit être justifié explicitement.
 
 ## Légende priorité
 
+- 🟢 **Livré, opt-in via feature flag** — code en place, à activer
 - 🔴 **Bloquant ou très haute valeur** — à attaquer en premier
 - 🟠 **Valeur claire, scope moyen** — quand 🔴 sont consommés
 - 🟡 **Polish ou nice-to-have**
 - ⚪ **Dette ou défensif** — à faire un jour
+
+---
+
+## 🟢 Livré, en attente d'activation
+
+### 0. Pappers Premium (actes / comptes / publications BODACC enrichies)
+**Statut** : code shippé, gated par `PAPPERS_PREMIUM_ENABLED=1`. Activer
+dans Vercel quand tu es prêt à dépenser du jeton dessus.
+
+**Ce que ça débloque** : à chaque enrichissement Pappers d'un prospect (même
+coût = 1 jeton), on récupère en plus :
+- `depots_actes[]` — actes juridiques OCR (cessions de parts, donations,
+  modifications capital détaillées) avec tokens de download PDF
+- `comptes[]` — bilans annuels complets (PDF + XLSX) par exercice
+- `publications_bodacc[]` — annonces BODACC enrichies (dirigeants nommés,
+  capital exact, description normalisée)
+
+**Coût** : 1 jeton par appel (vérifié contre `/suivi-jetons` 2026-05-16,
+les flags Premium n'augmentent pas le coût). Persisté dans
+`enrichment_data.pappers_premium`.
+
+**Monitoring** : `getPappersTokenStatus()` (gratuit) expose les jetons
+restants côté Pappers — à brancher dans un widget UI quand on a le temps.
+
+**Prochaine étape (séparée)** : module signal-mining qui parse
+`depots_actes` + `publications_bodacc` pour générer des signaux plus riches
+que ceux du firehose BODACC brut (un acte "Cession de parts" daté >> un
+événement BODACC générique).
+
+**Fichiers** : `lib/data-sources/pappers.ts`, `lib/types.ts`,
+`lib/enrichment/enricher.ts`, `docs/QUICKSTART.md` §Pappers Premium.
 
 ---
 
