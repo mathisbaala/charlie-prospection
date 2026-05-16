@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import type { SearchCandidate } from '@/lib/types'
+import { persistPremiumSignals } from '@/lib/enrichment/persist-premium-signals'
+import type { PappersPremiumData, SearchCandidate } from '@/lib/types'
 
 export const maxDuration = 120
 
@@ -134,6 +135,21 @@ export async function POST(request: Request) {
         },
       )
       if (!rpcErr && typeof count === 'number') signalsCount = count
+    }
+
+    // Mine signals from the Premium payload (depots_actes + comptes + publications_bodacc)
+    // already persisted on enrichment_data. Idempotent : the unique index
+    // uq_prospection_signals_prospect_dedup catches duplicates if we re-add
+    // a candidate or run this for a row that was already mined.
+    const premium = candidate.enrichment_data?.pappers_premium as PappersPremiumData | undefined
+    if (premium && prospectId) {
+      const { inserted } = await persistPremiumSignals(
+        supabase,
+        prospectId,
+        membership.org_id,
+        premium,
+      )
+      signalsCount += inserted
     }
 
     const displayName = `${candidate.raw.dirigeant_prenom} ${candidate.raw.dirigeant_nom}`.trim() ||

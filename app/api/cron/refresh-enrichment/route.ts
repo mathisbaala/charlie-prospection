@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { enrichProspect } from '@/lib/enrichment/enricher'
 import { scorePatrimony } from '@/lib/enrichment/patrimony-scorer'
+import { persistPremiumSignals } from '@/lib/enrichment/persist-premium-signals'
 import type { RawProspect } from '@/lib/prospect-search/engine'
 import type { ProspectEnrichmentData } from '@/lib/types'
 
@@ -134,6 +135,12 @@ async function runRefresh(): Promise<{
       if (upErr) {
         failed += 1
         continue
+      }
+      // Re-mine Premium signals on each refresh — idempotent via the unique
+      // index, so new acts/comptes/publications surfaced by Pappers since
+      // the last enrichment will be picked up here.
+      if (fresh.pappers_premium) {
+        await persistPremiumSignals(supabase, p.id, p.org_id, fresh.pappers_premium)
       }
       refreshed += 1
     } catch {
