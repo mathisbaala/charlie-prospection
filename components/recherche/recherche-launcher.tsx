@@ -9,10 +9,22 @@ interface Props {
   onLaunch: () => void
   loading: boolean
   disabled?: boolean
+  showAdvanced: boolean
+  onToggleAdvanced: () => void
+  selectedSources: string[]
+  onToggleSource: (s: string) => void
+  nafCode: string
+  onNafCodeChange: (v: string) => void
+  discoveryDept: string
+  onDiscoveryDeptChange: (v: string) => void
+  discoveryDateDepuis: string
+  onDiscoveryDateDepuisChange: (v: string) => void
+  rppsProfession: string
+  onRppsProfessionChange: (v: 'Medecin' | 'Chirurgien-Dentiste' | '') => void
 }
 
 /**
- * Top bar of /recherche: persona picker + Lancer button.
+ * Top bar of /recherche: persona picker + Lancer button + optional advanced sources panel.
  * Persona dropdown shows the saved targets from /cible.
  */
 export function RechercheLauncher({
@@ -22,6 +34,18 @@ export function RechercheLauncher({
   onLaunch,
   loading,
   disabled,
+  showAdvanced,
+  onToggleAdvanced,
+  selectedSources,
+  onToggleSource,
+  nafCode,
+  onNafCodeChange,
+  discoveryDept,
+  onDiscoveryDeptChange,
+  discoveryDateDepuis,
+  onDiscoveryDateDepuisChange,
+  rppsProfession,
+  onRppsProfessionChange,
 }: Props) {
   return (
     <div
@@ -105,6 +129,220 @@ export function RechercheLauncher({
           {loading ? 'Recherche…' : 'Lancer la recherche'}
         </button>
       </div>
+
+      {/* Advanced sources toggle */}
+      <div style={{ marginTop: 12 }}>
+        <button
+          type="button"
+          onClick={onToggleAdvanced}
+          style={{
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            fontSize: 12,
+            color: 'var(--color-muted)',
+            padding: 0,
+            fontFamily: 'inherit',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 4,
+          }}
+        >
+          {showAdvanced ? '▲' : '▼'} Sources avancées
+        </button>
+      </div>
+
+      {showAdvanced && (
+        <div
+          style={{
+            marginTop: 12,
+            padding: 16,
+            background: 'var(--color-bg)',
+            border: '1px solid var(--color-border)',
+            borderRadius: 2,
+          }}
+        >
+          <p
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              color: 'var(--color-muted)',
+              marginBottom: 10,
+              marginTop: 0,
+            }}
+          >
+            Sources de découverte
+          </p>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {[
+              { id: 'pappers-naf', label: 'Pappers NAF — entreprises par secteur' },
+              { id: 'bodacc-cessions', label: 'BODACC cessions — dirigeants ayant vendu' },
+              { id: 'rpps', label: 'RPPS — médecins et dentistes libéraux' },
+            ].map(({ id, label }) => (
+              <label
+                key={id}
+                style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13 }}
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedSources.includes(id)}
+                  onChange={() => onToggleSource(id)}
+                  style={{ accentColor: 'var(--color-accent)', width: 14, height: 14 }}
+                />
+                {label}
+              </label>
+            ))}
+          </div>
+
+          {selectedSources.includes('pappers-naf') && (
+            <div style={{ marginTop: 12 }}>
+              <label
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  letterSpacing: '0.06em',
+                  textTransform: 'uppercase',
+                  color: 'var(--color-muted)',
+                  display: 'block',
+                  marginBottom: 4,
+                }}
+              >
+                Code NAF
+              </label>
+              <input
+                type="text"
+                placeholder="86.21Z — médecins généralistes"
+                value={nafCode}
+                onChange={(e) => onNafCodeChange(e.target.value)}
+                style={{
+                  width: '100%',
+                  background: 'var(--color-surface)',
+                  color: 'var(--color-text)',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: 2,
+                  padding: '8px 10px',
+                  fontSize: 13,
+                  fontFamily: 'inherit',
+                  outline: 'none',
+                  boxSizing: 'border-box',
+                }}
+              />
+            </div>
+          )}
+
+          {selectedSources.includes('rpps') && (
+            <div style={{ marginTop: 12 }}>
+              <label
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  letterSpacing: '0.06em',
+                  textTransform: 'uppercase',
+                  color: 'var(--color-muted)',
+                  display: 'block',
+                  marginBottom: 4,
+                }}
+              >
+                Profession RPPS
+              </label>
+              <select
+                value={rppsProfession}
+                onChange={(e) =>
+                  onRppsProfessionChange(e.target.value as 'Medecin' | 'Chirurgien-Dentiste' | '')
+                }
+                style={{
+                  width: '100%',
+                  background: 'var(--color-surface)',
+                  color: 'var(--color-text)',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: 2,
+                  padding: '8px 10px',
+                  fontSize: 13,
+                  fontFamily: 'inherit',
+                  outline: 'none',
+                }}
+              >
+                <option value="">Toutes</option>
+                <option value="Medecin">Médecins</option>
+                <option value="Chirurgien-Dentiste">Chirurgiens-Dentistes</option>
+              </select>
+            </div>
+          )}
+
+          {selectedSources.includes('bodacc-cessions') && (
+            <div style={{ marginTop: 12 }}>
+              <label
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  letterSpacing: '0.06em',
+                  textTransform: 'uppercase',
+                  color: 'var(--color-muted)',
+                  display: 'block',
+                  marginBottom: 4,
+                }}
+              >
+                Cessions depuis
+              </label>
+              <input
+                type="date"
+                value={discoveryDateDepuis}
+                onChange={(e) => onDiscoveryDateDepuisChange(e.target.value)}
+                style={{
+                  background: 'var(--color-surface)',
+                  color: 'var(--color-text)',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: 2,
+                  padding: '8px 10px',
+                  fontSize: 13,
+                  fontFamily: 'inherit',
+                  outline: 'none',
+                }}
+              />
+            </div>
+          )}
+
+          <div style={{ marginTop: 12 }}>
+            <label
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: '0.06em',
+                textTransform: 'uppercase',
+                color: 'var(--color-muted)',
+                display: 'block',
+                marginBottom: 4,
+              }}
+            >
+              Département (optionnel)
+            </label>
+            <input
+              type="text"
+              placeholder="69, 75, 13…"
+              value={discoveryDept}
+              onChange={(e) => onDiscoveryDeptChange(e.target.value)}
+              style={{
+                width: 120,
+                background: 'var(--color-surface)',
+                color: 'var(--color-text)',
+                border: '1px solid var(--color-border)',
+                borderRadius: 2,
+                padding: '8px 10px',
+                fontSize: 13,
+                fontFamily: 'inherit',
+                outline: 'none',
+              }}
+            />
+          </div>
+
+          <p style={{ fontSize: 11, color: 'var(--color-muted)', marginTop: 10, marginBottom: 0 }}>
+            Budget max : ~41 jetons Pappers par recherche multi-source
+          </p>
+        </div>
+      )}
     </div>
   )
 }
