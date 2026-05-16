@@ -29,7 +29,7 @@ export type RunDiscoveryParams = DiscoveryParams
 function inferSources(params: RunDiscoveryParams): DiscoverySourceName[] {
   const sources: DiscoverySourceName[] = ['bodacc-cessions']
   if (params.departement) sources.push('rpps')
-  if (params.naf_code) sources.push('pappers-naf')
+  if (params.naf_codes?.length || params.naf_code) sources.push('pappers-naf')
   return sources
 }
 

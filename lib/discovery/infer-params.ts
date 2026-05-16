@@ -156,11 +156,20 @@ const SECTOR_TO_NAF: Array<{ keywords: string[]; naf: string }> = [
 ]
 
 export function inferNafCode(roles: string[], sectors: string[]): string | undefined {
+  return inferNafCodes(roles, sectors)[0]
+}
+
+export function inferNafCodes(roles: string[], sectors: string[]): string[] {
   const all = [...roles, ...sectors].map(norm).join(' ')
+  const seen = new Set<string>()
+  const codes: string[] = []
   for (const { keywords, naf } of SECTOR_TO_NAF) {
-    if (keywords.some((kw) => all.includes(kw))) return naf
+    if (!seen.has(naf) && keywords.some((kw) => all.includes(kw))) {
+      seen.add(naf)
+      codes.push(naf)
+    }
   }
-  return undefined
+  return codes
 }
 
 // ---------------------------------------------------------------------------
@@ -170,12 +179,13 @@ export function inferNafCode(roles: string[], sectors: string[]): string | undef
 export function inferDiscoveryParams(criteria: ParsedIcpCriteria): RunDiscoveryParams {
   const dept = locationsToDept(criteria.locations ?? [])
   const profession = inferRppsProfession(criteria.roles ?? [], criteria.sectors ?? [])
-  const naf_code = inferNafCode(criteria.roles ?? [], criteria.sectors ?? [])
+  const naf_codes = inferNafCodes(criteria.roles ?? [], criteria.sectors ?? [])
 
   return {
     departement: dept,
     profession,
-    naf_code,
+    naf_code: naf_codes[0],
+    naf_codes: naf_codes.length > 0 ? naf_codes : undefined,
     // 6 months lookback — cession liquidity windows stay open several months
     date_depuis: new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
   }

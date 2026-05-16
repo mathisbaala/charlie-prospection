@@ -78,6 +78,13 @@ export function computeRppsMatchScore(
     score += 10
   }
 
+  // Strong signal: practitioner's surname appears directly in the company name
+  // e.g. "CABINET DR DUPONT" when rpps.nom = "DUPONT"
+  const rppsNomNorm = norm(rpps.nom)
+  if (rppsNomNorm.length >= 3 && nomE.includes(rppsNomNorm)) {
+    score += 15
+  }
+
   return score
 }
 
