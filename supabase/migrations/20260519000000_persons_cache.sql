@@ -28,7 +28,7 @@ create table if not exists prospection_persons_cache (
 
   -- Niveau d'enrichissement
   enrichment_level text not null default 'raw'
-    check (enrichment_level in ('raw', 'standard')),
+    check (enrichment_level in ('raw', 'standard', 'dropped')),
 
   -- Horodatage du dernier enrichissement
   last_enriched_at timestamptz,
