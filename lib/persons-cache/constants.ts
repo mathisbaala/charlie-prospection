@@ -1,0 +1,1 @@
+export const ENRICHMENT_STALE_DAYS = 60
