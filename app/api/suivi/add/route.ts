@@ -1,9 +1,16 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { persistPremiumSignals } from '@/lib/enrichment/persist-premium-signals'
-import type { PappersPremiumData, SearchCandidate } from '@/lib/types'
+import { getBodaccBySiren, classifyBodaccEvent } from '@/lib/data-sources/bodacc'
+import type { BodaccEvent, PappersPremiumData, SearchCandidate } from '@/lib/types'
 
-export const maxDuration = 120
+export const maxDuration = 300
+
+// Profondeur BODACC à la mise en suivi — vs 10 au /recherche/run.
+// Stratégie : breadth au search (50 candidats × 10 events = vue d'ensemble
+// rapide), depth au suivi (50 events par société = historique complet à la
+// signature). BODACC est gratuit (opendata Etalab), donc on peut pousser.
+const BODACC_HISTORY_DEPTH = 50
 
 interface AddBody {
   persona_id: string
@@ -150,6 +157,60 @@ export async function POST(request: Request) {
         premium,
       )
       signalsCount += inserted
+    }
+
+    // Deep BODACC fetch — on /recherche/run l'enricher prend 10 événements
+    // (vue d'ensemble), à la mise en suivi on creuse à 50 par société du
+    // dirigeant. Coût: zéro Pappers (BODACC = opendata gratuite). Merge avec
+    // l'existant en dédupant par id. Persiste dans enrichment_data pour
+    // affichage immédiat dans l'onglet Fiche.
+    if (allSirens.length > 0 && prospectId) {
+      try {
+        const bodaccPerSiren = await Promise.allSettled(
+          allSirens.map((s) => getBodaccBySiren(s, BODACC_HISTORY_DEPTH)),
+        )
+        const fetchedEvents: BodaccEvent[] = []
+        for (const res of bodaccPerSiren) {
+          if (res.status !== 'fulfilled') continue
+          for (const r of res.value) {
+            fetchedEvents.push({
+              id: r.id,
+              date: r.dateparution,
+              type: classifyBodaccEvent(r),
+              libelle: r.typeavis_lib ?? r.familleavis_lib ?? 'Annonce légale',
+              source: 'bodacc',
+            })
+          }
+        }
+        if (fetchedEvents.length > 0) {
+          // Merge avec ce que l'enricher a déjà mis (10 events max). Dédup par id.
+          const existing = (candidate.enrichment_data?.bodacc_events ?? []) as BodaccEvent[]
+          const byId = new Map<string, BodaccEvent>()
+          for (const e of [...existing, ...fetchedEvents]) byId.set(e.id, e)
+          const merged = Array.from(byId.values()).sort((a, b) =>
+            b.date.localeCompare(a.date),
+          )
+          const newEnrichment = {
+            ...candidate.enrichment_data,
+            bodacc_events: merged,
+          }
+          // Tag observabilité : on track que le deep-fetch a tourné, utile
+          // pour audit "pourquoi cette fiche a 50 events au lieu de 10".
+          if (!newEnrichment.sources_utilisees?.includes('bodacc_deep')) {
+            newEnrichment.sources_utilisees = [
+              ...(newEnrichment.sources_utilisees ?? []),
+              'bodacc_deep',
+            ]
+          }
+          await supabase
+            .from('prospection_prospects')
+            .update({ enrichment_data: newEnrichment })
+            .eq('id', prospectId)
+        }
+      } catch (e) {
+        // Best-effort — un échec BODACC ne bloque pas l'ajout au suivi.
+        console.error('[suivi/add] deep BODACC fetch failed', e)
+      }
     }
 
     const displayName = `${candidate.raw.dirigeant_prenom} ${candidate.raw.dirigeant_nom}`.trim() ||

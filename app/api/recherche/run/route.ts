@@ -21,6 +21,14 @@ export const maxDuration = 300
  *
  * Body: { persona_id: string, limit?: number }
  * Response: { candidates: SearchCandidate[] }
+ *
+ * Stratégie data : MAX BREADTH ici, MAX DEPTH côté /suivi.
+ * Default limit 50 pour donner à l'utilisateur le maximum de signal au moment
+ * de choisir ses cibles. Chaque candidat traverse l'enricher complet (Pappers
+ * Premium + portfolio dirigeant + BODACC + DVF zone + DVF perso + RPPS +
+ * annuaires libéraux + Infogreffe). Coût ~1.5 jeton Pappers par candidat,
+ * donc ~75 jetons par /recherche. Quota mensuel 500 → ~6 recherches "pleines"
+ * par mois, OK pour un usage MVP / pilote.
  */
 export async function POST(request: Request) {
   const supabase = await createClient()
@@ -41,7 +49,9 @@ export async function POST(request: Request) {
   if (!personaId) {
     return NextResponse.json({ error: 'persona_id requis' }, { status: 400 })
   }
-  const limit = Math.min(typeof body.limit === 'number' ? body.limit : 20, 50)
+  // Defaut 50 (max breadth), plafond 100. Cf. JSDoc — la breadth est ici, la
+  // depth supplémentaire s'ajoute via /suivi/add (backfill + signal mining).
+  const limit = Math.min(typeof body.limit === 'number' ? body.limit : 50, 100)
 
   // Load the persona to get its criteria (we trust the DB, not the client).
   const { data: persona, error: pErr } = await supabase
