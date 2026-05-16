@@ -303,45 +303,6 @@ export async function getPappersEnrichment(
   }
 }
 
-/**
- * Status du quota Pappers côté API officielle (source de vérité).
- *
- * Endpoint `/suivi-jetons` — gratuit (ne consomme PAS de jeton). Utile pour :
- *   - synchroniser notre compteur local avec la réalité de l'abo
- *   - afficher un indicateur "jetons restants ce mois" dans l'UI admin
- *   - bloquer les jobs d'enrichissement quand le quota mensuel est tendu
- *
- * Retourne null si l'API est en erreur ou si la clé est manquante (pour ne
- * pas casser les callers — c'est de l'instrumentation, pas du chemin critique).
- */
-export interface PappersTokenStatus {
-  jetons_abonnement: number
-  jetons_abonnement_utilises: number
-  jetons_pay_as_you_go_restants: number
-  /** Reste estimé = abonnement - utilisés + PAYG. */
-  remaining: number
-}
-
-export async function getPappersTokenStatus(): Promise<PappersTokenStatus | null> {
-  try {
-    const url = `${BASE}/suivi-jetons?api_token=${token()}`
-    const res = await timedFetch('pappers', 'getPappersTokenStatus', url, { cache: 'no-store' })
-    if (!res.ok) return null
-    const data = await res.json()
-    const total = Number(data.jetons_abonnement ?? 0)
-    const used = Number(data.jetons_abonnement_utilises ?? 0)
-    const payg = Number(data.jetons_pay_as_you_go_restants ?? 0)
-    return {
-      jetons_abonnement: total,
-      jetons_abonnement_utilises: used,
-      jetons_pay_as_you_go_restants: payg,
-      remaining: Math.max(0, total - used) + payg,
-    }
-  } catch {
-    return null
-  }
-}
-
 export async function searchPersonnes(params: {
   q: string
   par_page?: number
