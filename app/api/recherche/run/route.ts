@@ -139,7 +139,7 @@ export async function POST(request: Request) {
         !!h.raw.linkedin_search_url && existingSet.has(h.raw.linkedin_search_url),
     }))
     candidates.sort((a, b) => b.patrimony_score - a.patrimony_score)
-    return NextResponse.json({ candidates, filtered_count: 0, filter_breakdown: {} })
+    return NextResponse.json({ candidates })
   }
 
   if (cacheHitsFresh.length === 0 && toEnrich.length === 0) {
@@ -246,9 +246,10 @@ export async function POST(request: Request) {
 
   // Sort by patrimony_score desc — best leads first.
   candidates.sort((a, b) => b.patrimony_score - a.patrimony_score)
+  const capped = candidates.slice(0, limit)
 
   return NextResponse.json({
-    candidates,
+    candidates: capped,
     filtered_count: droppedAssessments.length,
     filter_breakdown: aggregateDropReasons(droppedAssessments),
   })

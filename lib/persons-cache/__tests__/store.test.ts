@@ -1,3 +1,4 @@
+import { describe, it, expect } from 'vitest'
 import { buildCacheRow } from '../store'
 import type { RawProspect } from '@/lib/prospect-search/engine'
 import type { ProspectEnrichmentData } from '@/lib/types'

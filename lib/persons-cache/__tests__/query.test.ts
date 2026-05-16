@@ -1,3 +1,4 @@
+import { describe, it, expect } from 'vitest'
 import { buildCacheFilters, cacheRowToPartialCandidate } from '../query'
 
 describe('buildCacheFilters', () => {
