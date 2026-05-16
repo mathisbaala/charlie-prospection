@@ -15,6 +15,7 @@ import { Section, Stat, DataList, Row, ExternalLinkRow, euros, titleCase } from 
 import type {
   Prospect,
   ProspectEnrichmentData,
+  FinanceDerivatives,
   BodaccEvent,
   DvfTransaction,
   PatrimonyScoreBreakdown,
@@ -31,6 +32,36 @@ const BREAKDOWN_LABELS: Array<{ key: keyof PatrimonyScoreBreakdown; label: strin
   { key: 'age_carriere', label: 'Âge / carrière' },
   { key: 'qualite_donnees', label: 'Qualité données' },
 ]
+
+function TrajectoryBadge({ trajectory }: { trajectory: FinanceDerivatives['ca_trajectory'] }) {
+  const map: Record<string, { label: string; color: string }> = {
+    growth:   { label: '↑ Croissance', color: '#1a7f4b' },
+    stable:   { label: '→ Stable',     color: '#8c7b5e' },
+    decline:  { label: '↓ Déclin',     color: '#c0392b' },
+    volatile: { label: '~ Volatile',   color: '#c87a2a' },
+    unknown:  { label: '— Inconnu',    color: '#8c7b5e' },
+  }
+  const { label, color } = map[trajectory] ?? { label: trajectory, color: '#8c7b5e' }
+  return (
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        padding: '2px 8px',
+        borderRadius: '2px',
+        fontSize: '11px',
+        fontWeight: 600,
+        letterSpacing: '0.03em',
+        color,
+        background: `${color}18`,
+        border: `1px solid ${color}40`,
+        fontFamily: 'var(--font-plus-jakarta-sans)',
+      }}
+    >
+      {label}
+    </span>
+  )
+}
 
 function BreakdownBar({ label, value }: { label: string; value: number }) {
   const clamped = Math.min(100, Math.max(0, value))
@@ -220,6 +251,40 @@ export function ProspectFicheContent({ prospect }: Props) {
             <p style={{ fontSize: 11, color: 'var(--color-muted)', marginTop: 4 }}>
               Capital social : {euros(ed.capital_social)}
             </p>
+          )}
+          {ed.finance_derivatives && ed.finance_derivatives.years_available > 0 && (
+            <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <TrajectoryBadge trajectory={ed.finance_derivatives.ca_trajectory} />
+                <span
+                  className="font-mono"
+                  style={{
+                    fontSize: '12px',
+                    color: '#6b5e4b',
+                    fontVariantNumeric: 'tabular-nums',
+                  }}
+                >
+                  {ed.finance_derivatives.ca_growth_yoy != null && (
+                    <>CA {ed.finance_derivatives.ca_growth_yoy > 0 ? '+' : ''}{ed.finance_derivatives.ca_growth_yoy.toFixed(1)}% YoY</>
+                  )}
+                  {ed.finance_derivatives.ca_growth_3y_cagr != null && (
+                    <> · CAGR 3y {ed.finance_derivatives.ca_growth_3y_cagr > 0 ? '+' : ''}{ed.finance_derivatives.ca_growth_3y_cagr.toFixed(1)}%</>
+                  )}
+                </span>
+              </div>
+              {ed.finance_derivatives.debt_to_equity != null && ed.finance_derivatives.debt_to_equity > 1.5 && (
+                <div style={{ fontSize: '12px', color: '#c0392b', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span>⚠</span>
+                  <span>Endettement élevé (D/E {ed.finance_derivatives.debt_to_equity.toFixed(1)})</span>
+                </div>
+              )}
+              {ed.finance_derivatives.fonds_propres_growth_pct != null && ed.finance_derivatives.fonds_propres_growth_pct > 30 && (
+                <div style={{ fontSize: '12px', color: '#1a7f4b', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span>↑</span>
+                  <span>Fonds propres +{ed.finance_derivatives.fonds_propres_growth_pct.toFixed(0)}% — accumulation patrimoniale active</span>
+                </div>
+              )}
+            </div>
           )}
           {ed.procedure_collective_en_cours && (
             <div
