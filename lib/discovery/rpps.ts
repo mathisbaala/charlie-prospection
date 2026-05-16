@@ -132,7 +132,9 @@ export const rppsSource: DiscoverySource = {
     const supabase = await createClient()
 
     const professionFilter =
-      params.profession === 'Chirurgien-Dentiste' ? 'Chirurgien-Dentiste' : 'Médecin'
+      params.profession === 'Chirurgien-Dentiste' ? 'Chirurgien-Dentiste'
+      : params.profession === 'Medecin' ? 'Médecin'
+      : null  // null = no filter → all targeted professions from the cache
 
     const { data: rows, error } = await supabase
       .from('prospection_rpps_cache')
@@ -143,9 +145,11 @@ export const rppsSource: DiscoverySource = {
 
     if (error || !rows?.length) return []
 
-    const candidates = (rows as RppsRow[]).filter((r) =>
-      r.profession.toLowerCase().includes(professionFilter.toLowerCase()),
-    )
+    const candidates = professionFilter
+      ? (rows as RppsRow[]).filter((r) =>
+          r.profession.toLowerCase().includes(professionFilter.toLowerCase()),
+        )
+      : (rows as RppsRow[])
 
     const seen = new Set<string>()
     const results: RawProspect[] = []
