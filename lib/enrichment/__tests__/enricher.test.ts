@@ -85,14 +85,45 @@ describe('enrichProspect — Promise.allSettled resilience', () => {
     expect(result.finances).toBeUndefined()
     expect(result.rpps).toBeUndefined()
     expect(result.contexte_marche_immo_local).toBeUndefined()
-    // Sources list: seed + Infogreffe fallback (l'absence de Pappers active le flag)
-    expect(result.sources_utilisees).toEqual(['pappers', 'infogreffe_fallback'])
-    // Infogreffe deep-link toujours produit dès qu'on a un SIREN valide,
-    // marqué is_fallback=true puisque Pappers est tombé.
+    // RAW est personne_physique, Pappers a échoué → pas de preuve RCS,
+    // donc PAS de lien Infogreffe (l'URL renverrait 404 sur infogreffe.fr).
+    expect(result.infogreffe).toBeUndefined()
+    expect(result.sources_utilisees).toEqual(['pappers'])
+  })
+
+  it('emits Infogreffe fallback link for personne_morale when Pappers fails', async () => {
+    vi.mocked(getBodaccBySiren).mockRejectedValueOnce(new Error('bodacc down'))
+    vi.mocked(getPappersEnrichment).mockRejectedValueOnce(new Error('pappers down'))
+    vi.mocked(searchRpps).mockRejectedValueOnce(new Error('rpps down'))
+    vi.mocked(getDvfByCommune).mockRejectedValueOnce(new Error('dvf down'))
+
+    const moralProspect: RawProspect = { ...RAW, source_type: 'personne_morale' }
+    const result = await enrichProspect(moralProspect)
+
     expect(result.infogreffe?.url).toBe(
       'https://www.infogreffe.fr/societes/entreprise-societe/123456789',
     )
     expect(result.infogreffe?.is_fallback).toBe(true)
+    expect(result.sources_utilisees).toContain('infogreffe_fallback')
+  })
+
+  it('emits non-fallback Infogreffe link for personne_physique with RCS evidence', async () => {
+    vi.mocked(getBodaccBySiren).mockResolvedValueOnce([])
+    vi.mocked(getPappersEnrichment).mockResolvedValueOnce({
+      finances: [],
+      beneficiaires_effectifs: [],
+      procedure_collective_en_cours: false,
+      // Preuve RCS explicite — Pappers identifie cette personne_physique comme
+      // immatriculée au greffe (cas typique d'un entrepreneur individuel RCS).
+      date_immatriculation_rcs: '2015-03-10',
+      greffe: 'LYON',
+    })
+    vi.mocked(searchRpps).mockResolvedValueOnce([])
+    vi.mocked(getDvfByCommune).mockResolvedValueOnce([])
+
+    const result = await enrichProspect(RAW) // source_type = personne_physique
+    expect(result.infogreffe?.url).toBeDefined()
+    expect(result.infogreffe?.is_fallback).toBe(false) // Pappers a livré le RCS
   })
 
   it('returns coherent partial enrichment when Pappers OK but BODACC fails', async () => {

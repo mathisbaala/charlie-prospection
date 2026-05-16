@@ -245,23 +245,39 @@ export async function enrichProspect(raw: RawProspect): Promise<ProspectEnrichme
   }
 
   // ── Infogreffe (source officielle, fallback Pappers) ───
-  // Toujours produit dès qu'on a un SIREN valide. Le flag `is_fallback`
-  // passe à true quand Pappers n'a renvoyé aucune donnée finance/gouvernance
-  // — auquel cas l'UI surface Infogreffe en CTA principal au lieu de lien
-  // secondaire. Détection : pas de payload Pappers OU payload sans finances
-  // ET sans procédure collective info (= /entreprise vide).
+  // Émis uniquement pour les entités RCS-éligibles — Infogreffe est le portail
+  // des greffes des tribunaux de commerce, donc un auto-entrepreneur / micro
+  // / profession libérale non immatriculée renverra 404 sur cette URL.
+  //
+  // Règle d'émission :
+  //   - personne morale → toujours (RCS-éligible par définition)
+  //   - personne physique → uniquement si Pappers a remonté une preuve
+  //     explicite d'immatriculation RCS (date_immatriculation_rcs ou greffe)
+  //
+  // Flag `is_fallback=true` quand Pappers n'a livré aucun signal exploitable
+  // (finances vides, capital absent, date RCS absente) — l'UI surface alors
+  // le lien en CTA principal au lieu de lien secondaire.
   if (raw.siren) {
-    const pappersDelivered =
-      pappersResult.status === 'fulfilled' &&
-      pappersResult.value !== null &&
-      ((pappersResult.value.finances?.length ?? 0) > 0 ||
-        pappersResult.value.capital !== undefined ||
-        pappersResult.value.date_immatriculation_rcs !== undefined)
-    const link = buildInfogreffeUrl(raw.siren, { is_fallback: !pappersDelivered })
-    if (link) {
-      enrichment.infogreffe = link
-      if (link.is_fallback) {
-        enrichment.sources_utilisees?.push('infogreffe_fallback')
+    const pappersValue =
+      pappersResult.status === 'fulfilled' ? pappersResult.value : null
+    const hasRcsEvidence =
+      pappersValue !== null &&
+      (pappersValue.date_immatriculation_rcs !== undefined ||
+        pappersValue.greffe !== undefined)
+    const isEmissable =
+      raw.source_type === 'personne_morale' || hasRcsEvidence
+    if (isEmissable) {
+      const pappersDelivered =
+        pappersValue !== null &&
+        ((pappersValue.finances?.length ?? 0) > 0 ||
+          pappersValue.capital !== undefined ||
+          pappersValue.date_immatriculation_rcs !== undefined)
+      const link = buildInfogreffeUrl(raw.siren, { is_fallback: !pappersDelivered })
+      if (link) {
+        enrichment.infogreffe = link
+        if (link.is_fallback) {
+          enrichment.sources_utilisees?.push('infogreffe_fallback')
+        }
       }
     }
   }
