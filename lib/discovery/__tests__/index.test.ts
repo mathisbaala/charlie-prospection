@@ -53,12 +53,9 @@ vi.mock('../rpps', () => ({
 }))
 
 describe('runDiscovery', () => {
-  it('merges results from multiple sources', async () => {
-    const result = await runDiscovery({
-      sources: ['pappers-naf', 'bodacc-cessions'],
-      departement: '69',
-      naf_code: '86.21Z',
-    })
+  it('merges results from sources inferred from params', async () => {
+    // departement → rpps + bodacc-cessions; naf_code → pappers-naf
+    const result = await runDiscovery({ departement: '69', naf_code: '86.21Z' })
     expect(result.length).toBe(2)
     const sources = result.map((r) => r.source)
     expect(sources).toContain('pappers')
@@ -83,16 +80,14 @@ describe('runDiscovery', () => {
     }
     vi.mocked(pappersNafSource.discover).mockResolvedValueOnce([duplicate])
 
-    const result = await runDiscovery({
-      sources: ['pappers-naf', 'bodacc-cessions'],
-      departement: '75',
-    })
+    const result = await runDiscovery({ departement: '75', naf_code: '69.10Z' })
     const uids = result.map((r) => r.uid)
     expect(new Set(uids).size).toBe(uids.length)
   })
 
-  it('returns empty array when no sources requested', async () => {
-    const result = await runDiscovery({ sources: [], departement: '69' })
+  it('returns empty array when no usable params are provided', async () => {
+    // No departement, no naf_code → no sources activated
+    const result = await runDiscovery({})
     expect(result).toEqual([])
   })
 
@@ -100,10 +95,7 @@ describe('runDiscovery', () => {
     const { pappersNafSource } = await import('../pappers-naf')
     vi.mocked(pappersNafSource.discover).mockRejectedValueOnce(new Error('network error'))
 
-    const result = await runDiscovery({
-      sources: ['pappers-naf', 'bodacc-cessions'],
-      departement: '69',
-    })
+    const result = await runDiscovery({ departement: '69', naf_code: '86.21Z' })
     // bodacc-cessions still returns its result
     expect(Array.isArray(result)).toBe(true)
   })
@@ -126,10 +118,7 @@ describe('runDiscovery', () => {
     }))
     vi.mocked(pappersNafSource.discover).mockResolvedValueOnce(many)
 
-    const result = await runDiscovery({
-      sources: ['pappers-naf', 'bodacc-cessions'],
-      departement: '69',
-    })
+    const result = await runDiscovery({ departement: '69', naf_code: '86.21Z' })
     expect(result.length).toBeLessThanOrEqual(50)
   })
 })

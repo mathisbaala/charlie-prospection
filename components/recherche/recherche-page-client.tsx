@@ -25,11 +25,7 @@ export function RecherchePageClient({ personas }: Props) {
   const [adding, setAdding] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [addedSummary, setAddedSummary] = useState<string | null>(null)
-  const [showAdvanced, setShowAdvanced] = useState(false)
-  const [selectedSources, setSelectedSources] = useState<string[]>([])
-  const [nafCode, setNafCode] = useState('')
   const [discoveryDept, setDiscoveryDept] = useState('')
-  const [discoveryDateDepuis, setDiscoveryDateDepuis] = useState('')
   const [rppsProfession, setRppsProfession] = useState<'Medecin' | 'Chirurgien-Dentiste' | ''>('')
 
   async function handleLaunch() {
@@ -48,13 +44,8 @@ export function RecherchePageClient({ personas }: Props) {
         body: JSON.stringify({
           persona_id: selectedPersonaId,
           limit: 30,
-          ...(selectedSources.length > 0 && {
-            sources: selectedSources,
-            naf_code: nafCode || undefined,
-            departement: discoveryDept || undefined,
-            date_depuis: discoveryDateDepuis || undefined,
-            rpps_profession: rppsProfession || undefined,
-          }),
+          departement: discoveryDept || undefined,
+          rpps_profession: rppsProfession || undefined,
         }),
       })
       const data = await res.json()
@@ -144,20 +135,8 @@ export function RecherchePageClient({ personas }: Props) {
         onLaunch={handleLaunch}
         loading={loading}
         disabled={adding}
-        showAdvanced={showAdvanced}
-        onToggleAdvanced={() => setShowAdvanced((v) => !v)}
-        selectedSources={selectedSources}
-        onToggleSource={(s) =>
-          setSelectedSources((prev) =>
-            prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]
-          )
-        }
-        nafCode={nafCode}
-        onNafCodeChange={setNafCode}
         discoveryDept={discoveryDept}
         onDiscoveryDeptChange={setDiscoveryDept}
-        discoveryDateDepuis={discoveryDateDepuis}
-        onDiscoveryDateDepuisChange={setDiscoveryDateDepuis}
         rppsProfession={rppsProfession}
         onRppsProfessionChange={setRppsProfession}
       />

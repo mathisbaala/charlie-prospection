@@ -9,23 +9,16 @@ interface Props {
   onLaunch: () => void
   loading: boolean
   disabled?: boolean
-  showAdvanced: boolean
-  onToggleAdvanced: () => void
-  selectedSources: string[]
-  onToggleSource: (s: string) => void
-  nafCode: string
-  onNafCodeChange: (v: string) => void
   discoveryDept: string
   onDiscoveryDeptChange: (v: string) => void
-  discoveryDateDepuis: string
-  onDiscoveryDateDepuisChange: (v: string) => void
   rppsProfession: 'Medecin' | 'Chirurgien-Dentiste' | ''
   onRppsProfessionChange: (v: 'Medecin' | 'Chirurgien-Dentiste' | '') => void
 }
 
 /**
- * Top bar of /recherche: persona picker + Lancer button + optional advanced sources panel.
- * Persona dropdown shows the saved targets from /cible.
+ * Top bar of /recherche: persona picker + optional geo/profession filters + launch button.
+ * When a departement is set, Charlie automatically cross-references RPPS and BODACC —
+ * no source selection needed.
  */
 export function RechercheLauncher({
   personas,
@@ -34,19 +27,32 @@ export function RechercheLauncher({
   onLaunch,
   loading,
   disabled,
-  showAdvanced,
-  onToggleAdvanced,
-  selectedSources,
-  onToggleSource,
-  nafCode,
-  onNafCodeChange,
   discoveryDept,
   onDiscoveryDeptChange,
-  discoveryDateDepuis,
-  onDiscoveryDateDepuisChange,
   rppsProfession,
   onRppsProfessionChange,
 }: Props) {
+  const labelStyle = {
+    fontSize: 11,
+    fontWeight: 700,
+    letterSpacing: '0.08em',
+    textTransform: 'uppercase' as const,
+    color: 'var(--color-muted)',
+    display: 'block',
+    marginBottom: 6,
+  }
+
+  const inputStyle = {
+    background: 'var(--color-bg)',
+    color: 'var(--color-text)',
+    border: '1px solid var(--color-border)',
+    borderRadius: 2,
+    padding: '10px 12px',
+    fontSize: 14,
+    fontFamily: 'inherit',
+    outline: 'none',
+  }
+
   return (
     <div
       style={{
@@ -57,19 +63,10 @@ export function RechercheLauncher({
         marginBottom: 24,
       }}
     >
-      <div className="flex items-end gap-3">
-        <div style={{ flex: 1 }}>
-          <label
-            className="block"
-            style={{
-              fontSize: 11,
-              fontWeight: 700,
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
-              color: 'var(--color-muted)',
-              marginBottom: 6,
-            }}
-          >
+      <div className="flex items-end gap-3" style={{ flexWrap: 'wrap' }}>
+        {/* Persona picker */}
+        <div style={{ flex: '2 1 200px' }}>
+          <label htmlFor="persona-select" style={labelStyle}>
             Cible
           </label>
           {personas.length === 0 ? (
@@ -82,19 +79,10 @@ export function RechercheLauncher({
             </p>
           ) : (
             <select
+              id="persona-select"
               value={selectedPersonaId ?? ''}
               onChange={(e) => onSelect(e.target.value)}
-              style={{
-                width: '100%',
-                background: 'var(--color-bg)',
-                color: 'var(--color-text)',
-                border: '1px solid var(--color-border)',
-                borderRadius: 2,
-                padding: '10px 12px',
-                fontSize: 14,
-                fontFamily: 'inherit',
-                outline: 'none',
-              }}
+              style={{ ...inputStyle, width: '100%' }}
             >
               <option value="" disabled>
                 Choisir une cible…
@@ -107,6 +95,42 @@ export function RechercheLauncher({
             </select>
           )}
         </div>
+
+        {/* Département */}
+        <div style={{ flex: '0 0 110px' }}>
+          <label htmlFor="discovery-dept" style={labelStyle}>
+            Département
+          </label>
+          <input
+            id="discovery-dept"
+            type="text"
+            placeholder="69, 75…"
+            value={discoveryDept}
+            onChange={(e) => onDiscoveryDeptChange(e.target.value)}
+            style={{ ...inputStyle, width: '100%' }}
+          />
+        </div>
+
+        {/* Profession médicale (optionnel) */}
+        <div style={{ flex: '1 1 160px' }}>
+          <label htmlFor="rpps-profession" style={labelStyle}>
+            Profession
+          </label>
+          <select
+            id="rpps-profession"
+            value={rppsProfession}
+            onChange={(e) =>
+              onRppsProfessionChange(e.target.value as 'Medecin' | 'Chirurgien-Dentiste' | '')
+            }
+            style={{ ...inputStyle, width: '100%' }}
+          >
+            <option value="">Toutes</option>
+            <option value="Medecin">Médecins</option>
+            <option value="Chirurgien-Dentiste">Chirurgiens-Dentistes</option>
+          </select>
+        </div>
+
+        {/* Launch */}
         <button
           type="button"
           onClick={onLaunch}
@@ -123,233 +147,18 @@ export function RechercheLauncher({
             cursor: 'pointer',
             flexShrink: 0,
             height: 40,
+            alignSelf: 'flex-end',
           }}
         >
           {loading ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
-          {loading ? 'Recherche…' : 'Lancer la recherche'}
+          {loading ? 'Recherche…' : 'Lancer'}
         </button>
       </div>
 
-      {/* Advanced sources toggle */}
-      <div style={{ marginTop: 12 }}>
-        <button
-          type="button"
-          onClick={onToggleAdvanced}
-          style={{
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            fontSize: 12,
-            color: 'var(--color-muted)',
-            padding: 0,
-            fontFamily: 'inherit',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 4,
-          }}
-        >
-          {showAdvanced ? '▲' : '▼'} Sources avancées
-        </button>
-      </div>
-
-      {showAdvanced && (
-        <div
-          style={{
-            marginTop: 12,
-            padding: 16,
-            background: 'var(--color-bg)',
-            border: '1px solid var(--color-border)',
-            borderRadius: 2,
-          }}
-        >
-          <p
-            style={{
-              fontSize: 11,
-              fontWeight: 700,
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
-              color: 'var(--color-muted)',
-              marginBottom: 10,
-              marginTop: 0,
-            }}
-          >
-            Sources de découverte
-          </p>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {[
-              { id: 'pappers-naf', label: 'Pappers NAF — entreprises par secteur' },
-              { id: 'bodacc-cessions', label: 'BODACC cessions — dirigeants ayant vendu' },
-              { id: 'rpps', label: 'RPPS — médecins et dentistes libéraux' },
-            ].map(({ id, label }) => (
-              <label
-                key={id}
-                style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13 }}
-              >
-                <input
-                  type="checkbox"
-                  checked={selectedSources.includes(id)}
-                  onChange={() => onToggleSource(id)}
-                  style={{ accentColor: 'var(--color-accent)', width: 14, height: 14 }}
-                />
-                {label}
-              </label>
-            ))}
-          </div>
-
-          {selectedSources.includes('pappers-naf') && (
-            <div style={{ marginTop: 12 }}>
-              <label
-                htmlFor="naf-code"
-                style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  letterSpacing: '0.06em',
-                  textTransform: 'uppercase',
-                  color: 'var(--color-muted)',
-                  display: 'block',
-                  marginBottom: 4,
-                }}
-              >
-                Code NAF
-              </label>
-              <input
-                id="naf-code"
-                type="text"
-                placeholder="86.21Z — médecins généralistes"
-                value={nafCode}
-                onChange={(e) => onNafCodeChange(e.target.value)}
-                style={{
-                  width: '100%',
-                  background: 'var(--color-surface)',
-                  color: 'var(--color-text)',
-                  border: '1px solid var(--color-border)',
-                  borderRadius: 2,
-                  padding: '8px 10px',
-                  fontSize: 13,
-                  fontFamily: 'inherit',
-                  outline: 'none',
-                  boxSizing: 'border-box',
-                }}
-              />
-            </div>
-          )}
-
-          {selectedSources.includes('rpps') && (
-            <div style={{ marginTop: 12 }}>
-              <label
-                htmlFor="rpps-profession"
-                style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  letterSpacing: '0.06em',
-                  textTransform: 'uppercase',
-                  color: 'var(--color-muted)',
-                  display: 'block',
-                  marginBottom: 4,
-                }}
-              >
-                Profession RPPS
-              </label>
-              <select
-                id="rpps-profession"
-                value={rppsProfession}
-                onChange={(e) =>
-                  onRppsProfessionChange(e.target.value as 'Medecin' | 'Chirurgien-Dentiste' | '')
-                }
-                style={{
-                  width: '100%',
-                  background: 'var(--color-surface)',
-                  color: 'var(--color-text)',
-                  border: '1px solid var(--color-border)',
-                  borderRadius: 2,
-                  padding: '8px 10px',
-                  fontSize: 13,
-                  fontFamily: 'inherit',
-                  outline: 'none',
-                }}
-              >
-                <option value="">Toutes</option>
-                <option value="Medecin">Médecins</option>
-                <option value="Chirurgien-Dentiste">Chirurgiens-Dentistes</option>
-              </select>
-            </div>
-          )}
-
-          {selectedSources.includes('bodacc-cessions') && (
-            <div style={{ marginTop: 12 }}>
-              <label
-                htmlFor="bodacc-date"
-                style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  letterSpacing: '0.06em',
-                  textTransform: 'uppercase',
-                  color: 'var(--color-muted)',
-                  display: 'block',
-                  marginBottom: 4,
-                }}
-              >
-                Cessions depuis
-              </label>
-              <input
-                id="bodacc-date"
-                type="date"
-                value={discoveryDateDepuis}
-                onChange={(e) => onDiscoveryDateDepuisChange(e.target.value)}
-                style={{
-                  background: 'var(--color-surface)',
-                  color: 'var(--color-text)',
-                  border: '1px solid var(--color-border)',
-                  borderRadius: 2,
-                  padding: '8px 10px',
-                  fontSize: 13,
-                  fontFamily: 'inherit',
-                  outline: 'none',
-                }}
-              />
-            </div>
-          )}
-
-          <div style={{ marginTop: 12 }}>
-            <label
-              htmlFor="discovery-dept"
-              style={{
-                fontSize: 11,
-                fontWeight: 700,
-                letterSpacing: '0.06em',
-                textTransform: 'uppercase',
-                color: 'var(--color-muted)',
-                display: 'block',
-                marginBottom: 4,
-              }}
-            >
-              Département (optionnel)
-            </label>
-            <input
-              id="discovery-dept"
-              type="text"
-              placeholder="69, 75, 13…"
-              value={discoveryDept}
-              onChange={(e) => onDiscoveryDeptChange(e.target.value)}
-              style={{
-                width: 120,
-                background: 'var(--color-surface)',
-                color: 'var(--color-text)',
-                border: '1px solid var(--color-border)',
-                borderRadius: 2,
-                padding: '8px 10px',
-                fontSize: 13,
-                fontFamily: 'inherit',
-                outline: 'none',
-              }}
-            />
-          </div>
-
-          <p style={{ fontSize: 11, color: 'var(--color-muted)', marginTop: 10, marginBottom: 0 }}>
-            Budget max : ~41 jetons Pappers par recherche multi-source
-          </p>
-        </div>
+      {discoveryDept && (
+        <p style={{ fontSize: 11, color: 'var(--color-muted)', marginTop: 10, marginBottom: 0 }}>
+          Croisement automatique RPPS + BODACC sur le département {discoveryDept}
+        </p>
       )}
     </div>
   )

@@ -73,14 +73,10 @@ export async function POST(request: Request) {
 
   const rawProspects = await searchProspects(criteria, { limit, strictFilters })
 
-  // Discovery sources (optional — only when client passes sources=[...])
-  let discoveryRaw: RawProspect[] = []
-  if (discoveryParams.sources.length > 0) {
-    discoveryRaw = await runDiscovery({
-      ...discoveryParams,
-      limit,
-    })
-  }
+  // Cross-database discovery — always active, sources inferred from params.
+  // RPPS + BODACC activate automatically when departement is set; Pappers NAF
+  // when naf_code is set. Returns [] when no usable params are present.
+  const discoveryRaw: RawProspect[] = await runDiscovery({ ...discoveryParams, limit })
 
   // Merge: discovery first (higher signal), then regular search
   // Dedup by uid (same person found by both paths → keep first occurrence)
