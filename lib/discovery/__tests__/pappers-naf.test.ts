@@ -78,4 +78,37 @@ describe('pappersNafSource', () => {
     const result = await pappersNafSource.discover({ naf_code: '86.21Z' })
     expect(result.length).toBe(1)
   })
+
+  it('runs one search per naf_codes entry and deduplicates across codes', async () => {
+    const ae2 = { ...fakeAe, siren: '999888777', code_naf: '86.22Z' }
+    // First code returns fakeAe, second returns ae2
+    vi.mocked(searchEntreprises)
+      .mockResolvedValueOnce({ resultats: [fakeAe], total: 1 })
+      .mockResolvedValueOnce({ resultats: [ae2], total: 1 })
+    vi.mocked(getEntrepriseRepresentants).mockResolvedValue([fakeRep])
+
+    const result = await pappersNafSource.discover({
+      naf_codes: ['86.21Z', '86.22Z'],
+    })
+    // Two distinct SIRENs → two distinct prospects
+    expect(result.length).toBe(2)
+    expect(vi.mocked(searchEntreprises)).toHaveBeenCalledTimes(2)
+  })
+
+  it('deduplicates same person across different naf_codes', async () => {
+    // Both codes return the same SIREN/person → only 1 result
+    vi.mocked(searchEntreprises).mockResolvedValue({ resultats: [fakeAe], total: 1 })
+    vi.mocked(getEntrepriseRepresentants).mockResolvedValue([fakeRep])
+
+    const result = await pappersNafSource.discover({
+      naf_codes: ['86.21Z', '86.22Z'],
+    })
+    expect(result.length).toBe(1)
+  })
+
+  it('returns empty when no naf_code or naf_codes provided', async () => {
+    const result = await pappersNafSource.discover({ departement: '69' })
+    expect(result).toEqual([])
+    expect(vi.mocked(searchEntreprises)).not.toHaveBeenCalled()
+  })
 })
