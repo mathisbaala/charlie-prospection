@@ -17,11 +17,11 @@ import {
   mapLocationsToDepartements,
   expandWithAdjacent,
 } from './naf-mapper'
-import type { ParsedIcpCriteria, StrictFilters } from '@/lib/types'
+import type { ParsedIcpCriteria, StrictFilters, ProspectSource } from '@/lib/types'
 
 export interface RawProspect {
   uid: string
-  source: 'pappers' | 'annuaire_entreprises' | 'bodacc_cessions' | 'rpps'
+  source: ProspectSource
   source_type: 'personne_morale' | 'personne_physique'
   entreprise_nom: string
   siren: string
@@ -292,7 +292,7 @@ function fromPappers(ae: PappersEntreprise, rep: PappersRepresentant): RawProspe
 export function rawProspectFromPappers(
   ae: PappersEntreprise,
   rep: PappersRepresentant,
-  sourceOverride: RawProspect['source'] = 'pappers',
+  sourceOverride: ProspectSource = 'pappers',
 ): RawProspect {
   const base = fromPappers(ae, rep)
   return sourceOverride === 'pappers' ? base : { ...base, source: sourceOverride }

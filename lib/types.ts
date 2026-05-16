@@ -5,6 +5,7 @@ import type { InfogreffeLink } from '@/lib/data-sources/infogreffe'
 
 export type { PappersPremiumData, LiberalDirectoryUrls, DvfPersoCandidate, InfogreffeLink }
 export type Plan = 'starter' | 'pro'
+export type ProspectSource = 'pappers' | 'annuaire_entreprises' | 'bodacc_cessions' | 'rpps'
 export type OrgRole = 'owner' | 'member'
 export type CrmStage = 'new' | 'to_contact' | 'contacted' | 'meeting' | 'client' | 'lost'
 export type SignalType =
@@ -483,7 +484,7 @@ export interface SearchCandidate {
   uid: string
   raw: {
     uid: string
-    source: 'pappers' | 'annuaire_entreprises' | 'bodacc_cessions' | 'rpps'
+    source: ProspectSource
     source_type: 'personne_morale' | 'personne_physique'
     entreprise_nom: string
     siren: string
