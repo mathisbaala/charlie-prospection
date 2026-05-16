@@ -1,4 +1,5 @@
 import { getBodaccBySiren, classifyBodaccEvent } from '@/lib/data-sources/bodacc'
+import { fetchMutationsBySiren, inferHoldings } from '@/lib/data-sources/cerema'
 import { getDvfByAddress, getDvfByCommune } from '@/lib/data-sources/dvf'
 import {
   getPappersEnrichment,
@@ -12,9 +13,12 @@ import { computeFinanceDerivatives } from '@/lib/enrichment/finance-derivatives'
 import { analyzePersonalPortfolio } from '@/lib/enrichment/personal-portfolio'
 import type {
   BodaccEvent,
+  CeremaHolding,
   ContexteMarcheImmoLocal,
   DvfTransaction,
   FinanceYear,
+  PatrimoineImmo,
+  PersonalPortfolio,
   PotentielRppsNiveau,
   ProspectEnrichmentData,
   RppsData,
@@ -120,7 +124,59 @@ export function computePotentielRpps(rpps: RppsData | undefined): PotentielRppsN
   return 'moyen'
 }
 
-export async function enrichProspect(raw: RawProspect): Promise<ProspectEnrichmentData> {
+export async function buildPatrimoineImmo(
+  portfolio: PersonalPortfolio,
+  mainSiren: string | undefined
+): Promise<PatrimoineImmo | null> {
+  const token = process.env.CEREMA_API_TOKEN
+  if (!token) return null
+
+  const allSirens: Array<{ siren: string; nom: string }> = []
+  if (mainSiren) {
+    const principale = portfolio.entites.find(e => e.category === 'principale')
+    allSirens.push({ siren: mainSiren, nom: principale?.nom_entreprise ?? 'Société principale' })
+  }
+  for (const entite of portfolio.entites) {
+    if (entite.category !== 'principale') {
+      allSirens.push({ siren: entite.siren, nom: entite.nom_entreprise })
+    }
+  }
+
+  // Cap at 10 entities for safety
+  const capped = allSirens.slice(0, 10)
+
+  const allHoldings: CeremaHolding[] = []
+
+  // Max 5 concurrent
+  const CHUNK = 5
+  for (let i = 0; i < capped.length; i += CHUNK) {
+    const chunk = capped.slice(i, i + CHUNK)
+    const results = await Promise.all(
+      chunk.map(async ({ siren, nom }) => {
+        try {
+          const mutations = await fetchMutationsBySiren(siren, token)
+          return inferHoldings(mutations, siren, nom)
+        } catch {
+          return []
+        }
+      })
+    )
+    allHoldings.push(...results.flat())
+  }
+
+  if (allHoldings.length === 0) return null
+
+  const sorted = [...allHoldings].sort((a, b) => b.date_achat.localeCompare(a.date_achat))
+
+  return {
+    holdings: sorted,
+    nb_biens_estimes: sorted.filter(h => h.statut === 'detenu').length,
+    derniere_transaction: sorted[0]?.date_achat,
+    valeur_comptable_totale: undefined,
+  }
+}
+
+export async function enrichProspect(raw: RawProspect, opts?: { depth?: boolean }): Promise<ProspectEnrichmentData> {
   const enrichment: ProspectEnrichmentData = {
     dirigeant_nom: raw.dirigeant_nom,
     dirigeant_prenom: raw.dirigeant_prenom,
@@ -408,6 +464,16 @@ export async function enrichProspect(raw: RawProspect): Promise<ProspectEnrichme
       }
     } catch {
       // DVF unavailable, skip
+    }
+  }
+
+  // Depth enrichment — Cerema DV3F (suivi/add only)
+  if (opts?.depth && enrichment.personal_portfolio) {
+    try {
+      const patrimoineImmo = await buildPatrimoineImmo(enrichment.personal_portfolio, raw.siren)
+      if (patrimoineImmo) enrichment.patrimoine_immo = patrimoineImmo
+    } catch (e) {
+      console.error('[enricher] Cerema depth failed:', e)
     }
   }
 
