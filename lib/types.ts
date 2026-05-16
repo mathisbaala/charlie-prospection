@@ -1,6 +1,8 @@
 import type { PappersPremiumData } from '@/lib/data-sources/pappers'
+import type { LiberalDirectoryUrls } from '@/lib/data-sources/professional-directories'
+import type { DvfPersoCandidate } from '@/lib/data-sources/dvf'
 
-export type { PappersPremiumData }
+export type { PappersPremiumData, LiberalDirectoryUrls, DvfPersoCandidate }
 export type Plan = 'starter' | 'pro'
 export type OrgRole = 'owner' | 'member'
 export type CrmStage = 'new' | 'to_contact' | 'contacted' | 'meeting' | 'client' | 'lost'
@@ -257,6 +259,15 @@ export interface ProspectEnrichmentData {
    */
   contexte_marche_immo_local?: ContexteMarcheImmoLocal
 
+  /**
+   * Candidats DVF matching l'adresse du siège — best-effort, JAMAIS utilisé
+   * dans le scoring patrimonial (DVF n'a pas le SIREN du propriétaire, on
+   * matche juste par adresse-siège, donc bruyant). Affiché dans la fiche
+   * avec un niveau de confiance explicite pour que le CGP juge.
+   * Voir lib/data-sources/dvf.ts → getDvfByAddress.
+   */
+  dvf_perso_candidates?: DvfPersoCandidate[]
+
   // Facteurs dérivés pour le scoring
   potentiel_rpps?: PotentielRppsNiveau
 
@@ -280,6 +291,12 @@ export interface ProspectEnrichmentData {
   // flags Premium n'ajoutent que des champs à la réponse).
   // Voir lib/data-sources/pappers.ts → PappersPremiumData.
   pappers_premium?: PappersPremiumData
+
+  // URLs pré-remplies vers les annuaires officiels des professions libérales
+  // non-santé (avocats CNB, notaires, experts-comptables). Pas de scraping —
+  // les sites ont du anti-bot. Même pattern que rpps.doctolib_search_url.
+  // Voir lib/data-sources/professional-directories.ts.
+  liberal_directory_urls?: LiberalDirectoryUrls
 
   // Scores calculés
   valeur_entreprise_estimee?: number

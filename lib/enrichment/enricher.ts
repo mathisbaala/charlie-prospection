@@ -1,11 +1,12 @@
 import { getBodaccBySiren, classifyBodaccEvent } from '@/lib/data-sources/bodacc'
-import { getDvfByCommune } from '@/lib/data-sources/dvf'
+import { getDvfByAddress, getDvfByCommune } from '@/lib/data-sources/dvf'
 import {
   getPappersEnrichment,
   getPersonneEntreprises,
 } from '@/lib/data-sources/pappers'
 import { searchRpps, pickBestRppsMatch } from '@/lib/data-sources/rpps'
 import { buildDoctolibSearchUrl } from '@/lib/data-sources/doctolib'
+import { buildLiberalDirectoryUrls } from '@/lib/data-sources/professional-directories'
 import { computeFinanceDerivatives } from '@/lib/enrichment/finance-derivatives'
 import { analyzePersonalPortfolio } from '@/lib/enrichment/personal-portfolio'
 import type {
@@ -40,6 +41,23 @@ async function resolveCodeCommune(codePostal: string, ville: string): Promise<st
   } catch {
     return ''
   }
+}
+
+/**
+ * Split a one-line address string into `numero` + `voie`. Inputs come from
+ * Pappers / Annuaire-Entreprises and are typically formatted as:
+ *   "12 RUE DE LA REPUBLIQUE"
+ *   "14 BIS AVENUE DES TILLEULS"
+ *   "ZA DU GRAND CHEMIN"      → no numero
+ * Returns empty strings on no parse — caller skips DVF perso lookup.
+ */
+export function splitAddressLine(line: string | undefined): { numero: string; voie: string } {
+  if (!line) return { numero: '', voie: '' }
+  const trimmed = line.trim()
+  // Match leading number with optional bis/ter/B/T suffix, then capture the rest.
+  const match = trimmed.match(/^(\d{1,4}(?:\s*(?:bis|ter|quater|B|T|Q))?)\s+(.+)$/i)
+  if (match) return { numero: match[1].trim(), voie: match[2].trim() }
+  return { numero: '', voie: trimmed }
 }
 
 // NAF codes for health professions — triggers RPPS enrichment
@@ -248,6 +266,26 @@ export async function enrichProspect(raw: RawProspect): Promise<ProspectEnrichme
     }
   }
 
+  // ── Annuaires professions libérales non-santé (avocat/notaire/EC) ───
+  // Pure URL builder — pas d'appel réseau. Si la profession est détectée via
+  // NAF ou qualité, on persiste les URLs pré-remplies vers les annuaires
+  // officiels. Affiché dans la fiche en miroir du pattern doctolib RPPS.
+  if (raw.dirigeant_nom) {
+    const directories = buildLiberalDirectoryUrls({
+      code_naf: raw.code_naf,
+      libelle_naf: raw.libelle_naf,
+      dirigeant_qualite: raw.dirigeant_qualite,
+      nom: raw.dirigeant_nom,
+      prenom: raw.dirigeant_prenom,
+      ville: raw.ville,
+      code_postal: raw.code_postal,
+    })
+    if (directories) {
+      enrichment.liberal_directory_urls = directories
+      enrichment.sources_utilisees?.push(`directory_${directories.detected_profession}`)
+    }
+  }
+
   // ── RPPS (professionnels de santé) ─────────────────────
   if (
     rppsResult.status === 'fulfilled' &&
@@ -308,6 +346,26 @@ export async function enrichProspect(raw: RawProspect): Promise<ProspectEnrichme
           ville: dvfRecords[0]?.nom_commune ?? raw.ville,
         } satisfies ContexteMarcheImmoLocal
         enrichment.sources_utilisees?.push('dvf')
+      }
+
+      // ── DVF perso (candidats par matching adresse) ──────────────────────
+      // Best-effort : DVF n'a pas le SIREN. On liste les mutations à l'adresse
+      // déclarée comme siège de la société principale. À ne jamais utiliser
+      // dans le scoring patrimonial (trop bruyant) — pur signal d'exploration
+      // affiché dans la fiche avec un niveau de confiance explicite.
+      const { numero, voie } = splitAddressLine(raw.adresse)
+      if (voie) {
+        const persoCandidates = await getDvfByAddress({
+          codeCommune: codeCommune.value,
+          adresseVoie: voie,
+          adresseNumero: numero,
+          minConfidence: 'medium', // on coupe le bruit le plus faible par défaut
+          pageSize: 500,
+        })
+        if (persoCandidates.length > 0) {
+          enrichment.dvf_perso_candidates = persoCandidates.slice(0, 20)
+          enrichment.sources_utilisees?.push('dvf_perso')
+        }
       }
     } catch {
       // DVF unavailable, skip

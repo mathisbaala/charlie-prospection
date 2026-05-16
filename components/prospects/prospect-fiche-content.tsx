@@ -421,10 +421,97 @@ export function ProspectFicheContent({ prospect }: Props) {
         </Section>
       )}
 
+      {/* DVF perso — candidats matchant l'adresse du siège (best-effort) */}
+      {ed?.dvf_perso_candidates && ed.dvf_perso_candidates.length > 0 && (
+        <Section
+          icon={<Home size={13} />}
+          label={`Mutations à l'adresse du siège (${ed.dvf_perso_candidates.length})`}
+        >
+          <p
+            style={{
+              fontSize: 11,
+              color: 'var(--color-muted)',
+              fontStyle: 'italic',
+              marginBottom: 8,
+              lineHeight: 1.5,
+            }}
+          >
+            DVF n&apos;identifie pas le propriétaire — ces ventes sont enregistrées à l&apos;adresse
+            déclarée comme siège, sans garantie que le dirigeant en soit le vendeur ou
+            l&apos;acquéreur.
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {ed.dvf_perso_candidates.slice(0, 5).map((c, i) => (
+              <div
+                key={i}
+                style={{
+                  padding: '10px 12px',
+                  background: 'var(--color-bg)',
+                  border: '1px solid var(--color-border)',
+                  borderLeft: `2px solid ${
+                    c.match_confidence === 'high'
+                      ? 'var(--color-accent)'
+                      : c.match_confidence === 'medium'
+                        ? 'var(--color-border)'
+                        : 'var(--color-border)'
+                  }`,
+                }}
+              >
+                <div className="flex items-center justify-between" style={{ gap: 8 }}>
+                  <span
+                    style={{ fontSize: 12, color: 'var(--color-text)', fontWeight: 500 }}
+                  >
+                    {c.type_local}
+                    {c.surface_reelle_bati ? ` · ${c.surface_reelle_bati}m²` : ''}
+                  </span>
+                  <span
+                    className="font-mono"
+                    style={{
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: 'var(--color-accent)',
+                      fontVariantNumeric: 'tabular-nums',
+                    }}
+                  >
+                    {euros(c.valeur_fonciere)}
+                  </span>
+                </div>
+                <p
+                  style={{
+                    fontSize: 11,
+                    color: 'var(--color-muted)',
+                    marginTop: 3,
+                    lineHeight: 1.4,
+                  }}
+                >
+                  {c.adresse_complete} · {new Date(c.date_mutation).toLocaleDateString('fr-FR')}
+                </p>
+                <p
+                  style={{
+                    fontSize: 10,
+                    color:
+                      c.match_confidence === 'high'
+                        ? 'var(--color-accent)'
+                        : 'var(--color-muted)',
+                    marginTop: 3,
+                    letterSpacing: '0.05em',
+                    textTransform: 'uppercase',
+                    fontWeight: 600,
+                  }}
+                >
+                  Confiance {c.match_confidence} — {c.match_reason}
+                </p>
+              </div>
+            ))}
+          </div>
+        </Section>
+      )}
+
       {/* Liens externes */}
       {(prospect.linkedin_url ||
         ed?.linkedin_search_url ||
-        ed?.rpps?.doctolib_search_url) && (
+        ed?.rpps?.doctolib_search_url ||
+        ed?.liberal_directory_urls) && (
         <Section icon={<ExternalLink size={13} />} label="Liens">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {prospect.linkedin_url ? (
@@ -445,6 +532,27 @@ export function ProspectFicheContent({ prospect }: Props) {
                 href={ed.rpps.doctolib_search_url}
                 label={`Trouver ${personName} sur Doctolib`}
                 variant="primary"
+              />
+            )}
+            {ed?.liberal_directory_urls?.avocat_cnb && (
+              <ExternalLinkRow
+                href={ed.liberal_directory_urls.avocat_cnb}
+                label={`Vérifier ${personName} sur l'annuaire CNB (avocats)`}
+                variant="muted"
+              />
+            )}
+            {ed?.liberal_directory_urls?.notaires && (
+              <ExternalLinkRow
+                href={ed.liberal_directory_urls.notaires}
+                label={`Vérifier ${personName} sur notaires.fr`}
+                variant="muted"
+              />
+            )}
+            {ed?.liberal_directory_urls?.experts_comptables && (
+              <ExternalLinkRow
+                href={ed.liberal_directory_urls.experts_comptables}
+                label={`Vérifier ${personName} sur l'annuaire des experts-comptables`}
+                variant="muted"
               />
             )}
           </div>
