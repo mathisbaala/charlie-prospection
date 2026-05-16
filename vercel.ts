@@ -46,6 +46,7 @@ export const config: VercelConfig = {
     { path: '/api/cron/match-icps', schedule: '30 6 * * *' },
     // refresh-enrichment cron : PAUSED — voir doc en haut.
     { path: '/api/cron/refresh-rpps', schedule: '0 4 1 * *' },  // 1st of each month at 04:00 UTC
+    { path: '/api/cron/refresh-persons-cache', schedule: '0 3 * * 1' },  // Mondays at 03:00 UTC
   ],
 }
 

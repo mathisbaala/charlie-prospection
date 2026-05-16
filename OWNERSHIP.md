@@ -93,6 +93,7 @@ tout sur eux, et détecte en continu les moments d'opportunité.
 - `prospection_signals_inbox` — firehose global (no RLS)
 - `prospection_signals` — signaux per-prospect (Mathis écrit, Associé peut lire)
 - `prospection_api_quota` — quota daily protection
+- `prospection_persons_cache` — cache global cross-org, service role uniquement (lecture + écriture depuis `/api/recherche/run` et le cron `refresh-persons-cache`)
 - **`prospection_prospects`** — écriture lors de l'ajout au suivi
   (insert via /api/suivi/add), Mathis met à jour `enrichment_data`,
   `patrimony_score`, `icp_score`, `last_signal_at`. Le champ
