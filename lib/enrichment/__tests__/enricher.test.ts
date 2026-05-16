@@ -85,8 +85,14 @@ describe('enrichProspect — Promise.allSettled resilience', () => {
     expect(result.finances).toBeUndefined()
     expect(result.rpps).toBeUndefined()
     expect(result.contexte_marche_immo_local).toBeUndefined()
-    // Sources list contains only the seed source
-    expect(result.sources_utilisees).toEqual(['pappers'])
+    // Sources list: seed + Infogreffe fallback (l'absence de Pappers active le flag)
+    expect(result.sources_utilisees).toEqual(['pappers', 'infogreffe_fallback'])
+    // Infogreffe deep-link toujours produit dès qu'on a un SIREN valide,
+    // marqué is_fallback=true puisque Pappers est tombé.
+    expect(result.infogreffe?.url).toBe(
+      'https://www.infogreffe.fr/societes/entreprise-societe/123456789',
+    )
+    expect(result.infogreffe?.is_fallback).toBe(true)
   })
 
   it('returns coherent partial enrichment when Pappers OK but BODACC fails', async () => {

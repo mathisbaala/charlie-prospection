@@ -7,6 +7,7 @@ import {
 import { searchRpps, pickBestRppsMatch } from '@/lib/data-sources/rpps'
 import { buildDoctolibSearchUrl } from '@/lib/data-sources/doctolib'
 import { buildLiberalDirectoryUrls } from '@/lib/data-sources/professional-directories'
+import { buildInfogreffeUrl } from '@/lib/data-sources/infogreffe'
 import { computeFinanceDerivatives } from '@/lib/enrichment/finance-derivatives'
 import { analyzePersonalPortfolio } from '@/lib/enrichment/personal-portfolio'
 import type {
@@ -240,6 +241,28 @@ export async function enrichProspect(raw: RawProspect): Promise<ProspectEnrichme
     if (p.premium) {
       enrichment.pappers_premium = p.premium
       enrichment.sources_utilisees?.push('pappers_premium')
+    }
+  }
+
+  // ── Infogreffe (source officielle, fallback Pappers) ───
+  // Toujours produit dès qu'on a un SIREN valide. Le flag `is_fallback`
+  // passe à true quand Pappers n'a renvoyé aucune donnée finance/gouvernance
+  // — auquel cas l'UI surface Infogreffe en CTA principal au lieu de lien
+  // secondaire. Détection : pas de payload Pappers OU payload sans finances
+  // ET sans procédure collective info (= /entreprise vide).
+  if (raw.siren) {
+    const pappersDelivered =
+      pappersResult.status === 'fulfilled' &&
+      pappersResult.value !== null &&
+      ((pappersResult.value.finances?.length ?? 0) > 0 ||
+        pappersResult.value.capital !== undefined ||
+        pappersResult.value.date_immatriculation_rcs !== undefined)
+    const link = buildInfogreffeUrl(raw.siren, { is_fallback: !pappersDelivered })
+    if (link) {
+      enrichment.infogreffe = link
+      if (link.is_fallback) {
+        enrichment.sources_utilisees?.push('infogreffe_fallback')
+      }
     }
   }
 

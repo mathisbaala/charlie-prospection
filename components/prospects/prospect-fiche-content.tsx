@@ -511,7 +511,8 @@ export function ProspectFicheContent({ prospect }: Props) {
       {(prospect.linkedin_url ||
         ed?.linkedin_search_url ||
         ed?.rpps?.doctolib_search_url ||
-        ed?.liberal_directory_urls) && (
+        ed?.liberal_directory_urls ||
+        ed?.infogreffe) && (
         <Section icon={<ExternalLink size={13} />} label="Liens">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {prospect.linkedin_url ? (
@@ -553,6 +554,17 @@ export function ProspectFicheContent({ prospect }: Props) {
                 href={ed.liberal_directory_urls.experts_comptables}
                 label={`Vérifier ${personName} sur l'annuaire des experts-comptables`}
                 variant="muted"
+              />
+            )}
+            {ed?.infogreffe && (
+              <ExternalLinkRow
+                href={ed.infogreffe.url}
+                label={
+                  ed.infogreffe.is_fallback
+                    ? `Vérifier la fiche société sur Infogreffe (Pappers indisponible)`
+                    : `Consulter la fiche officielle sur Infogreffe`
+                }
+                variant={ed.infogreffe.is_fallback ? 'primary' : 'muted'}
               />
             )}
           </div>

@@ -1,8 +1,9 @@
 import type { PappersPremiumData } from '@/lib/data-sources/pappers'
 import type { LiberalDirectoryUrls } from '@/lib/data-sources/professional-directories'
 import type { DvfPersoCandidate } from '@/lib/data-sources/dvf'
+import type { InfogreffeLink } from '@/lib/data-sources/infogreffe'
 
-export type { PappersPremiumData, LiberalDirectoryUrls, DvfPersoCandidate }
+export type { PappersPremiumData, LiberalDirectoryUrls, DvfPersoCandidate, InfogreffeLink }
 export type Plan = 'starter' | 'pro'
 export type OrgRole = 'owner' | 'member'
 export type CrmStage = 'new' | 'to_contact' | 'contacted' | 'meeting' | 'client' | 'lost'
@@ -297,6 +298,12 @@ export interface ProspectEnrichmentData {
   // les sites ont du anti-bot. Même pattern que rpps.doctolib_search_url.
   // Voir lib/data-sources/professional-directories.ts.
   liberal_directory_urls?: LiberalDirectoryUrls
+
+  // Deep-link Infogreffe (source officielle des greffes). Populé dès qu'on
+  // a un SIREN valide. `is_fallback=true` quand Pappers n'a pas répondu —
+  // l'UI surface alors ce lien en CTA principal de vérification.
+  // Voir lib/data-sources/infogreffe.ts.
+  infogreffe?: InfogreffeLink
 
   // Scores calculés
   valeur_entreprise_estimee?: number
