@@ -96,28 +96,50 @@ export async function POST(request: Request) {
   const cacheHitsStale = cacheHits.filter((h) => h.needsEnrichment && !h.isDropped)
   const cacheGap = limit - cacheHitsFresh.length
 
-  // ── 2. Appel externe uniquement pour le gap ────────────────────────────────
+  // ── 2. Découverte externe — toujours, même si le cache est plein ───────────
+  // La base interne doit grossir à chaque recherche. On cherche toujours à
+  // l'extérieur pour trouver de nouveaux prospects ; ceux qu'on ne peut pas
+  // enrichir dans ce cycle (au-delà du gap) sont stockés en 'raw' et seront
+  // enrichis à la prochaine recherche qui les croise en cache.
   const cachedUids = new Set(cacheHits.map((h) => h.uid))
   let externalRaw: RawProspect[] = []
 
-  if (cacheGap > 0) {
-    const [rawProspects, discoveryRaw] = await Promise.all([
-      searchProspects(criteria, { limit: cacheGap, strictFilters }),
-      runDiscovery({ ...discoveryParams, limit: cacheGap }),
-    ])
+  const [rawProspects, discoveryRaw] = await Promise.all([
+    searchProspects(criteria, { limit, strictFilters }),
+    runDiscovery({ ...discoveryParams, limit }),
+  ])
 
-    const seenUids = new Set<string>(cachedUids)
-    for (const r of [...discoveryRaw, ...rawProspects]) {
-      if (!seenUids.has(r.uid)) {
-        seenUids.add(r.uid)
-        externalRaw.push(r)
-      }
+  const seenUids = new Set<string>(cachedUids)
+  for (const r of [...discoveryRaw, ...rawProspects]) {
+    if (!seenUids.has(r.uid)) {
+      seenUids.add(r.uid)
+      externalRaw.push(r)
     }
+  }
+
+  // Partage : on enrichit jusqu'au gap (pour remplir la réponse), le reste
+  // entre en cache sans enrichissement immédiat.
+  const gapToFill = Math.max(cacheGap, 0)
+  const externalForResponse = externalRaw.slice(0, gapToFill)
+  const externalForCacheRaw = externalRaw.slice(gapToFill)
+
+  // Stocker immédiatement les découvertes hors-gap en raw (fire-and-forget).
+  // Elles seront enrichies à la prochaine recherche où elles apparaissent comme stale.
+  if (externalForCacheRaw.length > 0) {
+    storePersonsToCache(
+      serviceSupabase,
+      externalForCacheRaw.map((raw) => ({
+        raw,
+        enrichment: null,
+        patrimonyScore: null,
+        raisonPrincipale: null,
+      })),
+    ).catch((err) => console.error('[recherche/run] cache store raw overflow error:', err))
   }
 
   const toEnrich: RawProspect[] = [
     ...cacheHitsStale.map((h) => h.raw),
-    ...externalRaw,
+    ...externalForResponse,
   ]
 
   // Fast path: cache has enough fresh results, no enrichment needed
