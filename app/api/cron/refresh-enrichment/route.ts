@@ -3,6 +3,10 @@ import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { enrichProspect } from '@/lib/enrichment/enricher'
 import { scorePatrimony } from '@/lib/enrichment/patrimony-scorer'
 import { persistPremiumSignals } from '@/lib/enrichment/persist-premium-signals'
+import { getPappersEnrichment, getPersonneEntreprises } from '@/lib/data-sources/pappers'
+import { analyzePersonalPortfolio } from '@/lib/enrichment/personal-portfolio'
+import { storePersonsToCache } from '@/lib/persons-cache/store'
+import { canonicalPersonKey } from '@/lib/prospect-search/engine'
 import type { RawProspect } from '@/lib/prospect-search/engine'
 import type { ProspectEnrichmentData } from '@/lib/types'
 
@@ -57,7 +61,7 @@ function rebuildRaw(p: ProspectRow): RawProspect | null {
   if (!siren || !prenom || !nom) return null
 
   return {
-    uid: `${prenom}|${nom}|${siren}`,
+    uid: canonicalPersonKey(prenom, nom, siren),
     source: (ld.source as 'pappers' | 'annuaire_entreprises') ?? 'pappers',
     source_type:
       (ld.source_type as 'personne_morale' | 'personne_physique') ?? 'personne_morale',
@@ -125,6 +129,45 @@ async function runRefresh(): Promise<{
     }
     try {
       const fresh = await enrichProspect(raw)
+
+      // Upgrade vers enrichissement profond — Premium + portfolio.
+      // enrichProspect() est standard (1 token) ; le refresh remonte les données
+      // profondes pour que les prospects en suivi conservent leur fiche complète.
+      if (raw.siren && raw.dirigeant_nom) {
+        try {
+          const [premiumResult, portfolioResult] = await Promise.allSettled([
+            getPappersEnrichment(raw.siren, { premium: true }),
+            raw.dirigeant_prenom
+              ? getPersonneEntreprises(raw.dirigeant_prenom, raw.dirigeant_nom)
+              : Promise.resolve(null),
+          ])
+
+          if (premiumResult.status === 'fulfilled' && premiumResult.value?.premium) {
+            fresh.pappers_premium = premiumResult.value.premium
+            fresh.sources_utilisees = [
+              ...(fresh.sources_utilisees ?? []),
+              'pappers_premium',
+            ]
+          }
+
+          if (portfolioResult.status === 'fulfilled' && portfolioResult.value) {
+            const portfolio = analyzePersonalPortfolio(
+              portfolioResult.value.entreprises,
+              raw.siren,
+            )
+            if (portfolio.total_entites > 0) {
+              fresh.personal_portfolio = portfolio
+              fresh.sources_utilisees = [
+                ...(fresh.sources_utilisees ?? []),
+                'pappers_dirigeant',
+              ]
+            }
+          }
+        } catch (e) {
+          console.error('[refresh-enrichment] upgrade enrichissement failed:', e)
+        }
+      }
+
       const scoring = await scorePatrimony(fresh)
       fresh.valeur_entreprise_estimee = scoring.valeur_entreprise_estimee ?? undefined
       fresh.revenus_implicites_estimes = scoring.revenus_implicites_estimes ?? undefined
@@ -150,6 +193,15 @@ async function runRefresh(): Promise<{
       if (fresh.pappers_premium) {
         await persistPremiumSignals(supabase, p.id, p.org_id, fresh.pappers_premium)
       }
+
+      // Fire-and-forget : refresh → cache global (supabase est service role ici).
+      storePersonsToCache(supabase, [{
+        raw,
+        enrichment: fresh,
+        patrimonyScore: scoring.score,
+        raisonPrincipale: scoring.raison_principale ?? null,
+      }]).catch((err) => console.error('[refresh-enrichment] cache store error:', err))
+
       refreshed += 1
     } catch {
       failed += 1

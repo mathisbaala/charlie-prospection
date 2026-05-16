@@ -18,6 +18,12 @@ describe('buildCacheFilters', () => {
     const f = buildCacheFilters(['86.21Z'], [])
     expect(f.departements).toBeNull()
   })
+
+  it('les deux null quand tableaux vides', () => {
+    const f = buildCacheFilters([], [])
+    expect(f.nafCodes).toBeNull()
+    expect(f.departements).toBeNull()
+  })
 })
 
 describe('cacheRowToPartialCandidate', () => {
@@ -54,5 +60,20 @@ describe('cacheRowToPartialCandidate', () => {
     }
     const hit = cacheRowToPartialCandidate(staleRow as any)
     expect(hit.needsEnrichment).toBe(true)
+    expect(hit.isDropped).toBe(false)
+  })
+
+  it('dropped : isDropped=true, needsEnrichment=false', () => {
+    const droppedRow = {
+      ...row,
+      enrichment_level: 'dropped',
+      enrichment_data: null,
+      patrimony_score: null,
+      last_enriched_at: new Date().toISOString(),
+    }
+    const hit = cacheRowToPartialCandidate(droppedRow as any)
+    expect(hit.isDropped).toBe(true)
+    expect(hit.needsEnrichment).toBe(false)
+    expect(hit.patrimony_score).toBe(0)
   })
 })

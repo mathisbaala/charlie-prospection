@@ -8,8 +8,28 @@ import type { DiscoverySource, DiscoveryParams } from './types'
 import type { RawProspect } from '@/lib/prospect-search/engine'
 import type { RppsData } from '@/lib/types'
 
+// RPPS — Répertoire Partagé des Professionnels de Santé (data.gouv.fr)
+// Open data, ~900k entrées. Segment patrimonial prioritaire pour un CGP :
+//
+//   ★★★★★ Médecins libéraux (revenus 150k+ €, souvent SELARL + SCI cabinet)
+//   ★★★★★ Chirurgiens-dentistes libéraux (souvent propriétaires cabinet)
+//   ★★★★★ Pharmaciens titulaires d'officine (SAS/SELARL + fonds de commerce)
+//   ★★★   Masseurs-kinésithérapeutes libéraux
+//   ★★    Sages-femmes libérales
+//
+// Mode de fonctionnement :
+//   1. Requête Supabase (cache RPPS mis à jour mensuellement)
+//   2. Matching nom+prénom sur Pappers pour trouver la structure juridique
+//   3. Score de matching : nom(50) + prénom(20) + ville/dept(10-20) ≥ 70
+//
+// Mode national (sans département) : uniquement les 3 professions les plus
+// riches (médecins, dentistes, pharmaciens) pour rester précis.
+
 const DEFAULT_LIMIT = 20
 const MATCH_THRESHOLD = 70
+
+// Professions haute valeur patrimoniale — utilisées pour l'échantillonnage national
+const HIGH_VALUE_PROFESSIONS = ['Médecin', 'Chirurgien-Dentiste', 'Pharmacien']
 
 interface RppsRow {
   rpps_id: string
@@ -79,7 +99,6 @@ export function computeRppsMatchScore(
   }
 
   // Strong signal: practitioner's surname appears directly in the company name
-  // e.g. "CABINET DR DUPONT" when rpps.nom = "DUPONT"
   const rppsNomNorm = norm(rpps.nom)
   if (rppsNomNorm.length >= 3 && nomE.includes(rppsNomNorm)) {
     score += 15
@@ -101,9 +120,13 @@ function toRppsData(row: RppsRow): RppsData {
 
 async function matchToProspect(
   row: RppsRow,
-  dept: string,
+  requestedDept?: string,
 ): Promise<(RawProspect & { _rppsData: RppsData }) | null> {
   const query = `${row.prenom ?? ''} ${row.nom}`.trim()
+  // En mode national : on dérive le département depuis le code postal RPPS
+  // pour garder la précision de recherche Pappers (évite les homonymes inter-dept).
+  const dept = requestedDept ?? row.code_postal?.slice(0, 2)
+
   const { resultats } = await searchEntreprises({ q: query, departement: dept, par_page: 5 })
 
   for (const ae of resultats) {
@@ -113,7 +136,7 @@ async function matchToProspect(
 
     const rep = physicals[0]
     const score = computeRppsMatchScore(
-      { nom: row.nom, prenom: row.prenom ?? '', ville: row.ville, dept },
+      { nom: row.nom, prenom: row.prenom ?? '', ville: row.ville, dept: dept ?? '' },
       {
         nom: rep.nom,
         prenom_usuel: rep.prenom_usuel,
@@ -137,7 +160,8 @@ export const rppsSource: DiscoverySource = {
 
   async discover(params: DiscoveryParams): Promise<RawProspect[]> {
     const dept = params.departement
-    if (!dept) return []
+    // Mode national requis : profession doit être connue pour rester précis
+    if (!dept && !params.profession) return []
 
     const limit = params.limit ?? DEFAULT_LIMIT
     const supabase = await createClient()
@@ -151,12 +175,21 @@ export const rppsSource: DiscoverySource = {
     }
     const professionFilter = params.profession ? (PROFESSION_LABEL[params.profession] ?? null) : null
 
-    const { data: rows, error } = await supabase
+    // Requête Supabase : filtre géographique quand dept connu, sinon professions HV
+    const baseQuery = supabase
       .from('prospection_rpps_cache')
       .select('rpps_id, nom, prenom, profession, specialite, mode_exercice, ville, code_postal')
       .eq('mode_exercice', 'L')
-      .ilike('code_postal', `${dept}%`)
-      .limit(limit * 3)
+
+    const scopedQuery = dept
+      ? baseQuery.ilike('code_postal', `${dept}%`)
+      : baseQuery.in('profession', HIGH_VALUE_PROFESSIONS)
+
+    const finalQuery = professionFilter
+      ? scopedQuery.ilike('profession', `%${professionFilter}%`)
+      : scopedQuery
+
+    const { data: rows, error } = await finalQuery.limit(limit * 3)
 
     if (error || !rows?.length) return []
 

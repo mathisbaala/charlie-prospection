@@ -89,8 +89,10 @@ export async function POST(request: Request) {
     limit
   )
 
-  const cacheHitsFresh = cacheHits.filter((h) => !h.needsEnrichment)
-  const cacheHitsStale = cacheHits.filter((h) => h.needsEnrichment)
+  // Les dropped sont dans cacheHits (pour blocage re-fetch via cachedUids),
+  // mais exclus des résultats frais et des stale à re-enrichir.
+  const cacheHitsFresh = cacheHits.filter((h) => !h.needsEnrichment && !h.isDropped)
+  const cacheHitsStale = cacheHits.filter((h) => h.needsEnrichment && !h.isDropped)
   const cacheGap = limit - cacheHitsFresh.length
 
   // ── 2. Appel externe uniquement pour le gap ────────────────────────────────
@@ -206,6 +208,32 @@ export async function POST(request: Request) {
   storePersonsToCache(serviceSupabase, toStore).catch((err) =>
     console.error('[recherche/run] cache store error:', err)
   )
+
+  // Stocker aussi les prospects droppés (qualité insuffisante) : leur uid en cache
+  // bloque le re-fetch externe à la prochaine recherche → évite de repayer
+  // l'enrichissement pour les mêmes profils rejetés.
+  const toStoreDrop = enrichResults
+    .filter(
+      (
+        r,
+      ): r is PromiseFulfilledResult<{
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        raw: RawProspect; enrichmentData: any; quality: any; dropped: true
+      }> => r.status === 'fulfilled' && r.value.dropped,
+    )
+    .map((r) => ({
+      raw: r.value.raw,
+      enrichment: null,
+      patrimonyScore: null,
+      raisonPrincipale: null,
+      enrichmentLevel: 'dropped' as const,
+    }))
+
+  if (toStoreDrop.length > 0) {
+    storePersonsToCache(serviceSupabase, toStoreDrop).catch((err) =>
+      console.error('[recherche/run] cache store dropped error:', err)
+    )
+  }
 
   const candidates: SearchCandidate[] = []
   const droppedAssessments: QualityAssessment[] = []

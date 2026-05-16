@@ -2,6 +2,8 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { RawProspect } from '@/lib/prospect-search/engine'
 import type { ProspectEnrichmentData } from '@/lib/types'
 
+export type EnrichmentLevel = 'raw' | 'standard' | 'dropped'
+
 interface CacheRow {
   canonical_key: string
   siren: string | null
@@ -16,7 +18,7 @@ interface CacheRow {
   raw_data: RawProspect
   enrichment_data: (ProspectEnrichmentData & { raison_principale?: string }) | null
   patrimony_score: number | null
-  enrichment_level: 'raw' | 'standard'
+  enrichment_level: EnrichmentLevel
   last_enriched_at: string | null
 }
 
@@ -25,7 +27,9 @@ export function buildCacheRow(
   enrichment: ProspectEnrichmentData | null,
   patrimonyScore: number | null,
   raisonPrincipale: string | null,
+  enrichmentLevel?: EnrichmentLevel,
 ): CacheRow {
+  const level: EnrichmentLevel = enrichmentLevel ?? (enrichment ? 'standard' : 'raw')
   return {
     canonical_key: raw.uid,
     siren: raw.siren || null,
@@ -42,8 +46,8 @@ export function buildCacheRow(
       ? { ...enrichment, raison_principale: raisonPrincipale ?? undefined }
       : null,
     patrimony_score: patrimonyScore,
-    enrichment_level: enrichment ? 'standard' : 'raw',
-    last_enriched_at: enrichment ? new Date().toISOString() : null,
+    enrichment_level: level,
+    last_enriched_at: level !== 'raw' ? new Date().toISOString() : null,
   }
 }
 
@@ -54,12 +58,13 @@ export async function storePersonsToCache(
     enrichment: ProspectEnrichmentData | null
     patrimonyScore: number | null
     raisonPrincipale: string | null
+    enrichmentLevel?: EnrichmentLevel
   }>,
 ): Promise<void> {
   if (persons.length === 0) return
 
-  const rows = persons.map(({ raw, enrichment, patrimonyScore, raisonPrincipale }) =>
-    buildCacheRow(raw, enrichment, patrimonyScore, raisonPrincipale),
+  const rows = persons.map(({ raw, enrichment, patrimonyScore, raisonPrincipale, enrichmentLevel }) =>
+    buildCacheRow(raw, enrichment, patrimonyScore, raisonPrincipale, enrichmentLevel),
   )
 
   const { error } = await supabase

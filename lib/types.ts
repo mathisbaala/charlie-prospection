@@ -5,7 +5,14 @@ import type { InfogreffeLink } from '@/lib/data-sources/infogreffe'
 
 export type { PappersPremiumData, LiberalDirectoryUrls, DvfPersoCandidate, InfogreffeLink }
 export type Plan = 'starter' | 'pro'
-export type ProspectSource = 'pappers' | 'annuaire_entreprises' | 'bodacc_cessions' | 'rpps'
+export type ProspectSource =
+  | 'pappers'
+  | 'annuaire_entreprises'
+  | 'bodacc_cessions'
+  | 'rpps'
+  | 'inpi_rne'
+  | 'rne_elus'
+  | 'sirene_creations'
 export type OrgRole = 'owner' | 'member'
 export type CrmStage = 'new' | 'to_contact' | 'contacted' | 'meeting' | 'client' | 'lost'
 export type SignalType =
@@ -331,6 +338,61 @@ export interface ProspectEnrichmentData {
   // Voir lib/data-sources/infogreffe.ts.
   infogreffe?: InfogreffeLink
 
+  // INPI RNE — actes complets par SIREN (statuts, PV AGO, cessions de parts,
+  // modifications de capital). Source primaire INPI : certains actes ne
+  // remontent pas chez Pappers. Populé uniquement à la mise en suivi.
+  // Voir lib/data-sources/inpi-rne-company.ts.
+  actes_rne?: ActeRne[]
+
+  // Transparence Santé — avantages reçus par les professionnels de santé
+  // (repas, congrès, honoraires expertise). Signal KOL = revenus complémentaires.
+  // Gratuit, open data. Populé uniquement pour les professions de santé.
+  // Voir lib/data-sources/transparence-sante.ts.
+  avantages_sante?: AvantageTransparence[]
+
+  // Presse économique — mentions dans Les Echos, BFM, Capital, Challenges, etc.
+  // Signal : levée de fonds, cession, nomination → timing appointment.
+  // Nécessite NEWS_API_KEY. Populé uniquement à la mise en suivi.
+  // Voir lib/data-sources/news.ts.
+  mentions_presse?: MentionPresse[]
+
+  // LinkedIn profile enrichi via Proxycurl (parcours, ancienneté, diplômes).
+  // Nécessite PROXYCURL_API_KEY + URL de profil réelle (linkedin.com/in/...).
+  // Voir lib/data-sources/proxycurl.ts.
+  linkedin_profile?: LinkedinProfileEnriched
+
+  // Marques et brevets EUIPO (EU) + INPI (FR si INPI_API_TOKEN).
+  // Signal : IP détenue = valeur immatérielle hors bilan.
+  // Voir lib/data-sources/euipo-marques.ts.
+  marques_deposees?: MarqueDeposee[]
+
+  // BALO — dividendes distribués publiés au Journal Officiel.
+  // Signal : société ayant versé 500k€+ de dividendes = liquidités chez le dirigeant.
+  // Nécessite PISTE_CLIENT_ID + PISTE_CLIENT_SECRET. Surtout pertinent pour
+  // sociétés cotées ou ayant +100 actionnaires (PME privées → Pappers Premium).
+  // Voir lib/data-sources/balo.ts.
+  dividendes_balo?: DividendeBalo[]
+
+  // Societe.com — score de crédit et incidents de paiement de l'entreprise.
+  // Signal : risque faible = dirigeant en position de force ; incidents = éviter.
+  // Nécessite SOCIETECOM_API_KEY. Voir lib/data-sources/societecom.ts.
+  credit_entreprise?: CreditEntreprise
+
+  // Crunchbase — levées de fonds (startup/tech uniquement).
+  // Signal : série B/C = exit probable dans 3-5 ans = liquidité future.
+  // Nécessite CRUNCHBASE_API_KEY. Voir lib/data-sources/crunchbase.ts.
+  donnees_startup?: DonneesStartup
+
+  // Cadastre IGN — parcelles à l'adresse du siège (gratuit, sans propriétaire).
+  // Voir lib/data-sources/cadastre.ts.
+  cadastre_parcelles?: ParcelleIgn[]
+
+  // Foncier Innovant — biens immobiliers détenus par le dirigeant (par nom).
+  // Signal : résidences secondaires détectées = patrimoine immobilier constitué.
+  // Nécessite FONCIER_INNOVANT_API_KEY (~200-500€/mois).
+  // Voir lib/data-sources/cadastre.ts.
+  proprietes_foncier?: ProprieteFoncier[]
+
   // Scores calculés
   valeur_entreprise_estimee?: number
   revenus_implicites_estimes?: number
@@ -341,6 +403,117 @@ export interface ProspectEnrichmentData {
   // Métadonnées
   sources_utilisees?: string[]
   enrichi_le?: string
+}
+
+// ── Types des nouvelles sources d'enrichissement profond ─────────────────────
+
+export interface ActeRne {
+  id: string
+  date: string
+  type: string
+  libelle: string
+  documents?: Array<{ url: string; nom: string }>
+}
+
+export interface AvantageTransparence {
+  date: string
+  entreprise: string
+  montant_ttc?: number
+  nature_lien: string
+  objet?: string
+}
+
+export interface MentionPresse {
+  date: string
+  titre: string
+  source: string
+  url: string
+  extrait?: string
+}
+
+export interface LinkedinProfileEnriched {
+  full_name?: string
+  headline?: string
+  summary?: string
+  current_company?: string
+  current_position?: string
+  location?: string
+  education?: Array<{
+    school: string
+    degree?: string
+    field?: string
+    year_end?: number
+  }>
+  experiences?: Array<{
+    company: string
+    title: string
+    duration_years?: number
+  }>
+  connections?: number
+  profile_url: string
+}
+
+export interface MarqueDeposee {
+  numero: string
+  denomination: string
+  statut: string
+  date_depot: string
+  date_expiration?: string
+  classes?: string[]
+  titulaire: string
+  source: 'euipo' | 'inpi'
+}
+
+export interface DividendeBalo {
+  date_publication: string
+  entreprise: string
+  montant_par_action?: number
+  date_mise_en_paiement?: string
+  resume?: string
+}
+
+export interface CreditEntreprise {
+  score_credit?: number
+  risque?: 'faible' | 'moyen' | 'eleve' | 'tres_eleve'
+  incidents_paiement?: number
+  encours_client_estime?: number
+  probabilite_defaillance?: number
+  source: 'societecom'
+}
+
+export interface LeveeFonds {
+  date: string
+  serie: string
+  montant_usd?: number
+  investisseurs: string[]
+  valorisation_post_money?: number
+}
+
+export interface DonneesStartup {
+  levees: LeveeFonds[]
+  total_leve_usd?: number
+  nb_levees?: number
+  derniere_levee_date?: string
+  derniere_levee_serie?: string
+  investisseurs_principaux?: string[]
+}
+
+export interface ParcelleIgn {
+  parcelle_id: string
+  section: string
+  numero: string
+  surface_m2?: number
+  code_commune: string
+  adresse_approximative?: string
+}
+
+export interface ProprieteFoncier {
+  parcelle_id: string
+  adresse?: string
+  surface_m2?: number
+  valeur_venale_estimee?: number
+  date_derniere_transaction?: string
+  type_bien?: string
 }
 
 export interface ProspectSearchResult {

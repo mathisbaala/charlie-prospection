@@ -104,26 +104,55 @@ describe('computeRppsMatchScore', () => {
   })
 })
 
+// Mock Supabase chainable builder — handles ilike, in, eq, limit dynamically
+function makeSupabaseMock(data: unknown, error: unknown = null) {
+  const terminal = { data, error }
+  const chain: Record<string, unknown> = {}
+  for (const m of ['select', 'eq', 'ilike', 'in']) {
+    chain[m] = () => chain
+  }
+  chain.limit = () => Promise.resolve(terminal)
+  return { from: () => chain }
+}
+
 describe('rppsSource', () => {
   it('returns empty array when cache query fails', async () => {
-    const fakeSupabase = {
-      from: vi.fn().mockReturnValue({
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            ilike: vi.fn().mockReturnValue({
-              limit: vi.fn().mockResolvedValue({ data: null, error: new Error('DB error') }),
-            }),
-          }),
-        }),
-      }),
-    }
-    vi.mocked(createClient).mockResolvedValue(fakeSupabase as never)
+    vi.mocked(createClient).mockResolvedValue(
+      makeSupabaseMock(null, new Error('DB error')) as never,
+    )
     const result = await rppsSource.discover({ departement: '69', profession: 'Medecin' })
     expect(result).toEqual([])
   })
 
-  it('returns empty array when no dept provided', async () => {
-    const result = await rppsSource.discover({ profession: 'Medecin' })
+  it('returns empty array when no dept AND no profession', async () => {
+    // Sans aucun paramètre de ciblage, RPPS ne sait pas quoi échantillonner
+    const result = await rppsSource.discover({})
     expect(result).toEqual([])
+  })
+
+  it('queries nationally when profession is provided without dept', async () => {
+    // Mode national : profession fournie → Supabase requête sans filtre code_postal
+    vi.mocked(createClient).mockResolvedValue(
+      makeSupabaseMock([fakeRppsRow]) as never,
+    )
+    vi.mocked(searchEntreprises).mockResolvedValue({ resultats: [], total: 1 })
+    // Pappers ne trouve personne → résultat vide mais pas d'erreur
+    const result = await rppsSource.discover({ profession: 'Medecin' })
+    expect(Array.isArray(result)).toBe(true)
+    expect(result.length).toBe(0) // no Pappers match
+  })
+
+  it('matches national RPPS row using its own code_postal as dept hint', async () => {
+    // fakeRppsRow a code_postal 69003 → on cherche Pappers sur dept 69
+    vi.mocked(createClient).mockResolvedValue(
+      makeSupabaseMock([fakeRppsRow]) as never,
+    )
+    vi.mocked(searchEntreprises).mockResolvedValue({ resultats: [fakeAe], total: 1 })
+    vi.mocked(getEntrepriseRepresentants).mockResolvedValue([fakeRep])
+
+    const result = await rppsSource.discover({ profession: 'Medecin' })
+    expect(result.length).toBe(1)
+    expect(result[0].source).toBe('rpps')
+    expect(result[0].dirigeant_nom).toBe('DURAND')
   })
 })

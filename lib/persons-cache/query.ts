@@ -16,6 +16,9 @@ export interface CacheHit {
   niveau: SearchCandidate['niveau']
   raison_principale: string
   needsEnrichment: boolean
+  /** Prospect qualité-rejeté — présent dans le cache pour éviter le re-fetch,
+   *  mais jamais montré à l'utilisateur. */
+  isDropped: boolean
 }
 
 export function buildCacheFilters(
@@ -39,14 +42,18 @@ export function cacheRowToPartialCandidate(row: {
   const staleThreshold = new Date()
   staleThreshold.setDate(staleThreshold.getDate() - ENRICHMENT_STALE_DAYS)
 
+  const isDropped = row.enrichment_level === 'dropped'
+
   const isStale =
+    !isDropped &&
     row.last_enriched_at !== null &&
     new Date(row.last_enriched_at) < staleThreshold
 
+  // Dropped prospects : ne jamais re-enrichir (la qualité a déjà été évaluée).
+  // Leur présence dans le cache sert uniquement à bloquer le re-fetch externe.
   const needsEnrichment =
-    row.enrichment_level === 'raw' ||
-    row.enrichment_data === null ||
-    isStale
+    !isDropped &&
+    (row.enrichment_level === 'raw' || row.enrichment_data === null || isStale)
 
   const score = row.patrimony_score ?? 0
 
@@ -59,6 +66,7 @@ export function cacheRowToPartialCandidate(row: {
     raison_principale:
       ((row.enrichment_data as Record<string, unknown>)?.raison_principale as string) ?? '',
     needsEnrichment,
+    isDropped,
   }
 }
 
@@ -74,6 +82,10 @@ export async function queryPersonsCache(
   filters: CacheFilters,
   limit: number
 ): Promise<CacheHit[]> {
+  // Sans filtres, retourner des lignes aléatoires serait trompeur
+  // (un plombier lyonnais dans une recherche médecins parisiens).
+  if (!filters.nafCodes && !filters.departements) return []
+
   let query = supabase
     .from('prospection_persons_cache')
     .select('canonical_key, raw_data, enrichment_data, patrimony_score, enrichment_level, last_enriched_at')

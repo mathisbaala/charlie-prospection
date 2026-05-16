@@ -1,16 +1,12 @@
 import { getBodaccBySiren, classifyBodaccEvent } from '@/lib/data-sources/bodacc'
 import { fetchMutationsBySiren, inferHoldings } from '@/lib/data-sources/cerema'
 import { getDvfByAddress, getDvfByCommune } from '@/lib/data-sources/dvf'
-import {
-  getPappersEnrichment,
-  getPersonneEntreprises,
-} from '@/lib/data-sources/pappers'
+import { getPappersEnrichment } from '@/lib/data-sources/pappers'
 import { searchRpps, pickBestRppsMatch } from '@/lib/data-sources/rpps'
 import { buildDoctolibSearchUrl } from '@/lib/data-sources/doctolib'
 import { buildLiberalDirectoryUrls } from '@/lib/data-sources/professional-directories'
 import { buildInfogreffeUrl } from '@/lib/data-sources/infogreffe'
 import { computeFinanceDerivatives } from '@/lib/enrichment/finance-derivatives'
-import { analyzePersonalPortfolio } from '@/lib/enrichment/personal-portfolio'
 import type {
   BodaccEvent,
   CeremaHolding,
@@ -176,7 +172,7 @@ export async function buildPatrimoineImmo(
   }
 }
 
-export async function enrichProspect(raw: RawProspect, opts?: { depth?: boolean }): Promise<ProspectEnrichmentData> {
+export async function enrichProspect(raw: RawProspect): Promise<ProspectEnrichmentData> {
   const enrichment: ProspectEnrichmentData = {
     dirigeant_nom: raw.dirigeant_nom,
     dirigeant_prenom: raw.dirigeant_prenom,
@@ -202,21 +198,14 @@ export async function enrichProspect(raw: RawProspect, opts?: { depth?: boolean 
     ? resolveCodeCommune(raw.code_postal, raw.ville)
     : Promise.resolve('')
 
-  // Call all enrichment sources in parallel. Personal portfolio (SCI /
-  // holdings / autres sociétés du dirigeant) est résolu en parallèle des
-  // autres sources : c'est UN appel Pappers de plus par prospect, mais le
-  // signal patrimonial qu'il révèle (multi-entités patrimoniales) est
-  // central pour un CGP qui démarche des personnes — pas des sociétés.
-  const [bodaccResult, pappersResult, rppsResult, codeCommune, personnePappersResult] =
+  // Sources gratuites + Pappers standard (1 jeton, pas de Premium).
+  // Le portfolio dirigeant (getPersonneEntreprises) et le payload Premium
+  // sont réservés à /suivi/add et au cron refresh — pas à la recherche.
+  const [bodaccResult, pappersResult, rppsResult, codeCommune] =
     await Promise.allSettled([
       raw.siren ? getBodaccBySiren(raw.siren, 10) : Promise.resolve([]),
-      // Activer le payload Premium si l'env var est posée — coût identique
-      // (1 jeton) mais on récupère en plus depots_actes / comptes / publications_bodacc
-      // dans la même réponse. Voir lib/data-sources/pappers.ts → PappersPremiumData.
       raw.siren
-        ? getPappersEnrichment(raw.siren, {
-            premium: process.env.PAPPERS_PREMIUM_ENABLED === '1',
-          })
+        ? getPappersEnrichment(raw.siren, { premium: false })
         : Promise.resolve(null),
       isHealthProfessional(raw.code_naf) && raw.dirigeant_nom
         ? searchRpps({
@@ -227,9 +216,6 @@ export async function enrichProspect(raw: RawProspect, opts?: { depth?: boolean 
           })
         : Promise.resolve([]),
       codeCommunePromise,
-      raw.dirigeant_prenom && raw.dirigeant_nom
-        ? getPersonneEntreprises(raw.dirigeant_prenom, raw.dirigeant_nom)
-        : Promise.resolve(null),
     ])
 
   // ── BODACC ─────────────────────────────────────────────
@@ -289,15 +275,6 @@ export async function enrichProspect(raw: RawProspect, opts?: { depth?: boolean 
     enrichment.numero_tva = p.numero_tva_intracommunautaire
     enrichment.nb_etablissements = p.nb_etablissements
     enrichment.sources_utilisees?.push('pappers_finances')
-    // Persistance du payload Premium (actes juridiques OCR, comptes annuels
-    // complets, publications BODACC enrichies) si l'appel a été fait avec le
-    // flag. On stocke brut pour qu'un futur module signal-mining puisse
-    // reparser sans réappeler Pappers (le payload coûte déjà 1 jeton de toute
-    // façon, autant capitaliser dessus).
-    if (p.premium) {
-      enrichment.pappers_premium = p.premium
-      enrichment.sources_utilisees?.push('pappers_premium')
-    }
   }
 
   // ── Infogreffe (source officielle, fallback Pappers) ───
@@ -334,29 +311,6 @@ export async function enrichProspect(raw: RawProspect, opts?: { depth?: boolean 
         if (link.is_fallback) {
           enrichment.sources_utilisees?.push('infogreffe_fallback')
         }
-      }
-    }
-  }
-
-  // ── Portefeuille patrimonial du dirigeant ──────────────
-  // Détecte les SCI, holdings, autres sociétés rattachées à la personne.
-  // Indicateur direct de patrimoine structuré (vs. un dirigeant unique
-  // qui n'a que son entreprise principale).
-  if (
-    personnePappersResult.status === 'fulfilled' &&
-    personnePappersResult.value &&
-    raw.siren
-  ) {
-    const portfolio = analyzePersonalPortfolio(
-      personnePappersResult.value.entreprises,
-      raw.siren,
-    )
-    if (portfolio.total_entites > 0) {
-      enrichment.personal_portfolio = portfolio
-      // Ne pas dupliquer 'pappers_finances' déjà ajouté — on track sous un
-      // tag distinct pour observabilité.
-      if (!enrichment.sources_utilisees?.includes('pappers_dirigeant')) {
-        enrichment.sources_utilisees?.push('pappers_dirigeant')
       }
     }
   }
@@ -464,16 +418,6 @@ export async function enrichProspect(raw: RawProspect, opts?: { depth?: boolean 
       }
     } catch {
       // DVF unavailable, skip
-    }
-  }
-
-  // Depth enrichment — Cerema DV3F (suivi/add only)
-  if (opts?.depth && enrichment.personal_portfolio) {
-    try {
-      const patrimoineImmo = await buildPatrimoineImmo(enrichment.personal_portfolio, raw.siren)
-      if (patrimoineImmo) enrichment.patrimoine_immo = patrimoineImmo
-    } catch (e) {
-      console.error('[enricher] Cerema depth failed:', e)
     }
   }
 

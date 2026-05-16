@@ -21,7 +21,7 @@ export function parseRppsCsvLine(
   line: string,
   headers: string[],
 ): RppsInsertRow | null {
-  const fields = line.split('|')
+  const fields = line.split(';')
   const get = (colName: string): string => {
     const idx = headers.indexOf(colName)
     return idx >= 0 ? (fields[idx] ?? '').trim() : ''
@@ -30,7 +30,7 @@ export function parseRppsCsvLine(
   const rpps_id = get('Identifiant PP')
   if (!rpps_id) return null
 
-  const mode_exercice = get("Code mode exercice")
+  const mode_exercice = get("Code mode d'exercice")
   if (mode_exercice !== 'L') return null
 
   const profession = get('Libellé profession')

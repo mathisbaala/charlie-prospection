@@ -51,4 +51,13 @@ describe('buildCacheRow', () => {
     expect(row.patrimony_score).toBeNull()
     expect(row.last_enriched_at).toBeNull()
   })
+
+  it('construit une ligne dropped avec level explicite', () => {
+    const row = buildCacheRow(mockRaw, null, null, null, 'dropped')
+    expect(row.enrichment_level).toBe('dropped')
+    expect(row.enrichment_data).toBeNull()
+    expect(row.patrimony_score).toBeNull()
+    // dropped a un last_enriched_at pour éviter le re-check trop tôt
+    expect(row.last_enriched_at).not.toBeNull()
+  })
 })

@@ -1,8 +1,22 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { storePersonsToCache } from '@/lib/persons-cache/store'
 import { persistPremiumSignals } from '@/lib/enrichment/persist-premium-signals'
 import { buildPatrimoineImmo } from '@/lib/enrichment/enricher'
 import { getBodaccBySiren, classifyBodaccEvent } from '@/lib/data-sources/bodacc'
+import { getPappersEnrichment, getPersonneEntreprises } from '@/lib/data-sources/pappers'
+import { analyzePersonalPortfolio } from '@/lib/enrichment/personal-portfolio'
+import { scorePatrimony } from '@/lib/enrichment/patrimony-scorer'
+import { getActesRneBySiren } from '@/lib/data-sources/inpi-rne-company'
+import { getAvantagesSante } from '@/lib/data-sources/transparence-sante'
+import { getMentionsPresse } from '@/lib/data-sources/news'
+import { getLinkedinProfile } from '@/lib/data-sources/proxycurl'
+import { getMarquesDeposees } from '@/lib/data-sources/euipo-marques'
+import { getDividendesBalo } from '@/lib/data-sources/balo'
+import { getCreditEntreprise } from '@/lib/data-sources/societecom'
+import { getDonneesStartup } from '@/lib/data-sources/crunchbase'
+import { getParcellesIgn, getProprietésFoncierInnovant } from '@/lib/data-sources/cadastre'
 import type { BodaccEvent, PappersPremiumData, SearchCandidate } from '@/lib/types'
 
 export const maxDuration = 300
@@ -41,6 +55,11 @@ export async function POST(request: Request) {
     .eq('user_id', user.id)
     .maybeSingle()
   if (!membership) return NextResponse.json({ error: 'No organization' }, { status: 400 })
+
+  const serviceSupabase = createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  )
 
   const body: AddBody = await request.json().catch(() => ({ persona_id: '', candidates: [] }))
   if (!body.persona_id) {
@@ -117,14 +136,80 @@ export async function POST(request: Request) {
       prospectId = inserted.id
     }
 
-    // Backfill 1y de signaux pour TOUTES les sociétés de la personne — principale
-    // ET portfolio (SCI, holdings, autres sociétés du dirigeant). Principe
-    // directeur : un prospect = une personne, ses sociétés sont des leviers
+    // Copie mutable — upgrade enrichit avant le calcul des SIRENs pour que
+    // portfolioSirens inclue les SCIs/holdings du dirigeant.
+    let currentEnrichment = { ...candidate.enrichment_data }
+    const principalSiren = currentEnrichment?.siren
+
+    // Upgrade vers enrichissement profond — Pappers Premium + portfolio dirigeant.
+    // Doit précéder allSirens : sans portfolio, deep BODACC ne couvre que la société principale.
+    if (prospectId && principalSiren && candidate.raw.dirigeant_nom) {
+      try {
+        const [premiumResult, portfolioResult] = await Promise.allSettled([
+          getPappersEnrichment(principalSiren, { premium: true }),
+          candidate.raw.dirigeant_prenom
+            ? getPersonneEntreprises(candidate.raw.dirigeant_prenom, candidate.raw.dirigeant_nom)
+            : Promise.resolve(null),
+        ])
+
+        if (premiumResult.status === 'fulfilled' && premiumResult.value?.premium) {
+          currentEnrichment.pappers_premium = premiumResult.value.premium
+          currentEnrichment.sources_utilisees = [
+            ...(currentEnrichment.sources_utilisees ?? []),
+            'pappers_premium',
+          ]
+        }
+
+        if (portfolioResult.status === 'fulfilled' && portfolioResult.value) {
+          const portfolio = analyzePersonalPortfolio(
+            portfolioResult.value.entreprises,
+            principalSiren,
+          )
+          if (portfolio.total_entites > 0) {
+            currentEnrichment.personal_portfolio = portfolio
+            currentEnrichment.sources_utilisees = [
+              ...(currentEnrichment.sources_utilisees ?? []),
+              'pappers_dirigeant',
+            ]
+          }
+        }
+
+        const upgradeScoring = await scorePatrimony(currentEnrichment)
+        currentEnrichment.valeur_entreprise_estimee =
+          upgradeScoring.valeur_entreprise_estimee ?? undefined
+        currentEnrichment.patrimoine_total_estime =
+          upgradeScoring.patrimoine_total_estime ?? undefined
+        currentEnrichment.score_breakdown = upgradeScoring.breakdown
+
+        await supabase
+          .from('prospection_prospects')
+          .update({
+            enrichment_data: currentEnrichment,
+            patrimony_score: upgradeScoring.score,
+          })
+          .eq('id', prospectId)
+
+        // Fire-and-forget : upgrade Premium+portfolio → cache global.
+        // C'est l'enrichissement le plus riche du système : toutes les orgs
+        // bénéficieront de cette donnée lors de leur prochaine recherche.
+        storePersonsToCache(serviceSupabase, [{
+          raw: candidate.raw,
+          enrichment: currentEnrichment,
+          patrimonyScore: upgradeScoring.score,
+          raisonPrincipale: upgradeScoring.raison_principale ?? null,
+        }]).catch((err) => console.error('[suivi/add] cache store error:', err))
+      } catch (e) {
+        console.error('[suivi/add] upgrade enrichissement failed:', e)
+        // Best-effort — l'enrichissement standard reste valide
+      }
+    }
+
+    // allSirens calculé après upgrade pour inclure les SCIs/holdings du portfolio.
+    // Principe directeur : un prospect = une personne, ses sociétés sont des leviers
     // patrimoniaux. Une cession sur la SCI du dirigeant est un signal sur la
     // personne, pas sur l'entreprise.
-    const principalSiren = candidate.enrichment_data?.siren
     const portfolioSirens =
-      candidate.enrichment_data?.personal_portfolio?.entites
+      currentEnrichment?.personal_portfolio?.entites
         ?.map((e) => e.siren)
         .filter((s): s is string => typeof s === 'string' && s.length >= 9) ?? []
     // Dédup : la principale est aussi dans le portfolio comme 'principale'
@@ -146,10 +231,10 @@ export async function POST(request: Request) {
     }
 
     // Mine signals from the Premium payload (depots_actes + comptes + publications_bodacc)
-    // already persisted on enrichment_data. Idempotent : the unique index
+    // now present in currentEnrichment after the upgrade block. Idempotent : the unique index
     // uq_prospection_signals_prospect_dedup catches duplicates if we re-add
     // a candidate or run this for a row that was already mined.
-    const premium = candidate.enrichment_data?.pappers_premium as PappersPremiumData | undefined
+    const premium = currentEnrichment?.pappers_premium as PappersPremiumData | undefined
     if (premium && prospectId) {
       const { inserted } = await persistPremiumSignals(
         supabase,
@@ -185,14 +270,14 @@ export async function POST(request: Request) {
         }
         if (fetchedEvents.length > 0) {
           // Merge avec ce que l'enricher a déjà mis (10 events max). Dédup par id.
-          const existing = (candidate.enrichment_data?.bodacc_events ?? []) as BodaccEvent[]
+          const existing = (currentEnrichment?.bodacc_events ?? []) as BodaccEvent[]
           const byId = new Map<string, BodaccEvent>()
           for (const e of [...existing, ...fetchedEvents]) byId.set(e.id, e)
           const merged = Array.from(byId.values()).sort((a, b) =>
             b.date.localeCompare(a.date),
           )
           const newEnrichment = {
-            ...candidate.enrichment_data,
+            ...currentEnrichment,
             bodacc_events: merged,
           }
           // Tag observabilité : on track que le deep-fetch a tourné, utile
@@ -218,7 +303,7 @@ export async function POST(request: Request) {
     // Construit le patrimoine immobilier du dirigeant à partir de son
     // portefeuille de sociétés. Toujours après le deep-BODACC pour que
     // l'enrichment_data stockée contienne déjà bodacc_deep.
-    const existingPortfolio = candidate.enrichment_data?.personal_portfolio
+    const existingPortfolio = currentEnrichment?.personal_portfolio
     if (existingPortfolio && prospectId) {
       try {
         const patrimoineImmo = await buildPatrimoineImmo(existingPortfolio, principalSiren)
@@ -230,7 +315,7 @@ export async function POST(request: Request) {
             .select('enrichment_data')
             .eq('id', prospectId)
             .single()
-          const freshEnrichment = freshRow?.enrichment_data ?? candidate.enrichment_data
+          const freshEnrichment = freshRow?.enrichment_data ?? currentEnrichment
           const updatedEnrichment = { ...freshEnrichment, patrimoine_immo: patrimoineImmo }
           await supabase
             .from('prospection_prospects')
@@ -239,6 +324,125 @@ export async function POST(request: Request) {
         }
       } catch (e) {
         console.error('[suivi/add] Cerema depth failed:', e)
+      }
+    }
+
+    // ── Deep enrichment block — toutes les sources supplémentaires ───────────
+    // Toutes en best-effort parallèle. Un échec sur une source ne bloque pas
+    // les autres. Le bloc dégrade gracieusement si la clé API est absente.
+    // Re-fetch depuis la DB pour prendre en compte BODACC deep + Cerema.
+    if (prospectId && candidate.raw.dirigeant_nom) {
+      try {
+        const isHealth =
+          candidate.raw.code_naf?.startsWith('86') ||
+          candidate.raw.code_naf?.startsWith('75.00')
+
+        const marquesQuery = candidate.raw.entreprise_nom || candidate.raw.dirigeant_nom
+        const nom = candidate.raw.dirigeant_nom
+        const prenom = candidate.raw.dirigeant_prenom ?? ''
+        const entrepriseNom = candidate.raw.entreprise_nom
+
+        const [
+          actesRne,
+          avantagesSante,
+          mentionsPresse,
+          linkedinProfile,
+          marques,
+          dividendesBalo,
+          creditEntreprise,
+          donneesStartup,
+          parcellesIgn,
+          proprietesFoncier,
+        ] = await Promise.allSettled([
+          // INPI RNE — actes complets sur toutes les sociétés du portfolio
+          Promise.all(allSirens.map((s) => getActesRneBySiren(s))).then((r) => r.flat()),
+          // Transparence Santé — professions de santé uniquement
+          isHealth && prenom
+            ? getAvantagesSante(nom, prenom)
+            : Promise.resolve([]),
+          // Presse économique (NewsAPI — NEWS_API_KEY)
+          getMentionsPresse(nom, prenom, entrepriseNom),
+          // LinkedIn via Proxycurl (PROXYCURL_API_KEY — URL /in/ réelle uniquement)
+          getLinkedinProfile(candidate.raw.linkedin_search_url ?? ''),
+          // Marques EUIPO (gratuit) + INPI (INPI_API_TOKEN)
+          getMarquesDeposees(marquesQuery),
+          // BALO dividendes (PISTE_CLIENT_ID + PISTE_CLIENT_SECRET)
+          getDividendesBalo(nom, entrepriseNom),
+          // Societe.com — score crédit + incidents paiement (SOCIETECOM_API_KEY)
+          principalSiren ? getCreditEntreprise(principalSiren) : Promise.resolve(null),
+          // Crunchbase — levées de fonds startup (CRUNCHBASE_API_KEY)
+          entrepriseNom ? getDonneesStartup(entrepriseNom) : Promise.resolve(null),
+          // Cadastre IGN — parcelles à l'adresse du siège (gratuit)
+          candidate.raw.adresse && candidate.raw.code_postal
+            ? getParcellesIgn(candidate.raw.adresse, candidate.raw.code_postal)
+            : Promise.resolve([]),
+          // Foncier Innovant — biens par nom du dirigeant (FONCIER_INNOVANT_API_KEY)
+          prenom ? getProprietésFoncierInnovant(nom, prenom) : Promise.resolve([]),
+        ])
+
+        const deepPatch: Record<string, unknown> = {}
+        const newSources: string[] = []
+
+        if (actesRne.status === 'fulfilled' && actesRne.value.length > 0) {
+          deepPatch.actes_rne = actesRne.value
+          newSources.push('inpi_rne_actes')
+        }
+        if (avantagesSante.status === 'fulfilled' && avantagesSante.value.length > 0) {
+          deepPatch.avantages_sante = avantagesSante.value
+          newSources.push('transparence_sante')
+        }
+        if (mentionsPresse.status === 'fulfilled' && mentionsPresse.value.length > 0) {
+          deepPatch.mentions_presse = mentionsPresse.value
+          newSources.push('presse')
+        }
+        if (linkedinProfile.status === 'fulfilled' && linkedinProfile.value) {
+          deepPatch.linkedin_profile = linkedinProfile.value
+          newSources.push('proxycurl')
+        }
+        if (marques.status === 'fulfilled' && marques.value.length > 0) {
+          deepPatch.marques_deposees = marques.value
+          newSources.push('euipo_marques')
+        }
+        if (dividendesBalo.status === 'fulfilled' && dividendesBalo.value.length > 0) {
+          deepPatch.dividendes_balo = dividendesBalo.value
+          newSources.push('balo')
+        }
+        if (creditEntreprise.status === 'fulfilled' && creditEntreprise.value) {
+          deepPatch.credit_entreprise = creditEntreprise.value
+          newSources.push('societecom')
+        }
+        if (donneesStartup.status === 'fulfilled' && donneesStartup.value) {
+          deepPatch.donnees_startup = donneesStartup.value
+          newSources.push('crunchbase')
+        }
+        if (parcellesIgn.status === 'fulfilled' && parcellesIgn.value.length > 0) {
+          deepPatch.cadastre_parcelles = parcellesIgn.value
+          newSources.push('cadastre_ign')
+        }
+        if (proprietesFoncier.status === 'fulfilled' && proprietesFoncier.value.length > 0) {
+          deepPatch.proprietes_foncier = proprietesFoncier.value
+          newSources.push('foncier_innovant')
+        }
+
+        if (Object.keys(deepPatch).length > 0) {
+          const { data: freshRow } = await supabase
+            .from('prospection_prospects')
+            .select('enrichment_data')
+            .eq('id', prospectId)
+            .single()
+          const base = freshRow?.enrichment_data ?? currentEnrichment
+          const merged = {
+            ...base,
+            ...deepPatch,
+            sources_utilisees: [...(base.sources_utilisees ?? []), ...newSources],
+          }
+          await supabase
+            .from('prospection_prospects')
+            .update({ enrichment_data: merged })
+            .eq('id', prospectId)
+        }
+      } catch (e) {
+        console.error('[suivi/add] deep enrichment block failed:', e)
       }
     }
 
