@@ -5,7 +5,7 @@ import { parseRppsCsvLine } from './parse'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
 
-const RPPS_DATASET_ID = '53699613a3a729239d2048e3'
+const RPPS_DATASET_ID = '69025e6c73d1f9b79ca3c365'
 const DATAGOUV_API = 'https://www.data.gouv.fr/api/1'
 const BATCH_SIZE = 500
 
@@ -24,9 +24,14 @@ async function getLatestRppsUrl(): Promise<string> {
   const resources: Array<{ url: string; format?: string; filesize?: number }> =
     dataset.resources ?? []
   const csv = resources
-    .filter((r) => r.format?.toLowerCase() === 'csv' || r.url?.endsWith('.csv'))
+    .filter(
+      (r) =>
+        r.url?.includes('personne-activite') ||
+        r.url?.endsWith('.txt') ||
+        r.format?.toLowerCase() === 'txt',
+    )
     .sort((a, b) => (b.filesize ?? 0) - (a.filesize ?? 0))[0]
-  if (!csv) throw new Error('No CSV resource found in RPPS dataset')
+  if (!csv) throw new Error('No TXT resource found in RPPS dataset')
   return csv.url
 }
 
@@ -84,7 +89,7 @@ export async function GET(req: NextRequest) {
 
       if (!headers) {
         // Strip BOM if present
-        headers = line.split(';').map((h) => h.trim().replace(/^﻿/, ''))
+        headers = line.split('|').map((h) => h.trim().replace(/^﻿/, ''))
         continue
       }
 
