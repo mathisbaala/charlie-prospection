@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { persistPremiumSignals } from '@/lib/enrichment/persist-premium-signals'
+import { buildPatrimoineImmo } from '@/lib/enrichment/enricher'
 import { getBodaccBySiren, classifyBodaccEvent } from '@/lib/data-sources/bodacc'
 import type { BodaccEvent, PappersPremiumData, SearchCandidate } from '@/lib/types'
 
@@ -210,6 +211,34 @@ export async function POST(request: Request) {
       } catch (e) {
         // Best-effort — un échec BODACC ne bloque pas l'ajout au suivi.
         console.error('[suivi/add] deep BODACC fetch failed', e)
+      }
+    }
+
+    // Depth enrichment — Cerema DV3F (suivi only)
+    // Construit le patrimoine immobilier du dirigeant à partir de son
+    // portefeuille de sociétés. Toujours après le deep-BODACC pour que
+    // l'enrichment_data stockée contienne déjà bodacc_deep.
+    const existingPortfolio = candidate.enrichment_data?.personal_portfolio
+    if (existingPortfolio && prospectId) {
+      try {
+        const patrimoineImmo = await buildPatrimoineImmo(existingPortfolio, principalSiren)
+        if (patrimoineImmo) {
+          // Re-fetch the latest enrichment_data from DB to pick up any BODACC
+          // changes written just above, then merge patrimoine_immo into it.
+          const { data: freshRow } = await supabase
+            .from('prospection_prospects')
+            .select('enrichment_data')
+            .eq('id', prospectId)
+            .single()
+          const freshEnrichment = freshRow?.enrichment_data ?? candidate.enrichment_data
+          const updatedEnrichment = { ...freshEnrichment, patrimoine_immo: patrimoineImmo }
+          await supabase
+            .from('prospection_prospects')
+            .update({ enrichment_data: updatedEnrichment })
+            .eq('id', prospectId)
+        }
+      } catch (e) {
+        console.error('[suivi/add] Cerema depth failed:', e)
       }
     }
 
