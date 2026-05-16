@@ -33,4 +33,14 @@ describe('parseDiscoveryParams', () => {
     const result = parseDiscoveryParams({ sources: ['rpps'], rpps_profession: 'Chirurgien-Dentiste' })
     expect(result.profession).toBe('Chirurgien-Dentiste')
   })
+
+  it('ca_min is parsed as a number', () => {
+    const result = parseDiscoveryParams({ sources: [], ca_min: 0 })
+    expect(result.ca_min).toBe(0)
+  })
+
+  it('non-number ca_min is ignored', () => {
+    const result = parseDiscoveryParams({ sources: [], ca_min: 'not-a-number' })
+    expect(result.ca_min).toBeUndefined()
+  })
 })

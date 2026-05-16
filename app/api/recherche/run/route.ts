@@ -78,6 +78,7 @@ export async function POST(request: Request) {
   if (discoveryParams.sources.length > 0) {
     discoveryRaw = await runDiscovery({
       ...discoveryParams,
+      limit,
     })
   }
 
@@ -92,12 +93,14 @@ export async function POST(request: Request) {
     }
   }
 
-  if (allRaw.length === 0) {
+  const cappedRaw = allRaw.slice(0, limit)
+
+  if (cappedRaw.length === 0) {
     return NextResponse.json({ candidates: [] })
   }
 
   // Check which candidates are already in /suivi so the UI can disable them.
-  const linkedinUrls = allRaw.map((r) => r.linkedin_search_url)
+  const linkedinUrls = cappedRaw.map((r) => r.linkedin_search_url).filter(Boolean)
   const { data: existing } = await supabase
     .from('prospection_prospects')
     .select('linkedin_url')
@@ -110,7 +113,7 @@ export async function POST(request: Request) {
   // coquille vide, dormante) — saves ~2 Claude calls per dropped candidate
   // and élimine le bruit que l'utilisateur verrait dans la liste.
   const enrichResults = await Promise.allSettled(
-    allRaw.map(async (raw) => {
+    cappedRaw.map(async (raw) => {
       const enrichmentData = await enrichProspect(raw)
       const quality = assessProspectQuality(enrichmentData)
       if (quality.drop) {
@@ -144,7 +147,7 @@ export async function POST(request: Request) {
       icp_score: raw.score_initial,
       niveau: scoring.niveau,
       raison_principale: scoring.raison_principale,
-      already_in_suivi: existingSet.has(raw.linkedin_search_url),
+      already_in_suivi: !!raw.linkedin_search_url && existingSet.has(raw.linkedin_search_url),
     })
   }
 
