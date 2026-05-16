@@ -45,8 +45,7 @@ export const config: VercelConfig = {
     { path: '/api/cron/bodacc-ingest', schedule: '0 6 * * *' },
     { path: '/api/cron/match-icps', schedule: '30 6 * * *' },
     // refresh-enrichment cron : PAUSED — voir doc en haut.
-    // refresh-rpps: PAUSED — run manually: curl -H "Authorization: Bearer $CRON_SECRET" /api/cron/refresh-rpps
-    //   { path: '/api/cron/refresh-rpps', schedule: '0 4 1 * *' },  // 1st of each month at 04:00 UTC
+    { path: '/api/cron/refresh-rpps', schedule: '0 4 1 * *' },  // 1st of each month at 04:00 UTC
   ],
 }
 
