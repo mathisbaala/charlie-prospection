@@ -9,14 +9,22 @@ import type { ProspectEnrichmentData } from '@/lib/types'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
 
-// How many prospects to refresh per cron tick. Bounded so we don't blow
-// through the Pappers quota in one run. With ~5 calls per prospect, batch=10
-// means ~50 Pappers calls per day.
-const BATCH_SIZE = 10
+// Cadence cible : 2× par mois (1er et 15), 30 prospects par run.
+// Au plan Pappers 500 jetons/mois, ça consomme ~90 jetons/mois pour 58
+// prospects, contre 450 jetons en mode quotidien — voir vercel.ts pour
+// la planification cron (actuellement paused phase MVP).
+//
+// Pourquoi 30 et pas 60 : la fonction Vercel a un maxDuration de 300s. À
+// ~5s par prospect (Pappers + Claude scorer + Promise.allSettled de toutes
+// les sources), 30 prospects tiennent largement dans le budget.
+const BATCH_SIZE = 30
 
-// Skip prospects refreshed more recently than this — there's no point
-// re-enriching every day if nothing changes daily on Pappers/BODACC anyway.
-const REFRESH_AFTER_DAYS = 7
+// Une fiche dont l'enrichissement date de moins de 14 jours est "fraîche
+// suffisamment" — on évite de re-payer Pappers pour des données qui ne
+// bougent pas chaque semaine en pratique (BODACC quotidien, oui ; finances
+// annuelles, non). Combiné à la cadence 2×/mois, chaque prospect /suivi
+// se fait refresh une fois toutes les 2 semaines en rotation.
+const REFRESH_AFTER_DAYS = 14
 
 function unauthorized() {
   return new NextResponse('Unauthorized', { status: 401 })
