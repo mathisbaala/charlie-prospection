@@ -21,7 +21,7 @@ import type { ParsedIcpCriteria, StrictFilters } from '@/lib/types'
 
 export interface RawProspect {
   uid: string
-  source: 'pappers' | 'annuaire_entreprises'
+  source: 'pappers' | 'annuaire_entreprises' | 'bodacc_cessions' | 'rpps'
   source_type: 'personne_morale' | 'personne_physique'
   entreprise_nom: string
   siren: string
@@ -66,7 +66,7 @@ export function canonicalPersonKey(prenom: string, nom: string, siren?: string):
 }
 
 // Derive department code from postal code (handles metropolitan + Corsica + DOM-TOM)
-function deptFromCodePostal(cp?: string): string {
+export function deptFromCodePostal(cp?: string): string {
   if (!cp || cp.length < 2) return ''
   // Corsica: 20xxx → 2A (Corse-du-Sud, CP 200-201) or 2B (Haute-Corse, CP 202-206)
   if (cp.startsWith('20')) {
@@ -282,6 +282,20 @@ function fromPappers(ae: PappersEntreprise, rep: PappersRepresentant): RawProspe
     linkedin_search_url: buildLinkedInUrl(prenom, nom, ae.nom_entreprise),
     score_initial: scorePappers(ae, rep),
   }
+}
+
+/**
+ * Public wrapper around the private fromPappers builder.
+ * Discovery sources use this to construct RawProspect with a custom source
+ * value (e.g. 'bodacc_cessions', 'rpps') while reusing all other field logic.
+ */
+export function rawProspectFromPappers(
+  ae: PappersEntreprise,
+  rep: PappersRepresentant,
+  sourceOverride: RawProspect['source'] = 'pappers',
+): RawProspect {
+  const base = fromPappers(ae, rep)
+  return sourceOverride === 'pappers' ? base : { ...base, source: sourceOverride }
 }
 
 async function searchFromPappers(

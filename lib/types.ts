@@ -483,7 +483,7 @@ export interface SearchCandidate {
   uid: string
   raw: {
     uid: string
-    source: 'pappers' | 'annuaire_entreprises'
+    source: 'pappers' | 'annuaire_entreprises' | 'bodacc_cessions' | 'rpps'
     source_type: 'personne_morale' | 'personne_physique'
     entreprise_nom: string
     siren: string
