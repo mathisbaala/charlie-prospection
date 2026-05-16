@@ -189,6 +189,26 @@ export interface FinanceDerivatives {
   latest_year: number | null
 }
 
+export interface CeremaHolding {
+  siren: string
+  entite_nom: string
+  adresse: string
+  type_local?: string
+  surface_bati?: number
+  date_achat: string           // ISO date "YYYY-MM-DD"
+  prix_achat: number
+  id_parcelle?: string
+  confidence: 'high' | 'medium' | 'low'
+  statut: 'detenu' | 'vendu'
+}
+
+export interface PatrimoineImmo {
+  holdings: CeremaHolding[]        // detenu + vendu — l'UI filtre
+  nb_biens_estimes: number         // count(statut='detenu')
+  derniere_transaction?: string    // ISO date
+  valeur_comptable_totale?: number // future: sum immobilisations bilans Pappers
+}
+
 export interface BeneficiaireEffectif {
   nom?: string
   prenom?: string
@@ -292,6 +312,11 @@ export interface ProspectEnrichmentData {
   // flags Premium n'ajoutent que des champs à la réponse).
   // Voir lib/data-sources/pappers.ts → PappersPremiumData.
   pappers_premium?: PappersPremiumData
+
+  // Patrimoine immobilier du dirigeant (Cerema DV3F, BODACC holdings)
+  // Enrichissement patrimonial détaillé des biens immobiliers détenus.
+  // Voir lib/data-sources/cerema.ts et lib/enrichment/patrimoine-immo.ts.
+  patrimoine_immo?: PatrimoineImmo
 
   // URLs pré-remplies vers les annuaires officiels des professions libérales
   // non-santé (avocats CNB, notaires, experts-comptables). Pas de scraping —
