@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { RawProspect } from '@/lib/prospect-search/engine'
 import type { SearchCandidate, ProspectEnrichmentData } from '@/lib/types'
-import { ENRICHMENT_STALE_DAYS } from './constants'
+import { ENRICHMENT_STALE_DAYS, DROPPED_TTL_DAYS } from './constants'
 
 export interface CacheFilters {
   nafCodes: string[] | null
@@ -42,18 +42,28 @@ export function cacheRowToPartialCandidate(row: {
   const staleThreshold = new Date()
   staleThreshold.setDate(staleThreshold.getDate() - ENRICHMENT_STALE_DAYS)
 
-  const isDropped = row.enrichment_level === 'dropped'
+  const droppedCutoff = new Date()
+  droppedCutoff.setDate(droppedCutoff.getDate() - DROPPED_TTL_DAYS)
+
+  // Un prospect dropped redevient éligible après DROPPED_TTL_DAYS : sa situation
+  // ou nos critères ont pu évoluer depuis le premier rejet. Sans date de référence,
+  // on considère le TTL expiré (dropped ≥ 180j) → réactivable.
+  const isDropped =
+    row.enrichment_level === 'dropped' &&
+    row.last_enriched_at !== null &&
+    new Date(row.last_enriched_at) >= droppedCutoff
 
   const isStale =
     !isDropped &&
     row.last_enriched_at !== null &&
     new Date(row.last_enriched_at) < staleThreshold
 
-  // Dropped prospects : ne jamais re-enrichir (la qualité a déjà été évaluée).
-  // Leur présence dans le cache sert uniquement à bloquer le re-fetch externe.
   const needsEnrichment =
     !isDropped &&
-    (row.enrichment_level === 'raw' || row.enrichment_data === null || isStale)
+    (row.enrichment_level === 'raw' ||
+      row.enrichment_level === 'dropped' || // TTL expiré — re-évaluer
+      row.enrichment_data === null ||
+      isStale)
 
   const score = row.patrimony_score ?? 0
 

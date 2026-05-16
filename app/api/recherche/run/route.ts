@@ -14,6 +14,7 @@ import { runDiscovery, inferDiscoveryParams } from '@/lib/discovery'
 import type { RawProspect } from '@/lib/prospect-search/engine'
 import { buildCacheFilters, queryPersonsCache } from '@/lib/persons-cache/query'
 import { storePersonsToCache } from '@/lib/persons-cache/store'
+import { getQuotaStatus } from '@/lib/observability/api-quota'
 
 export const maxDuration = 300
 
@@ -141,11 +142,13 @@ export async function POST(request: Request) {
         !!h.raw.linkedin_search_url && existingSet.has(h.raw.linkedin_search_url),
     }))
     candidates.sort((a, b) => b.patrimony_score - a.patrimony_score)
-    return NextResponse.json({ candidates })
+    const quotaStatusFast = await getQuotaStatus('pappers')
+    return NextResponse.json({ candidates, quota_pappers: quotaStatusFast ?? undefined })
   }
 
   if (cacheHitsFresh.length === 0 && toEnrich.length === 0) {
-    return NextResponse.json({ candidates: [] })
+    const quotaStatusEmpty = await getQuotaStatus('pappers')
+    return NextResponse.json({ candidates: [], quota_pappers: quotaStatusEmpty ?? undefined })
   }
 
   // Check which candidates are already in /suivi so the UI can disable them.
@@ -276,9 +279,12 @@ export async function POST(request: Request) {
   candidates.sort((a, b) => b.patrimony_score - a.patrimony_score)
   const capped = candidates.slice(0, limit)
 
+  const quotaStatus = await getQuotaStatus('pappers')
+
   return NextResponse.json({
     candidates: capped,
     filtered_count: droppedAssessments.length,
     filter_breakdown: aggregateDropReasons(droppedAssessments),
+    quota_pappers: quotaStatus ?? undefined,
   })
 }

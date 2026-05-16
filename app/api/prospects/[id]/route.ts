@@ -9,7 +9,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 
   const { data, error } = await supabase
     .from('prospection_prospects')
-    .select('*, prospection_signals(*)')
+    .select('*')
     .eq('id', id)
     .single()
 

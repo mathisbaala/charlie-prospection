@@ -21,13 +21,8 @@ import { type VercelConfig } from '@vercel/config/v1'
  *                                       after the last ingest to give all
  *                                       three feeds room to land.
  *
- * Refresh per-prospect enrichment is PAUSÉ pour l'instant — phase MVP, pas
- * de commercialisation, pas besoin de la veille quotidienne. Quand on
- * réactive (commercialisation), cadence cible : 2× par mois (1er et 15)
- * avec REFRESH_AFTER_DAYS=14 + BATCH_SIZE=30 dans la route — voir
- * app/api/cron/refresh-enrichment/route.ts.
- *
- *   //  { path: '/api/cron/refresh-enrichment', schedule: '0 4 1,15 * *' },
+ * Refresh per-prospect enrichment : 2× par mois (1er et 15 à 04:00 UTC).
+ * BATCH_SIZE=30, REFRESH_AFTER_DAYS=14 — voir app/api/cron/refresh-enrichment/route.ts.
  *
  * All cron routes require the `CRON_SECRET` env var; Vercel sends
  * `Authorization: Bearer $CRON_SECRET` on scheduled invocations automatically.
@@ -44,7 +39,7 @@ export const config: VercelConfig = {
     { path: '/api/cron/inpi-ingest', schedule: '45 5 * * *' },
     { path: '/api/cron/bodacc-ingest', schedule: '0 6 * * *' },
     { path: '/api/cron/match-icps', schedule: '30 6 * * *' },
-    // refresh-enrichment cron : PAUSED — voir doc en haut.
+    { path: '/api/cron/refresh-enrichment', schedule: '0 4 1,15 * *' },  // 1er et 15 de chaque mois à 04:00 UTC
     { path: '/api/cron/refresh-rpps', schedule: '0 4 1 * *' },  // 1st of each month at 04:00 UTC
     { path: '/api/cron/refresh-persons-cache', schedule: '0 3 * * 1' },  // Mondays at 03:00 UTC
   ],
