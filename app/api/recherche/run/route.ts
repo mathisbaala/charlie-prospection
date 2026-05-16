@@ -9,6 +9,9 @@ import {
 import { enrichProspect } from '@/lib/enrichment/enricher'
 import { scorePatrimony } from '@/lib/enrichment/patrimony-scorer'
 import type { Icp, ParsedIcpCriteria, SearchCandidate, StrictFilters } from '@/lib/types'
+import { runDiscovery } from '@/lib/discovery'
+import { parseDiscoveryParams } from './parse-params'
+import type { RawProspect } from '@/lib/prospect-search/engine'
 
 export const maxDuration = 300
 
@@ -52,6 +55,7 @@ export async function POST(request: Request) {
   // Defaut 50 (max breadth), plafond 100. Cf. JSDoc — la breadth est ici, la
   // depth supplémentaire s'ajoute via /suivi/add (backfill + signal mining).
   const limit = Math.min(typeof body.limit === 'number' ? body.limit : 50, 100)
+  const discoveryParams = parseDiscoveryParams(body)
 
   // Load the persona to get its criteria (we trust the DB, not the client).
   const { data: persona, error: pErr } = await supabase
@@ -68,12 +72,32 @@ export async function POST(request: Request) {
   const strictFilters: StrictFilters = (persona as Icp).strict_filters ?? {}
 
   const rawProspects = await searchProspects(criteria, { limit, strictFilters })
-  if (rawProspects.length === 0) {
+
+  // Discovery sources (optional — only when client passes sources=[...])
+  let discoveryRaw: RawProspect[] = []
+  if (discoveryParams.sources.length > 0) {
+    discoveryRaw = await runDiscovery({
+      ...discoveryParams,
+    })
+  }
+
+  // Merge: discovery first (higher signal), then regular search
+  // Dedup by uid (same person found by both paths → keep first occurrence)
+  const seenUids = new Set<string>()
+  const allRaw: RawProspect[] = []
+  for (const r of [...discoveryRaw, ...rawProspects]) {
+    if (!seenUids.has(r.uid)) {
+      seenUids.add(r.uid)
+      allRaw.push(r)
+    }
+  }
+
+  if (allRaw.length === 0) {
     return NextResponse.json({ candidates: [] })
   }
 
   // Check which candidates are already in /suivi so the UI can disable them.
-  const linkedinUrls = rawProspects.map((r) => r.linkedin_search_url)
+  const linkedinUrls = allRaw.map((r) => r.linkedin_search_url)
   const { data: existing } = await supabase
     .from('prospection_prospects')
     .select('linkedin_url')
@@ -86,7 +110,7 @@ export async function POST(request: Request) {
   // coquille vide, dormante) — saves ~2 Claude calls per dropped candidate
   // and élimine le bruit que l'utilisateur verrait dans la liste.
   const enrichResults = await Promise.allSettled(
-    rawProspects.map(async (raw) => {
+    allRaw.map(async (raw) => {
       const enrichmentData = await enrichProspect(raw)
       const quality = assessProspectQuality(enrichmentData)
       if (quality.drop) {
