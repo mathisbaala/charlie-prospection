@@ -19,7 +19,7 @@ interface Props {
   onDiscoveryDeptChange: (v: string) => void
   discoveryDateDepuis: string
   onDiscoveryDateDepuisChange: (v: string) => void
-  rppsProfession: string
+  rppsProfession: 'Medecin' | 'Chirurgien-Dentiste' | ''
   onRppsProfessionChange: (v: 'Medecin' | 'Chirurgien-Dentiste' | '') => void
 }
 
@@ -200,6 +200,7 @@ export function RechercheLauncher({
           {selectedSources.includes('pappers-naf') && (
             <div style={{ marginTop: 12 }}>
               <label
+                htmlFor="naf-code"
                 style={{
                   fontSize: 11,
                   fontWeight: 700,
@@ -213,6 +214,7 @@ export function RechercheLauncher({
                 Code NAF
               </label>
               <input
+                id="naf-code"
                 type="text"
                 placeholder="86.21Z — médecins généralistes"
                 value={nafCode}
@@ -236,6 +238,7 @@ export function RechercheLauncher({
           {selectedSources.includes('rpps') && (
             <div style={{ marginTop: 12 }}>
               <label
+                htmlFor="rpps-profession"
                 style={{
                   fontSize: 11,
                   fontWeight: 700,
@@ -249,6 +252,7 @@ export function RechercheLauncher({
                 Profession RPPS
               </label>
               <select
+                id="rpps-profession"
                 value={rppsProfession}
                 onChange={(e) =>
                   onRppsProfessionChange(e.target.value as 'Medecin' | 'Chirurgien-Dentiste' | '')
@@ -275,6 +279,7 @@ export function RechercheLauncher({
           {selectedSources.includes('bodacc-cessions') && (
             <div style={{ marginTop: 12 }}>
               <label
+                htmlFor="bodacc-date"
                 style={{
                   fontSize: 11,
                   fontWeight: 700,
@@ -288,6 +293,7 @@ export function RechercheLauncher({
                 Cessions depuis
               </label>
               <input
+                id="bodacc-date"
                 type="date"
                 value={discoveryDateDepuis}
                 onChange={(e) => onDiscoveryDateDepuisChange(e.target.value)}
@@ -307,6 +313,7 @@ export function RechercheLauncher({
 
           <div style={{ marginTop: 12 }}>
             <label
+              htmlFor="discovery-dept"
               style={{
                 fontSize: 11,
                 fontWeight: 700,
@@ -320,6 +327,7 @@ export function RechercheLauncher({
               Département (optionnel)
             </label>
             <input
+              id="discovery-dept"
               type="text"
               placeholder="69, 75, 13…"
               value={discoveryDept}
