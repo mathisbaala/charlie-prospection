@@ -4,10 +4,11 @@ import { Building2, MapPin, Stethoscope, User, Check, Trash2 } from 'lucide-reac
 import { ProspectFicheContent } from './prospect-fiche-content'
 import { ProspectSignalsTimeline } from '@/components/suivi/prospect-signals-timeline'
 import { ProspectActivityLog } from '@/components/suivi/prospect-activity-log'
+import { ProspectActesTab } from '@/components/suivi/prospect-actes-tab'
 import { titleCase } from './_shared'
-import type { CrmStage, Prospect, ProspectEnrichmentData } from '@/lib/types'
+import type { CrmStage, PappersPremiumData, Prospect, ProspectEnrichmentData } from '@/lib/types'
 
-type Tab = 'fiche' | 'signals' | 'interactions' | 'pipeline'
+type Tab = 'fiche' | 'signals' | 'actes' | 'interactions' | 'pipeline'
 
 // Stage history order — `lost` is intentionally excluded from the timeline
 // (it's a terminal "out" state, not part of forward progression).
@@ -62,6 +63,15 @@ export function PipelineDetailPanel({ prospect, onStageChange, onDelete }: Props
 
   const score = prospect.patrimony_score
   const valuation = ed?.patrimoine_total_estime
+
+  // Premium payload count drives the badge on the Actes tab. Counted once per
+  // render — cheap (arrays under 50 items typically).
+  const premium = ed?.pappers_premium as PappersPremiumData | undefined
+  const actesCount = premium
+    ? (premium.depots_actes?.reduce((sum, d) => sum + Math.max(1, (d.actes ?? []).length), 0) ?? 0) +
+      (premium.comptes?.length ?? 0) +
+      (premium.publications_bodacc?.length ?? 0)
+    : 0
   const valuationLabel =
     valuation && valuation >= 1_000_000
       ? `${(valuation / 1_000_000).toFixed(1)}M€`
@@ -336,6 +346,23 @@ export function PipelineDetailPanel({ prospect, onStageChange, onDelete }: Props
         <TabButton active={tab === 'signals'} onClick={() => setTab('signals')}>
           Signaux
         </TabButton>
+        <TabButton active={tab === 'actes'} onClick={() => setTab('actes')}>
+          Actes
+          {actesCount > 0 && (
+            <span
+              style={{
+                marginLeft: 6,
+                fontSize: 10,
+                fontWeight: 600,
+                color: 'var(--color-muted)',
+                fontFamily: 'var(--font-mono, monospace)',
+                fontVariantNumeric: 'tabular-nums',
+              }}
+            >
+              {actesCount}
+            </span>
+          )}
+        </TabButton>
         <TabButton active={tab === 'interactions'} onClick={() => setTab('interactions')}>
           Interactions
         </TabButton>
@@ -348,6 +375,7 @@ export function PipelineDetailPanel({ prospect, onStageChange, onDelete }: Props
       <div style={{ padding: '24px 32px 48px 32px' }}>
         {tab === 'fiche' && <ProspectFicheContent prospect={prospect} />}
         {tab === 'signals' && <ProspectSignalsTimeline prospectId={prospect.id} />}
+        {tab === 'actes' && <ProspectActesTab prospect={prospect} />}
         {tab === 'interactions' && <ProspectActivityLog prospectId={prospect.id} />}
         {tab === 'pipeline' && (
           <PipelineTimeline currentStage={prospect.crm_stage} onStageChange={onStageChange} />
