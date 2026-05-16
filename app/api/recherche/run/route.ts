@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { searchProspects } from '@/lib/prospect-search/engine'
 import {
   aggregateDropReasons,
@@ -11,6 +12,8 @@ import { scorePatrimony } from '@/lib/enrichment/patrimony-scorer'
 import type { Icp, ParsedIcpCriteria, SearchCandidate, StrictFilters } from '@/lib/types'
 import { runDiscovery, inferDiscoveryParams } from '@/lib/discovery'
 import type { RawProspect } from '@/lib/prospect-search/engine'
+import { buildCacheFilters, queryPersonsCache } from '@/lib/persons-cache/query'
+import { storePersonsToCache } from '@/lib/persons-cache/store'
 
 export const maxDuration = 300
 
@@ -25,12 +28,10 @@ export const maxDuration = 300
  * Response: { candidates: SearchCandidate[] }
  *
  * Stratégie data : MAX BREADTH ici, MAX DEPTH côté /suivi.
- * Default limit 50 pour donner à l'utilisateur le maximum de signal au moment
- * de choisir ses cibles. Chaque candidat traverse l'enricher complet (Pappers
- * Premium + portfolio dirigeant + BODACC + DVF zone + DVF perso + RPPS +
- * annuaires libéraux + Infogreffe). Coût ~1.5 jeton Pappers par candidat,
- * donc ~75 jetons par /recherche. Quota mensuel 500 → ~6 recherches "pleines"
- * par mois, OK pour un usage MVP / pilote.
+ * Default limit 50. Chaque candidat traverse l'enricher standard (Pappers
+ * standard + BODACC + DVF zone + DVF perso + RPPS + annuaires libéraux +
+ * Infogreffe). Coût 1 jeton Pappers par candidat → 50 jetons/recherche.
+ * Quota mensuel 500 → ~10 recherches pleines par mois.
  */
 export async function POST(request: Request) {
   const supabase = await createClient()
@@ -69,40 +70,92 @@ export async function POST(request: Request) {
   if (!criteria) return NextResponse.json({ error: 'Critères vides' }, { status: 400 })
   const strictFilters: StrictFilters = (persona as Icp).strict_filters ?? {}
 
-  // Classic Pappers search + cross-database discovery run in parallel.
-  // Discovery params are inferred automatically from the persona criteria —
-  // no user input needed. BODACC always active; RPPS when dept is found in
-  // locations; Pappers NAF when sector maps to a known NAF code.
-  const discoveryParams = inferDiscoveryParams(criteria)
-  const [rawProspects, discoveryRaw] = await Promise.all([
-    searchProspects(criteria, { limit, strictFilters }),
-    runDiscovery({ ...discoveryParams, limit }),
-  ])
+  const serviceSupabase = createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
 
-  // Merge: discovery first (higher signal), then regular search
-  // Dedup by uid (same person found by both paths → keep first occurrence)
-  const seenUids = new Set<string>()
-  const allRaw: RawProspect[] = []
-  for (const r of [...discoveryRaw, ...rawProspects]) {
-    if (!seenUids.has(r.uid)) {
-      seenUids.add(r.uid)
-      allRaw.push(r)
+  // ── 1. Cache-first lookup ──────────────────────────────────────────────────
+  const discoveryParams = inferDiscoveryParams(criteria)
+  const nafCodes = [
+    ...(discoveryParams.naf_codes ?? []),
+    ...(discoveryParams.naf_code ? [discoveryParams.naf_code] : []),
+  ]
+  const depts = discoveryParams.departement ? [discoveryParams.departement] : []
+
+  const cacheHits = await queryPersonsCache(
+    serviceSupabase,
+    buildCacheFilters(nafCodes, depts),
+    limit
+  )
+
+  const cacheHitsFresh = cacheHits.filter((h) => !h.needsEnrichment)
+  const cacheHitsStale = cacheHits.filter((h) => h.needsEnrichment)
+  const cacheGap = limit - cacheHitsFresh.length
+
+  // ── 2. Appel externe uniquement pour le gap ────────────────────────────────
+  const cachedUids = new Set(cacheHits.map((h) => h.uid))
+  let externalRaw: RawProspect[] = []
+
+  if (cacheGap > 0) {
+    const [rawProspects, discoveryRaw] = await Promise.all([
+      searchProspects(criteria, { limit: cacheGap, strictFilters }),
+      runDiscovery({ ...discoveryParams, limit: cacheGap }),
+    ])
+
+    const seenUids = new Set<string>(cachedUids)
+    for (const r of [...discoveryRaw, ...rawProspects]) {
+      if (!seenUids.has(r.uid)) {
+        seenUids.add(r.uid)
+        externalRaw.push(r)
+      }
     }
   }
 
-  const cappedRaw = allRaw.slice(0, limit)
+  const toEnrich: RawProspect[] = [
+    ...cacheHitsStale.map((h) => h.raw),
+    ...externalRaw,
+  ]
 
-  if (cappedRaw.length === 0) {
+  // Fast path: cache has enough fresh results, no enrichment needed
+  if (cacheHitsFresh.length >= limit && toEnrich.length === 0) {
+    const existingUrls = cacheHitsFresh.map((h) => h.raw.linkedin_search_url).filter(Boolean)
+    const { data: existing } = await supabase
+      .from('prospection_prospects')
+      .select('linkedin_url')
+      .eq('org_id', membership.org_id)
+      .in('linkedin_url', existingUrls)
+    const existingSet = new Set((existing ?? []).map((r) => r.linkedin_url))
+
+    const candidates: SearchCandidate[] = cacheHitsFresh.map((h) => ({
+      uid: h.uid,
+      raw: h.raw,
+      enrichment_data: h.enrichment_data,
+      patrimony_score: h.patrimony_score,
+      icp_score: h.raw.score_initial,
+      niveau: h.niveau,
+      raison_principale: h.raison_principale,
+      already_in_suivi:
+        !!h.raw.linkedin_search_url && existingSet.has(h.raw.linkedin_search_url),
+    }))
+    candidates.sort((a, b) => b.patrimony_score - a.patrimony_score)
+    return NextResponse.json({ candidates, filtered_count: 0, filter_breakdown: {} })
+  }
+
+  if (cacheHitsFresh.length === 0 && toEnrich.length === 0) {
     return NextResponse.json({ candidates: [] })
   }
 
   // Check which candidates are already in /suivi so the UI can disable them.
-  const linkedinUrls = cappedRaw.map((r) => r.linkedin_search_url).filter(Boolean)
+  const allUrls = [
+    ...cacheHitsFresh.map((h) => h.raw.linkedin_search_url),
+    ...toEnrich.map((r) => r.linkedin_search_url),
+  ].filter(Boolean)
   const { data: existing } = await supabase
     .from('prospection_prospects')
     .select('linkedin_url')
     .eq('org_id', membership.org_id)
-    .in('linkedin_url', linkedinUrls)
+    .in('linkedin_url', allUrls)
   const existingSet = new Set((existing ?? []).map((r) => r.linkedin_url))
 
   // Enrich all candidates in parallel, then quality-filter BEFORE scoring.
@@ -110,7 +163,7 @@ export async function POST(request: Request) {
   // coquille vide, dormante) — saves ~2 Claude calls per dropped candidate
   // and élimine le bruit que l'utilisateur verrait dans la liste.
   const enrichResults = await Promise.allSettled(
-    cappedRaw.map(async (raw) => {
+    toEnrich.map(async (raw) => {
       const enrichmentData = await enrichProspect(raw)
       const quality = assessProspectQuality(enrichmentData)
       if (quality.drop) {
@@ -127,8 +180,51 @@ export async function POST(request: Request) {
     }),
   )
 
+  // Fire-and-forget: store new/re-enriched persons to cache
+  const toStore = enrichResults
+    .filter(
+      (
+        r,
+      ): r is PromiseFulfilledResult<{
+        raw: RawProspect
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        enrichmentData: any
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        scoring: any
+        dropped: false
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        quality: any
+      }> => r.status === 'fulfilled' && !r.value.dropped,
+    )
+    .map((r) => ({
+      raw: r.value.raw,
+      enrichment: r.value.enrichmentData,
+      patrimonyScore: r.value.scoring.score as number,
+      raisonPrincipale: (r.value.scoring.raison_principale as string) ?? null,
+    }))
+
+  storePersonsToCache(serviceSupabase, toStore).catch((err) =>
+    console.error('[recherche/run] cache store error:', err)
+  )
+
   const candidates: SearchCandidate[] = []
   const droppedAssessments: QualityAssessment[] = []
+
+  // Cache-fresh candidates (already enriched, just format them)
+  for (const h of cacheHitsFresh) {
+    candidates.push({
+      uid: h.uid,
+      raw: h.raw,
+      enrichment_data: h.enrichment_data,
+      patrimony_score: h.patrimony_score,
+      icp_score: h.raw.score_initial,
+      niveau: h.niveau,
+      raison_principale: h.raison_principale,
+      already_in_suivi: !!h.raw.linkedin_search_url && existingSet.has(h.raw.linkedin_search_url),
+    })
+  }
+
+  // Newly enriched (external + stale re-enriched)
   for (const result of enrichResults) {
     if (result.status === 'rejected') continue
     if (result.value.dropped) {
