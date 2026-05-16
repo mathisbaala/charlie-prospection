@@ -1,4 +1,5 @@
 'use client'
+import { useState } from 'react'
 import {
   ExternalLink,
   Building2,
@@ -19,6 +20,8 @@ import type {
   BodaccEvent,
   DvfTransaction,
   PatrimonyScoreBreakdown,
+  PatrimoineImmo,
+  CeremaHolding,
 } from '@/lib/types'
 
 interface Props {
@@ -60,6 +63,100 @@ function TrajectoryBadge({ trajectory }: { trajectory: FinanceDerivatives['ca_tr
     >
       {label}
     </span>
+  )
+}
+
+function ConfidenceDot({ level }: { level: 'high' | 'medium' | 'low' }) {
+  const colors = { high: '#1a7f4b', medium: '#c87a2a', low: '#8c7b5e' }
+  const labels = { high: 'haute confiance', medium: 'confiance moyenne', low: 'confiance faible' }
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: colors[level] }}>
+      <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: colors[level], display: 'inline-block' }} />
+      {labels[level]}
+    </span>
+  )
+}
+
+function PatrimoineImmoSection({ data }: { data: PatrimoineImmo }) {
+  const [showCessions, setShowCessions] = useState(false)
+
+  const detenus = data.holdings.filter(h => h.statut === 'detenu')
+  const vendus = data.holdings.filter(h => h.statut === 'vendu')
+
+  const byEntite = detenus.reduce<Record<string, CeremaHolding[]>>((acc, h) => {
+    const key = h.entite_nom
+    if (!acc[key]) acc[key] = []
+    acc[key].push(h)
+    return acc
+  }, {})
+
+  const formatPrice = (v: number) =>
+    v >= 1_000_000
+      ? `${(v / 1_000_000).toFixed(2).replace('.', ',')} M€`
+      : `${Math.round(v / 1_000)} k€`
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      {/* Summary header */}
+      <div style={{ fontSize: '12px', color: '#6b5e4b', fontFamily: 'var(--font-geist-mono)', fontVariantNumeric: 'tabular-nums' }}>
+        {data.nb_biens_estimes} bien{data.nb_biens_estimes > 1 ? 's' : ''} estimé{data.nb_biens_estimes > 1 ? 's' : ''}
+        {data.valeur_comptable_totale != null && (
+          <> · Valeur comptable {formatPrice(data.valeur_comptable_totale)}</>
+        )}
+        {data.derniere_transaction && (
+          <> · Dernière transaction {new Date(data.derniere_transaction).getFullYear()}</>
+        )}
+      </div>
+
+      {/* Holdings by entity */}
+      {Object.entries(byEntite).map(([entiteNom, holdings]) => (
+        <div key={entiteNom} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <div style={{ fontSize: '11px', fontWeight: 600, color: '#3d2e1e', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            {entiteNom}
+          </div>
+          {holdings.map((h, i) => (
+            <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '2px', paddingLeft: '8px', borderLeft: '2px solid #BC6B2A40' }}>
+              <div style={{ fontSize: '12px', color: '#3d2e1e', fontWeight: 500 }}>
+                {h.adresse}
+                {h.type_local && <span style={{ color: '#6b5e4b' }}> — {h.type_local}</span>}
+              </div>
+              <div style={{ fontSize: '11px', color: '#6b5e4b', fontFamily: 'var(--font-geist-mono)', fontVariantNumeric: 'tabular-nums', display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                {h.surface_bati != null && <span>{h.surface_bati} m²</span>}
+                <span>Acheté {new Date(h.date_achat).getFullYear()}</span>
+                {h.prix_achat > 0 && <span>{formatPrice(h.prix_achat)}</span>}
+                <ConfidenceDot level={h.confidence} />
+              </div>
+            </div>
+          ))}
+        </div>
+      ))}
+
+      {/* Cessions toggle */}
+      {vendus.length > 0 && (
+        <div>
+          <button
+            onClick={() => setShowCessions(v => !v)}
+            style={{ fontSize: '11px', color: '#BC6B2A', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}
+          >
+            {showCessions ? 'Masquer les cessions' : `Voir aussi ${vendus.length} cession${vendus.length > 1 ? 's' : ''}`}
+          </button>
+          {showCessions && (
+            <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              {vendus.map((h, i) => (
+                <div key={i} style={{ fontSize: '11px', color: '#8c7b5e', paddingLeft: '8px', borderLeft: '2px solid #8c7b5e40' }}>
+                  {h.adresse} — vendu {new Date(h.date_achat).getFullYear()} · {formatPrice(h.prix_achat)}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Footnote */}
+      <div style={{ fontSize: '10px', color: '#8c7b5e', fontStyle: 'italic', marginTop: '4px' }}>
+        Données DVF : transactions depuis 2014 seulement. Actifs antérieurs non visibles sauf via valeur comptable bilan.
+      </div>
+    </div>
   )
 }
 
@@ -570,6 +667,16 @@ export function ProspectFicheContent({ prospect }: Props) {
             ))}
           </div>
         </Section>
+      )}
+
+      {/* Patrimoine immobilier — biens du dirigeant (Cerema DV3F par SIREN) */}
+      {ed?.patrimoine_immo && ed.patrimoine_immo.nb_biens_estimes > 0 && (
+        <section>
+          <h3 style={{ fontSize: '13px', fontWeight: 600, color: '#3d2e1e', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span>⌂</span> Patrimoine immobilier
+          </h3>
+          <PatrimoineImmoSection data={ed.patrimoine_immo} />
+        </section>
       )}
 
       {/* Liens externes */}
