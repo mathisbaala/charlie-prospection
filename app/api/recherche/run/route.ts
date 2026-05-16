@@ -9,8 +9,7 @@ import {
 import { enrichProspect } from '@/lib/enrichment/enricher'
 import { scorePatrimony } from '@/lib/enrichment/patrimony-scorer'
 import type { Icp, ParsedIcpCriteria, SearchCandidate, StrictFilters } from '@/lib/types'
-import { runDiscovery } from '@/lib/discovery'
-import { parseDiscoveryParams } from './parse-params'
+import { runDiscovery, inferDiscoveryParams } from '@/lib/discovery'
 import type { RawProspect } from '@/lib/prospect-search/engine'
 
 export const maxDuration = 300
@@ -55,7 +54,6 @@ export async function POST(request: Request) {
   // Defaut 50 (max breadth), plafond 100. Cf. JSDoc — la breadth est ici, la
   // depth supplémentaire s'ajoute via /suivi/add (backfill + signal mining).
   const limit = Math.min(typeof body.limit === 'number' ? body.limit : 50, 100)
-  const discoveryParams = parseDiscoveryParams(body)
 
   // Load the persona to get its criteria (we trust the DB, not the client).
   const { data: persona, error: pErr } = await supabase
@@ -71,12 +69,15 @@ export async function POST(request: Request) {
   if (!criteria) return NextResponse.json({ error: 'Critères vides' }, { status: 400 })
   const strictFilters: StrictFilters = (persona as Icp).strict_filters ?? {}
 
-  const rawProspects = await searchProspects(criteria, { limit, strictFilters })
-
-  // Cross-database discovery — always active, sources inferred from params.
-  // RPPS + BODACC activate automatically when departement is set; Pappers NAF
-  // when naf_code is set. Returns [] when no usable params are present.
-  const discoveryRaw: RawProspect[] = await runDiscovery({ ...discoveryParams, limit })
+  // Classic Pappers search + cross-database discovery run in parallel.
+  // Discovery params are inferred automatically from the persona criteria —
+  // no user input needed. BODACC always active; RPPS when dept is found in
+  // locations; Pappers NAF when sector maps to a known NAF code.
+  const discoveryParams = inferDiscoveryParams(criteria)
+  const [rawProspects, discoveryRaw] = await Promise.all([
+    searchProspects(criteria, { limit, strictFilters }),
+    runDiscovery({ ...discoveryParams, limit }),
+  ])
 
   // Merge: discovery first (higher signal), then regular search
   // Dedup by uid (same person found by both paths → keep first occurrence)

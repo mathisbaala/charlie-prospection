@@ -25,8 +25,6 @@ export function RecherchePageClient({ personas }: Props) {
   const [adding, setAdding] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [addedSummary, setAddedSummary] = useState<string | null>(null)
-  const [discoveryDept, setDiscoveryDept] = useState('')
-  const [rppsProfession, setRppsProfession] = useState<'Medecin' | 'Chirurgien-Dentiste' | ''>('')
 
   async function handleLaunch() {
     if (!selectedPersonaId) return
@@ -44,8 +42,6 @@ export function RecherchePageClient({ personas }: Props) {
         body: JSON.stringify({
           persona_id: selectedPersonaId,
           limit: 30,
-          departement: discoveryDept || undefined,
-          rpps_profession: rppsProfession || undefined,
         }),
       })
       const data = await res.json()
@@ -135,10 +131,6 @@ export function RecherchePageClient({ personas }: Props) {
         onLaunch={handleLaunch}
         loading={loading}
         disabled={adding}
-        discoveryDept={discoveryDept}
-        onDiscoveryDeptChange={setDiscoveryDept}
-        rppsProfession={rppsProfession}
-        onRppsProfessionChange={setRppsProfession}
       />
 
       {error && (

@@ -85,10 +85,11 @@ describe('runDiscovery', () => {
     expect(new Set(uids).size).toBe(uids.length)
   })
 
-  it('returns empty array when no usable params are provided', async () => {
-    // No departement, no naf_code → no sources activated
+  it('always runs BODACC even with no params', async () => {
+    // BODACC is always active — recent cessions = hot prospects regardless of dept
     const result = await runDiscovery({})
-    expect(result).toEqual([])
+    // bodacc-cessions mock returns 1 result (marie|martin)
+    expect(result.length).toBeGreaterThanOrEqual(1)
   })
 
   it('handles source failure gracefully via Promise.allSettled', async () => {

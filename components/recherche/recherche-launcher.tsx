@@ -9,16 +9,12 @@ interface Props {
   onLaunch: () => void
   loading: boolean
   disabled?: boolean
-  discoveryDept: string
-  onDiscoveryDeptChange: (v: string) => void
-  rppsProfession: 'Medecin' | 'Chirurgien-Dentiste' | ''
-  onRppsProfessionChange: (v: 'Medecin' | 'Chirurgien-Dentiste' | '') => void
 }
 
 /**
- * Top bar of /recherche: persona picker + optional geo/profession filters + launch button.
- * When a departement is set, Charlie automatically cross-references RPPS and BODACC —
- * no source selection needed.
+ * Top bar of /recherche: persona picker + launch button.
+ * Charlie automatically cross-references all databases (Pappers, RPPS, BODACC)
+ * based on the selected persona — no additional input needed.
  */
 export function RechercheLauncher({
   personas,
@@ -27,32 +23,7 @@ export function RechercheLauncher({
   onLaunch,
   loading,
   disabled,
-  discoveryDept,
-  onDiscoveryDeptChange,
-  rppsProfession,
-  onRppsProfessionChange,
 }: Props) {
-  const labelStyle = {
-    fontSize: 11,
-    fontWeight: 700,
-    letterSpacing: '0.08em',
-    textTransform: 'uppercase' as const,
-    color: 'var(--color-muted)',
-    display: 'block',
-    marginBottom: 6,
-  }
-
-  const inputStyle = {
-    background: 'var(--color-bg)',
-    color: 'var(--color-text)',
-    border: '1px solid var(--color-border)',
-    borderRadius: 2,
-    padding: '10px 12px',
-    fontSize: 14,
-    fontFamily: 'inherit',
-    outline: 'none',
-  }
-
   return (
     <div
       style={{
@@ -63,10 +34,20 @@ export function RechercheLauncher({
         marginBottom: 24,
       }}
     >
-      <div className="flex items-end gap-3" style={{ flexWrap: 'wrap' }}>
-        {/* Persona picker */}
-        <div style={{ flex: '2 1 200px' }}>
-          <label htmlFor="persona-select" style={labelStyle}>
+      <div className="flex items-end gap-3">
+        <div style={{ flex: 1 }}>
+          <label
+            htmlFor="persona-select"
+            className="block"
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              color: 'var(--color-muted)',
+              marginBottom: 6,
+            }}
+          >
             Cible
           </label>
           {personas.length === 0 ? (
@@ -82,7 +63,17 @@ export function RechercheLauncher({
               id="persona-select"
               value={selectedPersonaId ?? ''}
               onChange={(e) => onSelect(e.target.value)}
-              style={{ ...inputStyle, width: '100%' }}
+              style={{
+                width: '100%',
+                background: 'var(--color-bg)',
+                color: 'var(--color-text)',
+                border: '1px solid var(--color-border)',
+                borderRadius: 2,
+                padding: '10px 12px',
+                fontSize: 14,
+                fontFamily: 'inherit',
+                outline: 'none',
+              }}
             >
               <option value="" disabled>
                 Choisir une cible…
@@ -96,41 +87,6 @@ export function RechercheLauncher({
           )}
         </div>
 
-        {/* Département */}
-        <div style={{ flex: '0 0 110px' }}>
-          <label htmlFor="discovery-dept" style={labelStyle}>
-            Département
-          </label>
-          <input
-            id="discovery-dept"
-            type="text"
-            placeholder="69, 75…"
-            value={discoveryDept}
-            onChange={(e) => onDiscoveryDeptChange(e.target.value)}
-            style={{ ...inputStyle, width: '100%' }}
-          />
-        </div>
-
-        {/* Profession médicale (optionnel) */}
-        <div style={{ flex: '1 1 160px' }}>
-          <label htmlFor="rpps-profession" style={labelStyle}>
-            Profession
-          </label>
-          <select
-            id="rpps-profession"
-            value={rppsProfession}
-            onChange={(e) =>
-              onRppsProfessionChange(e.target.value as 'Medecin' | 'Chirurgien-Dentiste' | '')
-            }
-            style={{ ...inputStyle, width: '100%' }}
-          >
-            <option value="">Toutes</option>
-            <option value="Medecin">Médecins</option>
-            <option value="Chirurgien-Dentiste">Chirurgiens-Dentistes</option>
-          </select>
-        </div>
-
-        {/* Launch */}
         <button
           type="button"
           onClick={onLaunch}
@@ -147,19 +103,12 @@ export function RechercheLauncher({
             cursor: 'pointer',
             flexShrink: 0,
             height: 40,
-            alignSelf: 'flex-end',
           }}
         >
           {loading ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
-          {loading ? 'Recherche…' : 'Lancer'}
+          {loading ? 'Recherche…' : 'Lancer la recherche'}
         </button>
       </div>
-
-      {discoveryDept && (
-        <p style={{ fontSize: 11, color: 'var(--color-muted)', marginTop: 10, marginBottom: 0 }}>
-          Croisement automatique RPPS + BODACC sur le département {discoveryDept}
-        </p>
-      )}
     </div>
   )
 }

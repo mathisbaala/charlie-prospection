@@ -1,3 +1,4 @@
+export { inferDiscoveryParams } from './infer-params'
 import { canonicalPersonKey } from '@/lib/prospect-search/engine'
 import type { RawProspect } from '@/lib/prospect-search/engine'
 import { pappersNafSource } from './pappers-naf'
@@ -19,20 +20,16 @@ export type RunDiscoveryParams = DiscoveryParams
 
 /**
  * Infer which discovery sources to activate from the search params.
- * No explicit source list needed — presence of params determines relevance.
  *
  * Rules:
- * - departement set  → rpps + bodacc-cessions always active (geo-scoped sources)
- * - naf_code set     → pappers-naf active (explicit sector filter)
+ * - BODACC cessions: always active — recent cessions = hot prospects nationwide, no dept needed
+ * - RPPS:            active when departement is available (table query scoped by postal code)
+ * - Pappers NAF:     active when naf_code is inferred from persona sectors/roles
  */
 function inferSources(params: RunDiscoveryParams): DiscoverySourceName[] {
-  const sources: DiscoverySourceName[] = []
-  if (params.departement) {
-    sources.push('rpps', 'bodacc-cessions')
-  }
-  if (params.naf_code) {
-    sources.push('pappers-naf')
-  }
+  const sources: DiscoverySourceName[] = ['bodacc-cessions']
+  if (params.departement) sources.push('rpps')
+  if (params.naf_code) sources.push('pappers-naf')
   return sources
 }
 
