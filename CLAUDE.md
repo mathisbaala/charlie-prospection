@@ -49,6 +49,29 @@ When you (Claude or human dev) work on a file, check OWNERSHIP.md to confirm
 which co-founder owns it. If a new file or table needs to be added, add the
 mention to OWNERSHIP.md in the same PR.
 
+## Data strategy — Cast wide, then dig deep
+
+Always read `docs/DATA_STRATEGY.md` before adding a new data source, a new
+enrichment field, or moving where existing data is fetched. C'est le pattern
+qui régit la répartition coût/profondeur entre les 3 étapes du funnel
+(recherche → suivi → outreach).
+
+Règle en une phrase : plus un prospect avance dans le funnel, plus on peut
+se permettre de dépenser de ressources sur lui (jetons API, latence,
+sources). À la recherche on ratisse large (50 candidats × enrichissement
+standard), au suivi on creuse profond (1 prospect × tout le portefeuille +
+historique complet).
+
+Conséquences pour tout code futur :
+1. Quand tu ajoutes une source payante (Pappers, INPI, news search…),
+   défaut = `/suivi/add` sauf si elle alimente le scoring du `/recherche/run`.
+2. Quand tu ajoutes une source gratuite mais lente, justifie sa place côté
+   recherche par la valeur ajoutée à la décision de sélection.
+3. Le cron `refresh-enrichment` est cadencé 2×/mois (pas quotidien) — phase
+   MVP il est même paused. Voir `vercel.ts`.
+4. Pour décider "search ou suivi", utilise le decision framework de
+   `docs/DATA_STRATEGY.md` §"Règles concrètes pour toute nouvelle source".
+
 ## Design System
 Always read DESIGN.md before making any visual or UI decisions.
 All font choices, colors, spacing, border-radius, and aesthetic direction are defined there.
