@@ -4,7 +4,7 @@ export interface DiscoveryParams {
   departement?: string
   naf_code?: string
   ca_min?: number
-  profession?: 'Medecin' | 'Chirurgien-Dentiste'
+  profession?: 'Medecin' | 'Chirurgien-Dentiste' | 'Pharmacien' | 'Kinesitherapeute' | 'Sage-Femme'
   date_depuis?: string
   limit?: number
 }

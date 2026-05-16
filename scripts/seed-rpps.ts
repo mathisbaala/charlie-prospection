@@ -13,7 +13,13 @@ const SUPABASE_SERVICE_KEY =
 const RPPS_DATASET_ID = '69025e6c73d1f9b79ca3c365'
 const DATAGOUV_API = 'https://www.data.gouv.fr/api/1'
 const BATCH_SIZE = 500
-const PROFESSIONS_CIBLES = ['Médecin', 'Chirurgien-Dentiste']
+const PROFESSIONS_CIBLES = [
+  'Médecin',
+  'Chirurgien-Dentiste',
+  'Pharmacien',
+  'Masseur-Kinésithérapeute',
+  'Sage-Femme',
+]
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 

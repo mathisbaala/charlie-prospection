@@ -1,4 +1,10 @@
-export const RPPS_PROFESSIONS_CIBLES = ['Médecin', 'Chirurgien-Dentiste']
+export const RPPS_PROFESSIONS_CIBLES = [
+  'Médecin',
+  'Chirurgien-Dentiste',
+  'Pharmacien',
+  'Masseur-Kinésithérapeute',
+  'Sage-Femme',
+]
 
 export interface RppsInsertRow {
   rpps_id: string

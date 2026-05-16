@@ -95,24 +95,36 @@ export function locationsToDept(locations: string[]): string | undefined {
 // ---------------------------------------------------------------------------
 
 const MEDECIN_KW = [
-  'medecin', 'medico', 'generaliste', 'generaliste', 'dermatologue',
-  'cardiologue', 'radiologue', 'specialiste', 'praticien', 'pneumologue',
-  'gastro', 'rhumatologue', 'ophtalmologue', 'neurologue', 'psychiatre',
-  'pediatre', 'gynecologue', 'oncologue', 'endocrinologue', 'nephrologue',
-  'hematologue', 'anesthesiste', 'reanimateur', 'urgentiste', 'medicaliste',
-  'liberal', 'omnipraticien',
+  'medecin', 'medico', 'generaliste', 'dermatologue', 'cardiologue',
+  'radiologue', 'specialiste', 'praticien', 'pneumologue', 'gastro',
+  'rhumatologue', 'ophtalmologue', 'neurologue', 'psychiatre', 'pediatre',
+  'gynecologue', 'oncologue', 'endocrinologue', 'nephrologue', 'hematologue',
+  'anesthesiste', 'reanimateur', 'urgentiste', 'omnipraticien', 'libsante',
 ]
 const DENTISTE_KW = [
   'dentiste', 'chirurgiendentiste', 'orthodontiste', 'parodontiste',
   'implantologue', 'stomatologue', 'dentaire',
 ]
+const PHARMACIEN_KW = [
+  'pharmacien', 'pharmacie', 'officine', 'pharmacist',
+]
+const KINE_KW = [
+  'kinesitherapeute', 'kinesitherapi', 'kine', 'physiotherapeute',
+  'masseurkinesitherapeute', 'masso',
+]
+const SAGE_FEMME_KW = [
+  'sagefemme', 'sage-femme', 'maternite', 'obstetrique', 'accouchement',
+]
 
 export function inferRppsProfession(
   roles: string[],
   sectors: string[],
-): 'Medecin' | 'Chirurgien-Dentiste' | undefined {
+): 'Medecin' | 'Chirurgien-Dentiste' | 'Pharmacien' | 'Kinesitherapeute' | 'Sage-Femme' | undefined {
   const all = [...roles, ...sectors].map(norm).join(' ')
   if (DENTISTE_KW.some((kw) => all.includes(kw))) return 'Chirurgien-Dentiste'
+  if (PHARMACIEN_KW.some((kw) => all.includes(kw))) return 'Pharmacien'
+  if (KINE_KW.some((kw) => all.includes(kw))) return 'Kinesitherapeute'
+  if (SAGE_FEMME_KW.some((kw) => all.includes(kw))) return 'Sage-Femme'
   if (MEDECIN_KW.some((kw) => all.includes(kw))) return 'Medecin'
   return undefined
 }
@@ -122,15 +134,25 @@ export function inferRppsProfession(
 // ---------------------------------------------------------------------------
 
 const SECTOR_TO_NAF: Array<{ keywords: string[]; naf: string }> = [
-  { keywords: ['medecingeneraliste', 'omnipraticien', 'generaliste'], naf: '86.21Z' },
-  { keywords: ['medecinspecialiste', 'specialiste'], naf: '86.22Z' },
-  { keywords: ['chirurgiendentiste', 'dentiste', 'dentaire'], naf: '86.23Z' },
-  { keywords: ['avocat', 'juridique', 'droit', 'notaire'], naf: '69.10Z' },
-  { keywords: ['expertise', 'comptable', 'comptabilite'], naf: '69.20Z' },
-  { keywords: ['architecte', 'architecture'], naf: '71.11Z' },
-  { keywords: ['veterinaire'], naf: '75.00Z' },
-  { keywords: ['pharmacie', 'pharmacien'], naf: '47.73Z' },
-  { keywords: ['kinesitherapeute', 'kine', 'physiotherapeute'], naf: '86.90A' },
+  { keywords: ['medecingeneraliste', 'omnipraticien', 'generalist'], naf: '86.21Z' },
+  { keywords: ['medecinspecialiste', 'specialiste', 'medecin'], naf: '86.22Z' },
+  { keywords: ['chirurgiendentiste', 'dentiste', 'dentaire', 'orthodontiste'], naf: '86.23Z' },
+  { keywords: ['kinesitherapeute', 'kine', 'physiotherapeute', 'masso'], naf: '86.90A' },
+  { keywords: ['sagefemme', 'sage-femme', 'maternite', 'accouchement'], naf: '86.90B' },
+  { keywords: ['pharmacie', 'pharmacien', 'officine'], naf: '47.73Z' },
+  { keywords: ['optique', 'opticien', 'luneterie'], naf: '47.78A' },
+  { keywords: ['avocat', 'juridique', 'droit', 'barreau'], naf: '69.10Z' },
+  { keywords: ['notaire'], naf: '69.10Z' },
+  { keywords: ['expertise', 'comptable', 'comptabilite', 'commissaire'], naf: '69.20Z' },
+  { keywords: ['architecte', 'architecture', 'maitredoeuvre'], naf: '71.11Z' },
+  { keywords: ['veterinaire', 'cliniqueveterinaire'], naf: '75.00Z' },
+  { keywords: ['geometre', 'topographe', 'foncier'], naf: '71.12B' },
+  { keywords: ['conseil', 'consultant', 'management', 'strategie'], naf: '70.22Z' },
+  { keywords: ['ingenieur', 'bureau', 'etudes', 'technique'], naf: '71.12B' },
+  { keywords: ['immobilier', 'agenceimmo', 'promoteur', 'marchand', 'foncier'], naf: '68.10Z' },
+  { keywords: ['construction', 'btp', 'batiment', 'travaux'], naf: '41.20A' },
+  { keywords: ['restauration', 'restaurant', 'hotellerie', 'hotel'], naf: '56.10A' },
+  { keywords: ['chirurgien', 'neurochirurgie', 'orthopediste', 'urologie'], naf: '86.10Z' },
 ]
 
 export function inferNafCode(roles: string[], sectors: string[]): string | undefined {
@@ -154,7 +176,7 @@ export function inferDiscoveryParams(criteria: ParsedIcpCriteria): RunDiscoveryP
     departement: dept,
     profession,
     naf_code,
-    // Default lookback for BODACC: last 90 days to maximize signal surface
-    date_depuis: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+    // 6 months lookback — cession liquidity windows stay open several months
+    date_depuis: new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
   }
 }

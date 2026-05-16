@@ -70,7 +70,11 @@ export function computeRppsMatchScore(
   }
 
   const nomE = norm(ae.nom_entreprise ?? '')
-  if (nomE.includes('SELARL') || nomE.includes('SCP') || nomE.includes('SEL ')) {
+  if (
+    nomE.includes('SELARL') || nomE.includes('SCP') || nomE.includes('SEL ') ||
+    nomE.includes('PHARMACIE') || nomE.includes('OFFICINE') ||
+    nomE.includes('CABINET') || nomE.includes('KINESITHER')
+  ) {
     score += 10
   }
 
@@ -131,10 +135,14 @@ export const rppsSource: DiscoverySource = {
     const limit = params.limit ?? DEFAULT_LIMIT
     const supabase = await createClient()
 
-    const professionFilter =
-      params.profession === 'Chirurgien-Dentiste' ? 'Chirurgien-Dentiste'
-      : params.profession === 'Medecin' ? 'Médecin'
-      : null  // null = no filter → all targeted professions from the cache
+    const PROFESSION_LABEL: Record<string, string> = {
+      Medecin: 'Médecin',
+      'Chirurgien-Dentiste': 'Chirurgien-Dentiste',
+      Pharmacien: 'Pharmacien',
+      Kinesitherapeute: 'Masseur-Kinésithérapeute',
+      'Sage-Femme': 'Sage-Femme',
+    }
+    const professionFilter = params.profession ? (PROFESSION_LABEL[params.profession] ?? null) : null
 
     const { data: rows, error } = await supabase
       .from('prospection_rpps_cache')
