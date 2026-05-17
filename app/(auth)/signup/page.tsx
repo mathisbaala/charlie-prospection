@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { consumePendingDescription } from '@/lib/pending-description'
 
 export default function SignupPage() {
   const [name, setName] = useState('')
@@ -35,6 +36,24 @@ export default function SignupPage() {
       setError(signInError.message)
       setLoading(false)
       return
+    }
+
+    const pendingDesc = consumePendingDescription()
+    if (pendingDesc) {
+      try {
+        const personaRes = await fetch('/api/personas', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ description: pendingDesc }),
+        })
+        const personaData = await personaRes.json()
+        if (personaRes.ok && personaData.persona?.id) {
+          router.push(`/recherche?persona=${personaData.persona.id}`)
+          return
+        }
+      } catch {
+        // Persona creation failed silently → fall through to default redirect.
+      }
     }
 
     router.push('/pipeline')

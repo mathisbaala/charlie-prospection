@@ -1,3 +1,6 @@
+import type { PappersPremiumData } from '@/lib/data-sources/pappers'
+
+export type { PappersPremiumData }
 export type Plan = 'starter' | 'pro'
 export type OrgRole = 'owner' | 'member'
 export type CrmStage = 'new' | 'to_contact' | 'contacted' | 'meeting' | 'client' | 'lost'
@@ -144,6 +147,45 @@ export interface FinanceYear {
   effectif?: number | null
 }
 
+/** Une entité juridique annexe au dirigeant — SCI, holding, autre société.
+ *  Voir lib/enrichment/personal-portfolio.ts pour les heuristiques de
+ *  catégorisation. */
+export interface EntitySummary {
+  siren: string
+  nom_entreprise: string
+  code_naf?: string
+  libelle_code_naf?: string
+  date_creation?: string
+  ville?: string
+  category: 'sci' | 'sccv' | 'holding' | 'principale' | 'societe_active' | 'autre'
+}
+
+/** Portefeuille patrimonial du dirigeant — agrégation des entités juridiques
+ *  rattachées (incl. la principale). Voir lib/enrichment/personal-portfolio.ts */
+export interface PersonalPortfolio {
+  total_entites: number
+  nb_sci: number
+  nb_holding: number
+  nb_societes_actives: number
+  entites: EntitySummary[]
+  niveau_structuration: 'none' | 'simple' | 'structuré' | 'sophistiqué'
+}
+
+/** Dérivées calculées sur la séquence FinanceYear[] — voir
+ *  lib/enrichment/finance-derivatives.ts pour le détail des champs. */
+export interface FinanceDerivatives {
+  ca_growth_yoy: number | null
+  ca_growth_3y_cagr: number | null
+  ca_trajectory: 'growth' | 'stable' | 'decline' | 'volatile' | 'unknown'
+  marge_ebitda_delta_pts: number | null
+  resultat_growth_yoy: number | null
+  fonds_propres_growth_pct: number | null
+  debt_to_equity: number | null
+  effectif_delta_3y: number | null
+  years_available: number
+  latest_year: number | null
+}
+
 export interface BeneficiaireEffectif {
   nom?: string
   prenom?: string
@@ -221,6 +263,23 @@ export interface ProspectEnrichmentData {
   // LinkedIn indirect
   linkedin_search_url?: string
   linkedin_titre?: string
+
+  // Dérivées finance calculées (croissance, marge trend, D/E…)
+  // Voir lib/enrichment/finance-derivatives.ts
+  finance_derivatives?: FinanceDerivatives
+
+  // Portefeuille d'entités juridiques du dirigeant (SCI / holdings / autres
+  // sociétés). Signal patrimonial fort pour un CGP qui démarche des
+  // personnes physiques, pas des sociétés.
+  // Voir lib/enrichment/personal-portfolio.ts
+  personal_portfolio?: PersonalPortfolio
+
+  // Données Premium Pappers — populé uniquement quand PAPPERS_PREMIUM_ENABLED=1
+  // et qu'on appelle getPappersEnrichment(siren, { premium: true }).
+  // Coût : 1 jeton Pappers (même coût que l'enrichissement standard, les
+  // flags Premium n'ajoutent que des champs à la réponse).
+  // Voir lib/data-sources/pappers.ts → PappersPremiumData.
+  pappers_premium?: PappersPremiumData
 
   // Scores calculés
   valeur_entreprise_estimee?: number

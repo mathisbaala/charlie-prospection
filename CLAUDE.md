@@ -1,5 +1,33 @@
 @AGENTS.md
 
+## Principe directeur — Personne first, société = moyen
+
+Les CGP cherchent des **personnes humaines** comme clients, pas des sociétés.
+Tout le produit doit raisonner sur la personne au centre. Les sociétés
+(principale, SCI, holdings, autres) sont des **moyens** :
+
+  - moyen d'identifier la personne (Pappers représentants, Annuaire entreprises)
+  - moyen d'enrichir la connaissance sur elle (finances, capital, BE)
+  - moyen de détecter des signaux patrimoniaux la concernant
+  - moyen d'inférer son patrimoine professionnel
+
+Conséquences concrètes pour tout code futur :
+
+  1. Le score patrimonial et la fiche racontent l'histoire d'**une personne**,
+     pas d'une société. Les entreprises sont des attributs de la personne.
+  2. Le matching de signaux doit couvrir **toutes les sociétés** rattachées
+     à la personne (principal + portfolio SCI/holdings/autres), pas seulement
+     la société principale. Une cession sur la SCI du dirigeant est un signal
+     patrimonial fort le concernant.
+  3. La dédup cross-source doit primer sur l'identité personne, pas sur le
+     SIREN. Voir `canonicalPersonKey(prenom, nom, siren?)` — siren n'est qu'un
+     tiebreaker quand l'homonymie est ambiguë.
+  4. L'UI affiche la personne en hero (nom, score), puis ses sociétés
+     comme attributs en dessous. Voir DESIGN.md §Score-as-hero.
+  5. Quand on a le choix entre stocker une donnée "côté société" ou
+     "côté personne", choisir la personne. Ex: `last_signal_at` est sur le
+     prospect (= personne), pas sur la société.
+
 ## Code ownership — two-founder split
 
 ALWAYS read OWNERSHIP.md before modifying any file. The project is co-built by

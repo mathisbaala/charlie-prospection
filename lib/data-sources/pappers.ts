@@ -136,6 +136,81 @@ export interface PappersBeneficiaireEffectif {
   nationalite?: string
 }
 
+// --- Premium payload (abonnement Pappers payant) ----------------------------
+//
+// Les 3 dimensions Premium sortent en une seule réponse `/entreprise` quand
+// on active les query flags `actes_telechargement` / `comptes_telechargement`
+// / `publications_bodacc_brutes`. Le coût est de **1 jeton par appel** quels
+// que soient les flags activés (vérifié 2026-05-16 contre `/suivi-jetons`).
+// Donc Premium ne multiplie PAS le coût — il enrichit la même réponse.
+
+export interface PappersActe {
+  type?: string
+  decision?: string | null
+  date_acte?: string | null
+  date_acte_formate?: string | null
+}
+
+export interface PappersActeDepot {
+  date_depot: string
+  date_depot_formate?: string
+  disponible: boolean
+  nom_fichier_pdf?: string
+  token?: string  // token pour download via /document/telechargement
+  actes: PappersActe[]
+}
+
+export interface PappersCompte {
+  date_depot: string
+  date_depot_formate?: string
+  date_cloture: string
+  annee_cloture: number
+  type_comptes: string       // "CS" comptes sociaux, "CC" comptes consolidés
+  confidentialite: boolean
+  confidentialite_compte_de_resultat?: boolean
+  disponible: boolean
+  nom_fichier_pdf?: string
+  token?: string
+  disponible_xlsx?: boolean
+  nom_fichier_xlsx?: string
+  token_xlsx?: string
+}
+
+export interface PappersPublicationBodacc {
+  numero_parution?: string
+  date: string
+  numero_annonce?: string
+  annonce_rectificative?: boolean
+  bodacc?: 'A' | 'B' | 'C'
+  type?: string                          // "Creation", "Modification", "Vente", ...
+  rcs?: string
+  greffe?: string
+  nom_entreprise?: string
+  personne_morale?: boolean
+  denomination?: string
+  sigle?: string | null
+  nom_commercial?: string | null
+  forme_juridique?: string
+  nom?: string | null
+  prenom?: string | null
+  administration?: string
+  adresse?: string
+  capital?: number | null
+  devise_capital?: string | null
+  activite?: string
+  description?: string
+}
+
+export interface PappersPremiumData {
+  depots_actes: PappersActeDepot[]
+  comptes: PappersCompte[]
+  publications_bodacc: PappersPublicationBodacc[]
+  /** Coût encouru pour récupérer ce payload (toujours 1 jeton chez Pappers v2). */
+  cost_jetons: number
+  /** Timestamp ISO de la récupération — useful pour invalidation cache. */
+  fetched_at: string
+}
+
 export interface PappersEnrichment {
   finances: PappersFinances[]
   beneficiaires_effectifs: PappersBeneficiaireEffectif[]
@@ -147,17 +222,58 @@ export interface PappersEnrichment {
   greffe?: string
   effectif_max?: number
   nb_etablissements?: number
+  /** Présent uniquement si l'appel a été fait avec `{ premium: true }`. */
+  premium?: PappersPremiumData
 }
 
-// Fetch the full enrichment payload for a SIREN — finances, BEs, procédures collectives
-export async function getPappersEnrichment(siren: string): Promise<PappersEnrichment | null> {
+/**
+ * Fetch the full enrichment payload for a SIREN — finances, BEs, procédures
+ * collectives, et optionnellement les payloads Premium (actes juridiques,
+ * comptes annuels détaillés, publications BODACC enrichies).
+ *
+ * Coût : toujours 1 jeton Pappers, que `premium` soit true ou false (les
+ * flags activent des champs additionnels dans la même réponse).
+ *
+ * Sécurité quota : si `premium: true` est demandé mais que
+ * `PAPPERS_PREMIUM_ENABLED` env var n'est pas posé à '1', on log un warn
+ * et on bascule sur le mode standard pour éviter un abus accidentel.
+ */
+export async function getPappersEnrichment(
+  siren: string,
+  opts?: { premium?: boolean },
+): Promise<PappersEnrichment | null> {
   if (!(await tryConsumeQuota('pappers'))) return null
+
+  const wantPremium = opts?.premium === true
+  const premiumEnabled = process.env.PAPPERS_PREMIUM_ENABLED === '1'
+  if (wantPremium && !premiumEnabled) {
+    console.warn(
+      '[pappers] premium requested but PAPPERS_PREMIUM_ENABLED!=1 — falling back to standard',
+    )
+  }
+  const usePremium = wantPremium && premiumEnabled
+
   try {
-    const url = `${BASE}/entreprise?api_token=${token()}&siren=${siren}`
-    const res = await timedFetch('pappers', 'getPappersEnrichment', url, { next: { revalidate: 86400 } })
+    const url = new URL(`${BASE}/entreprise`)
+    url.searchParams.set('api_token', token())
+    url.searchParams.set('siren', siren)
+    if (usePremium) {
+      url.searchParams.set('actes_telechargement', 'true')
+      url.searchParams.set('comptes_telechargement', 'true')
+      url.searchParams.set('publications_bodacc_brutes', 'true')
+      url.searchParams.set('format_publications_bodacc', 'json')
+    }
+
+    const res = await timedFetch(
+      'pappers',
+      usePremium ? 'getPappersEnrichmentPremium' : 'getPappersEnrichment',
+      url.toString(),
+      { next: { revalidate: 86400 } },
+    )
     if (!res.ok) return null
     const data = await res.json()
-    return {
+
+    const base: PappersEnrichment = {
       finances: data.finances ?? [],
       beneficiaires_effectifs: data.beneficiaires_effectifs ?? [],
       procedure_collective_en_cours: data.procedure_collective_en_cours ?? false,
@@ -168,6 +284,58 @@ export async function getPappersEnrichment(siren: string): Promise<PappersEnrich
       greffe: data.greffe,
       effectif_max: data.effectif_max,
       nb_etablissements: data.etablissements?.length,
+    }
+
+    if (usePremium) {
+      base.premium = {
+        depots_actes: Array.isArray(data.depots_actes) ? data.depots_actes : [],
+        comptes: Array.isArray(data.comptes) ? data.comptes : [],
+        publications_bodacc: Array.isArray(data.publications_bodacc)
+          ? data.publications_bodacc
+          : [],
+        cost_jetons: 1,
+        fetched_at: new Date().toISOString(),
+      }
+    }
+    return base
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Status du quota Pappers côté API officielle (source de vérité).
+ *
+ * Endpoint `/suivi-jetons` — gratuit (ne consomme PAS de jeton). Utile pour :
+ *   - synchroniser notre compteur local avec la réalité de l'abo
+ *   - afficher un indicateur "jetons restants ce mois" dans l'UI admin
+ *   - bloquer les jobs d'enrichissement quand le quota mensuel est tendu
+ *
+ * Retourne null si l'API est en erreur ou si la clé est manquante (pour ne
+ * pas casser les callers — c'est de l'instrumentation, pas du chemin critique).
+ */
+export interface PappersTokenStatus {
+  jetons_abonnement: number
+  jetons_abonnement_utilises: number
+  jetons_pay_as_you_go_restants: number
+  /** Reste estimé = abonnement - utilisés + PAYG. */
+  remaining: number
+}
+
+export async function getPappersTokenStatus(): Promise<PappersTokenStatus | null> {
+  try {
+    const url = `${BASE}/suivi-jetons?api_token=${token()}`
+    const res = await timedFetch('pappers', 'getPappersTokenStatus', url, { cache: 'no-store' })
+    if (!res.ok) return null
+    const data = await res.json()
+    const total = Number(data.jetons_abonnement ?? 0)
+    const used = Number(data.jetons_abonnement_utilises ?? 0)
+    const payg = Number(data.jetons_pay_as_you_go_restants ?? 0)
+    return {
+      jetons_abonnement: total,
+      jetons_abonnement_utilises: used,
+      jetons_pay_as_you_go_restants: payg,
+      remaining: Math.max(0, total - used) + payg,
     }
   } catch {
     return null
@@ -196,4 +364,64 @@ export async function searchPersonnes(params: {
   } catch {
     return { resultats: [], total: 0 }
   }
+}
+
+/** Normalise a name segment for comparison (lowercase, no diacritics, trim). */
+function normName(s: string | undefined | null): string {
+  if (!s) return ''
+  return s
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .trim()
+    .toLowerCase()
+}
+
+/**
+ * Récupère toutes les entreprises où une personne physique apparaît
+ * comme dirigeante. Match prénom + nom (insensible aux accents/casse).
+ *
+ * Pourquoi : pour l'analyse de portefeuille patrimonial multi-entités —
+ * un CGP veut savoir qu'un dirigeant gère aussi 2 SCI et 1 holding.
+ *
+ * Retourne la première personne qui matche prénom + nom (Pappers retourne
+ * souvent plusieurs homonymes). Si match incertain → retourne null pour
+ * éviter de polluer le portefeuille avec un mauvais homonyme.
+ *
+ * Coût quota: 1 appel Pappers (déjà couvert par tryConsumeQuota dans
+ * searchPersonnes).
+ */
+export async function getPersonneEntreprises(
+  prenom: string,
+  nom: string,
+): Promise<PappersPersonne | null> {
+  const cleanPrenom = (prenom ?? '').trim()
+  const cleanNom = (nom ?? '').trim()
+  if (!cleanPrenom || !cleanNom) return null
+
+  const { resultats } = await searchPersonnes({
+    q: `${cleanPrenom} ${cleanNom}`,
+    par_page: 5,
+  })
+  if (resultats.length === 0) return null
+
+  const wantPrenom = normName(cleanPrenom)
+  const wantNom = normName(cleanNom)
+
+  // Best match: exact nom + prenom matches
+  for (const r of resultats) {
+    if (normName(r.nom) === wantNom && normName(r.prenom) === wantPrenom) {
+      return r
+    }
+  }
+  // Fallback: nom exact + prenom starts with (handle "Jean-François" vs "Jean")
+  for (const r of resultats) {
+    if (
+      normName(r.nom) === wantNom &&
+      normName(r.prenom).startsWith(wantPrenom)
+    ) {
+      return r
+    }
+  }
+  // If we can't confidently identify the person, refuse (avoid wrong homonym).
+  return null
 }

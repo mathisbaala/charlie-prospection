@@ -76,196 +76,209 @@ export function PipelineDetailPanel({ prospect, onStageChange, onDelete }: Props
       className="flex-1 flex flex-col overflow-y-auto"
       style={{ background: 'var(--color-surface)' }}
     >
-      {/* ── STICKY HEADER (score-as-hero, dark surface) ───────────── */}
+      {/* ── STICKY HEADER (banque privée: name-as-hero, KPI-as-block) ── */}
       <div
         style={{
           position: 'sticky',
           top: 0,
           zIndex: 5,
-          background: 'var(--color-dark-surface)',
-          padding: '28px 32px 22px 32px',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+          background: 'var(--color-bg)',
+          padding: '24px 32px 20px 32px',
+          borderBottom: '1px solid var(--color-border)',
         }}
       >
-        <div className="flex items-start justify-between" style={{ gap: 12 }}>
-          <p
-            style={{
-              fontSize: 10,
-              fontWeight: 700,
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
-              color: 'rgba(237, 233, 224, 0.55)',
-              marginBottom: 10,
-            }}
-          >
-            Score patrimonial
-          </p>
-          {onDelete && (
-            <button
-              type="button"
-              onClick={onDelete}
-              aria-label="Supprimer ce prospect du suivi"
-              title="Supprimer du suivi"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-                padding: '4px 10px',
-                background: 'transparent',
-                color: 'rgba(237, 233, 224, 0.55)',
-                border: '1px solid rgba(237, 233, 224, 0.15)',
-                borderRadius: 2,
-                fontSize: 11,
-                fontWeight: 500,
-                cursor: 'pointer',
-                transition: 'all 100ms',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.color = 'var(--color-error, #c44)'
-                e.currentTarget.style.borderColor = 'var(--color-error, #c44)'
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.color = 'rgba(237, 233, 224, 0.55)'
-                e.currentTarget.style.borderColor = 'rgba(237, 233, 224, 0.15)'
-              }}
+        <div className="flex items-start" style={{ gap: 24 }}>
+          {/* Left column: identité de la personne (name-as-hero) */}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div
+              className="flex items-center justify-between"
+              style={{ gap: 8, marginBottom: 8 }}
             >
-              <Trash2 size={11} />
-              Retirer
-            </button>
-          )}
-        </div>
-        <div className="flex items-baseline" style={{ gap: 16, flexWrap: 'wrap' }}>
-          <p
-            className="font-display"
-            style={{
-              fontSize: 88,
-              fontWeight: 800,
-              color: score != null ? 'var(--color-accent)' : 'rgba(237, 233, 224, 0.45)',
-              lineHeight: 0.95,
-              letterSpacing: '-0.03em',
-              fontVariantNumeric: 'tabular-nums',
-            }}
-          >
-            {score ?? '—'}
-            {score != null && (
               <span
-                style={{
-                  fontSize: 28,
-                  fontWeight: 600,
-                  color: 'rgba(188, 107, 42, 0.55)',
-                  marginLeft: 4,
-                }}
-              >
-                /100
-              </span>
-            )}
-          </p>
-          {valuationLabel && (
-            <div style={{ minWidth: 0 }}>
-              <p
                 style={{
                   fontSize: 10,
                   fontWeight: 700,
-                  letterSpacing: '0.08em',
+                  letterSpacing: '0.10em',
                   textTransform: 'uppercase',
-                  color: 'rgba(237, 233, 224, 0.45)',
-                  marginBottom: 2,
+                  color: 'var(--color-accent)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 5,
                 }}
               >
-                Valorisation estimée
-              </p>
-              <p
-                className="font-mono"
-                style={{
-                  fontSize: 18,
-                  fontWeight: 600,
-                  color: '#FDFAF5',
-                  letterSpacing: '-0.01em',
-                  fontVariantNumeric: 'tabular-nums',
-                }}
-              >
-                {valuationLabel}
-              </p>
+                {ed?.rpps ? (
+                  <>
+                    <Stethoscope size={11} />
+                    Professionnel de santé
+                  </>
+                ) : (
+                  <>
+                    <User size={11} />
+                    Dirigeant
+                  </>
+                )}
+              </span>
+              {onDelete && (
+                <button
+                  type="button"
+                  onClick={onDelete}
+                  aria-label="Supprimer ce prospect du suivi"
+                  title="Retirer du suivi"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 22,
+                    height: 22,
+                    background: 'transparent',
+                    color: 'var(--color-muted)',
+                    border: 'none',
+                    cursor: 'pointer',
+                    transition: 'color 100ms',
+                    flexShrink: 0,
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.color = 'var(--color-error)'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.color = 'var(--color-muted)'
+                  }}
+                >
+                  <Trash2 size={13} />
+                </button>
+              )}
             </div>
-          )}
-        </div>
 
-        {/* Name comes AFTER the score per DESIGN.md score-as-hero rule */}
-        <h2
-          className="font-display"
-          style={{
-            marginTop: 16,
-            fontSize: 22,
-            fontWeight: 600,
-            color: '#FDFAF5',
-            letterSpacing: '-0.015em',
-            lineHeight: 1.2,
-          }}
-        >
-          {personName}
-        </h2>
+            <h2
+              className="font-display"
+              style={{
+                fontSize: 26,
+                fontWeight: 600,
+                color: 'var(--color-text)',
+                letterSpacing: '-0.015em',
+                lineHeight: 1.15,
+                margin: 0,
+              }}
+            >
+              {personName}
+            </h2>
 
-        <div
-          className="flex items-center"
-          style={{
-            marginTop: 6,
-            gap: 14,
-            fontSize: 12,
-            color: 'rgba(237, 233, 224, 0.65)',
-            flexWrap: 'wrap',
-          }}
-        >
-          <span
+            <div
+              className="flex items-center"
+              style={{
+                marginTop: 6,
+                gap: 10,
+                fontSize: 13,
+                color: 'var(--color-muted)',
+                flexWrap: 'wrap',
+                lineHeight: 1.4,
+              }}
+            >
+              <span>{personRole}</span>
+              <span style={{ color: 'var(--color-border)' }}>·</span>
+              <span className="flex items-center" style={{ gap: 4 }}>
+                <Building2 size={11} />
+                {titleCase(companyName)}
+              </span>
+              {ed?.ville && (
+                <>
+                  <span style={{ color: 'var(--color-border)' }}>·</span>
+                  <span className="flex items-center" style={{ gap: 4 }}>
+                    <MapPin size={11} />
+                    {titleCase(ed.ville)}
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Right column: KPI block (score + valorisation, Bloomberg-style) */}
+          <div
             style={{
-              fontSize: 10,
-              fontWeight: 700,
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
-              color: 'var(--color-accent)',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 5,
+              flexShrink: 0,
+              width: 220,
+              border: '1px solid var(--color-border)',
+              background: 'var(--color-bg)',
+              padding: '14px 16px',
+              textAlign: 'right',
             }}
           >
-            {ed?.rpps ? (
+            <p
+              style={{
+                fontSize: 10,
+                fontWeight: 700,
+                letterSpacing: '0.10em',
+                textTransform: 'uppercase',
+                color: 'var(--color-muted)',
+                margin: 0,
+                marginBottom: 4,
+              }}
+            >
+              Patrimoine
+            </p>
+            <p
+              className="font-mono"
+              style={{
+                fontSize: 32,
+                fontWeight: 600,
+                color: score != null ? 'var(--color-text)' : 'var(--color-muted)',
+                lineHeight: 1,
+                letterSpacing: '-0.01em',
+                fontVariantNumeric: 'tabular-nums',
+                margin: 0,
+              }}
+            >
+              {score ?? '—'}
+            </p>
+            {valuationLabel && (
               <>
-                <Stethoscope size={11} />
-                Professionnel de santé
-              </>
-            ) : (
-              <>
-                <User size={11} />
-                Dirigeant
+                <div
+                  style={{
+                    height: 1,
+                    background: 'var(--color-border)',
+                    margin: '10px 0 8px',
+                  }}
+                />
+                <p
+                  className="font-mono"
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: 'var(--color-text)',
+                    fontVariantNumeric: 'tabular-nums',
+                    margin: 0,
+                    lineHeight: 1.2,
+                  }}
+                >
+                  {valuationLabel}
+                  <span
+                    style={{
+                      fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+                      fontSize: 10,
+                      fontWeight: 500,
+                      color: 'var(--color-muted)',
+                      marginLeft: 4,
+                      letterSpacing: '0.02em',
+                    }}
+                  >
+                    estimé
+                  </span>
+                </p>
               </>
             )}
-          </span>
-          <span>{personRole}</span>
-          <span style={{ color: 'rgba(237, 233, 224, 0.35)' }}>·</span>
-          <span className="flex items-center" style={{ gap: 4 }}>
-            <Building2 size={11} />
-            {titleCase(companyName)}
-          </span>
-          {ed?.ville && (
-            <>
-              <span style={{ color: 'rgba(237, 233, 224, 0.35)' }}>·</span>
-              <span className="flex items-center" style={{ gap: 4 }}>
-                <MapPin size={11} />
-                {titleCase(ed.ville)}
-              </span>
-            </>
-          )}
+          </div>
         </div>
+
       </div>
 
-      {/* ── CRM STAGE SELECTOR (under header, above tabs) ─────────── */}
+      {/* ── CRM STAGE SELECTOR (under header, above tabs — no border, fused with tabs) ─ */}
       {onStageChange && (
         <div
           className="flex"
           style={{
             background: 'var(--color-surface)',
-            padding: '12px 32px',
+            padding: '14px 32px 12px',
             gap: 6,
-            borderBottom: '1px solid var(--color-border)',
             flexWrap: 'wrap',
           }}
         >
@@ -307,13 +320,13 @@ export function PipelineDetailPanel({ prospect, onStageChange, onDelete }: Props
         </div>
       )}
 
-      {/* ── TABS ─────────────────────────────────────────────────── */}
+      {/* ── TABS (aligned to header content via padding offset) ───── */}
       <div
         className="flex"
         style={{
           background: 'var(--color-surface)',
           borderBottom: '1px solid var(--color-border)',
-          padding: '0 32px',
+          padding: '0 18px',
           gap: 4,
         }}
       >
@@ -383,8 +396,7 @@ function TabButton({
       onClick={onClick}
       className="transition-colors"
       style={{
-        padding: '14px 4px',
-        marginRight: 20,
+        padding: '12px 14px',
         fontSize: 13,
         fontWeight: active ? 600 : 500,
         color: active ? 'var(--color-text)' : 'var(--color-muted)',

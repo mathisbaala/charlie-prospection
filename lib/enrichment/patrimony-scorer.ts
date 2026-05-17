@@ -1,4 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
+import { summarizeDerivatives } from '@/lib/enrichment/finance-derivatives'
+import { summarizePortfolio } from '@/lib/enrichment/personal-portfolio'
 import type {
   BodaccEvent,
   PatrimonyScoreBreakdown,
@@ -95,8 +97,27 @@ ${enrichment.procedure_collective_en_cours ? '- ⚠️ Procédure collective en 
 - Fonds propres: ${fmtEuro(enrichment.fonds_propres_dernier)}
 ${enrichment.finances && enrichment.finances.length > 1 ? `- Évolution CA: ${enrichment.finances.slice(0, 3).map(f => `${f.annee}: ${fmtEuro(f.chiffre_affaires)}`).join(' → ')}` : ''}
 
+## Dérivées finance (calculées sur les ${enrichment.finance_derivatives?.years_available ?? 0} an(s) dispo)
+${enrichment.finance_derivatives ? `- ${summarizeDerivatives(enrichment.finance_derivatives)}` : '- Pas de dérivées calculables'}
+${enrichment.finance_derivatives?.ca_trajectory && enrichment.finance_derivatives.ca_trajectory !== 'unknown' ? `- Lecture: une boîte en trajectoire **${enrichment.finance_derivatives.ca_trajectory}** vaut un score patrimonial différent d'une boîte stagnante au même CA. Pondère.` : ''}
+${enrichment.finance_derivatives?.debt_to_equity != null && enrichment.finance_derivatives.debt_to_equity > 2 ? `- Alerte: D/E élevé (${enrichment.finance_derivatives.debt_to_equity}) — patrimoine professionnel à pondérer à la baisse.` : ''}
+${enrichment.finance_derivatives?.fonds_propres_growth_pct != null && enrichment.finance_derivatives.fonds_propres_growth_pct > 30 ? `- Signal positif: fonds propres en forte croissance (+${enrichment.finance_derivatives.fonds_propres_growth_pct}%) — accumulation patrimoniale active.` : ''}
+
 ## Bénéficiaires effectifs
 ${enrichment.beneficiaires_effectifs?.slice(0, 3).map(b => `- ${b.prenom ?? ''} ${b.nom ?? ''} (${b.pourcentage_parts ?? '?'}% parts)`).join('\n') || 'Non renseignés'}
+
+## Portefeuille d'entités juridiques du dirigeant
+${enrichment.personal_portfolio ? `- ${summarizePortfolio(enrichment.personal_portfolio)}` : '- Pas d\'autres entités détectées'}
+${enrichment.personal_portfolio && enrichment.personal_portfolio.entites.length > 1
+  ? `- Détail des structures annexes:\n${enrichment.personal_portfolio.entites
+      .filter(e => e.category !== 'principale')
+      .slice(0, 6)
+      .map(e => `  · [${e.category.toUpperCase()}] ${e.nom_entreprise} (${e.code_naf ?? '—'}${e.ville ? `, ${e.ville}` : ''}${e.date_creation ? `, créée ${e.date_creation.slice(0, 4)}` : ''})`)
+      .join('\n')}` : ''}
+${enrichment.personal_portfolio?.niveau_structuration === 'sophistiqué'
+  ? '- Lecture: structure patrimoniale **sophistiquée** (SCI + holding + sociétés actives) — client haut de gamme probable.' : ''}
+${enrichment.personal_portfolio?.niveau_structuration === 'structuré'
+  ? '- Lecture: patrimoine **structuré** (SCI ou holding détectée) — signe d\'organisation patrimoniale active.' : ''}
 
 ${rppsBlock}
 

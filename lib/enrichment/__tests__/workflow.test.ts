@@ -15,6 +15,7 @@ vi.mock('@/lib/data-sources/bodacc', () => ({
 }))
 vi.mock('@/lib/data-sources/pappers', () => ({
   getPappersEnrichment: vi.fn(),
+  getPersonneEntreprises: vi.fn(() => Promise.resolve(null)),
 }))
 vi.mock('@/lib/data-sources/rpps', () => ({
   searchRpps: vi.fn(),

@@ -87,7 +87,7 @@ export function ProspectFicheContent({ prospect }: Props) {
   const facteursCles = ed?.facteurs_cles
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       {/* Cartographie patrimoniale — uniquement patrimoine inféré du dirigeant */}
       {(ed?.patrimoine_total_estime ||
         ed?.valeur_entreprise_estimee ||

@@ -13,20 +13,32 @@
 - **Reference sites:** Wizio (avoid: purple gradients, generic SaaS layout), Stripe (aspire to: precision + personality)
 
 ## Typography
-- **Display/Hero:** Fraunces (Google Fonts, free, variable) — for patrimony scores, ICP headings, empty states, onboarding moments. The only tool in this category that uses a quality serif. This signals: "we thought about this." Load via `next/font/google`.
+- **Display/Hero:** Fraunces (Google Fonts, free, variable) — for **prose hero** (landing titles), **section headings** (H1/H2), **person names** in detail panels, and editorial moments (empty states, onboarding). The only tool in this category that uses a quality serif. **NEVER use Fraunces for financial numbers** — see "Numeric typography" below. Load via `next/font/google`.
 - **Body/UI:** Plus Jakarta Sans (Google Fonts, free) — clean, slightly geometric, excellent readability at data density, tabular-nums support. For all labels, table content, navigation, buttons, form fields.
-- **Data/Tables:** Geist Mono — already loaded via `next/font`. For numeric data (patrimony amounts, SIREN numbers, percentages, ICP scores in table cells). Always use `font-variant-numeric: tabular-nums`.
+- **Data/Tables/Scores:** Geist Mono — already loaded via `next/font`. For **all** numeric data: patrimony scores, valuations, percentages, amounts, SIREN, ratios, table cells. Always use `font-variant-numeric: tabular-nums`. **This is non-negotiable** — see "Numeric typography" below.
 - **Code:** Geist Mono (same as data)
 - **Loading:** Google Fonts via `next/font/google` for Fraunces and Plus Jakarta Sans. Geist Mono via `next/font/google` (Geist).
 - **Scale:**
-  - Score display: 88–96px, Fraunces, weight 800
-  - H1: 36–48px, Fraunces, weight 700
-  - H2: 22–28px, Fraunces, weight 600
+  - H1 (page hero): 36–48px, Fraunces, weight 700
+  - H2 (section / person name in detail panel): 22–28px, Fraunces, weight 600
   - H3: 17–20px, Plus Jakarta Sans, weight 600
   - Body: 13–14px, Plus Jakarta Sans, weight 400
   - Label (uppercase): 10–11px, Plus Jakarta Sans, weight 700, tracking 0.08–0.12em
   - Table data: 12–13px, Plus Jakarta Sans or Geist Mono depending on content type
   - Table header: 10px, Plus Jakarta Sans, weight 700, uppercase, tracking 0.08em
+  - **Numeric KPI** (score / valuation in detail panel header): 28–32px, Geist Mono, weight 600 — never larger
+  - **Numeric breakdown / stats**: 13–14px, Geist Mono, weight 600
+
+## Numeric typography — Bloomberg discipline
+
+**All financial numbers use Geist Mono with `font-variant-numeric: tabular-nums`.** Display serifs (Fraunces) are **never** used for financial data — they are reserved for prose, names, and editorial moments. This rule is what separates Charlie from "trendy fintech UI" and aligns it with the working tools serious finance professionals actually use (Bloomberg Terminal, Refinitiv, FactSet, BlackRock Aladdin).
+
+Concrete rules:
+- **Maximum numeric size: 32px.** A patrimony score is data, not signage. There is no use case for a number larger than 32px in this app.
+- **Color: `var(--color-text)` (ink) by default.** Reserve `var(--color-accent)` (copper) for the value that is actively being interacted with (e.g. selected row's score in a table, breakdown bar fills). Reserve `var(--color-error)` for negative/risk values. Numbers are not decoration.
+- **Never write `/100` after scores.** The denominator is implicit. Same for `%` on ratios where the unit is unambiguous.
+- **Tabular-nums always** for column alignment and visual consistency across rows.
+- **Weight: 600** for primary numeric values, **500** for secondary, **400** for supporting context (e.g. annotations).
 
 ## Color
 - **Approach:** Restrained — one copper accent used sparingly. Color signals meaning, not decoration.
@@ -99,12 +111,19 @@ These three choices are where Charlie earns its distinctive face. Do not remove 
 
 1. **Parchment background (#F3EFE6)** — Every competitor uses clinical white or dark navy. This makes the app feel like a premium document. Risk accepted: might feel "document-viewer-ish" to new users. Gain: unmistakably premium, unlike anything in the category. Implementation: set `background: var(--color-bg)` on `<body>`, not `bg-white`.
 
-2. **Fraunces serif for patrimony scores and key headings** — Every other CGP tool uses a generic sans-serif for everything. A quality serif at 88–96px reads authoritative and considered. Implementation: `font-family: 'Fraunces', serif` on score displays, H1, H2, and editorial moments (empty states, onboarding). Never use it for body text or table content.
+2. **Fraunces serif for editorial moments and person names** — Every other CGP tool uses a generic sans-serif for everything. A quality serif for H1, H2, and person names in detail panels reads authoritative and considered. Implementation: `font-family: 'Fraunces', serif` on H1 (36–48px), H2 (22–28px including person names in detail panel headers), and editorial moments (empty states, onboarding). **Never use Fraunces for body text, table content, or financial numbers** — see "Numeric typography" rule.
 
 3. **Pipeline-first landing, no dashboard homepage** — The user lands directly in their prospect pipeline, ranked by patrimony score. No dashboard with KPI cards. The intelligence strip at the top of the canvas delivers the proactive insight instead. Implementation: default route should redirect to `/pipeline` or the primary list view.
 
-### Score-as-hero
-The patrimony ICP score is the first visual element in the right context panel — not the prospect's name and photo. Large, bold, Fraunces serif, in `--color-accent`. The name comes after the score. This signals that Charlie is a qualification tool, not an address book.
+### Detail panel hierarchy — name-as-hero, score-as-KPI
+
+The patrimony ICP score is **not** the visual hero of the detail panel — the **person's name** is. A CGP refers to their prospect by name, not by score. The score is a metric, presented in a compact KPI block.
+
+Implementation in `pipeline-detail-panel.tsx`:
+- **Surface**: parchment continues from the rest of the app — no dark surface header. The detail panel is part of the document, not a separate billboard.
+- **Layout**: 2-column header. Left column (flex 1): eyebrow tag (`PROFESSIONNEL DE SANTÉ` / `DIRIGEANT`), then person name in Fraunces 26px weight 600, then meta line (rôle · société · ville) in 13px Plus Jakarta muted. Right column (240–280px fixed): KPI block with `PATRIMOINE` label, score in Geist Mono 32px ink, divider, valuation estimate in Geist Mono 13px muted with "estimé" suffix.
+- **Total header height**: ~120–140px. Anything more is over-design.
+- **Stage pills** below the header, **tabs** below the pills. One row each, no chrome on chrome.
 
 ## Anti-Patterns (never implement these)
 - Purple or violet gradients as accent
@@ -116,6 +135,11 @@ The patrimony ICP score is the first visual element in the right context panel �
 - Gradient buttons
 - `bg-white` as the default page background (use `--color-bg` parchment instead)
 - Gold accent color (#FFD700 or similar)
+- **Display serif fonts (Fraunces) for financial numbers** — scores, valuations, %, amounts must be Geist Mono
+- **Numeric values larger than 32px** anywhere (a score is data, not signage)
+- **Explicit `/100` denominator** on scores
+- **Dark surface headers in the middle of light-surface app shells** (the detail panel header must continue the parchment background, not introduce a dark band)
+- **Detail panel headers taller than 150px** (compact, document-like, not billboard-like)
 
 ## Decisions Log
 | Date | Decision | Rationale |
@@ -127,3 +151,5 @@ The patrimony ICP score is the first visual element in the right context panel �
 | 2026-05-14 | Pipeline-first landing (no dashboard) | Respects user time. The intelligence strip delivers proactive value instead. |
 | 2026-05-14 | Score-as-hero in right panel | Charlie is a qualification tool, not an address book. Score before name. |
 | 2026-05-14 | Plus Jakarta Sans for body | Clean at data density, tabular-nums, free, more distinctive than DM Sans. |
+| 2026-05-16 | Fiche client refonte — banque privée hierarchy | Header passe de ~280px à ~130px. Suppression du dark surface header (continuité parchment). Nom de la personne en hero (Fraunces 26px, gauche), score+valorisation en bloc KPI encadré à droite (Geist Mono 32px ink). Adresse feedback CGP "trop trendy / illisible". Voir `pipeline-detail-panel.tsx`. |
+| 2026-05-16 | Bloomberg discipline numérique | Tous les chiffres financiers en Geist Mono tabular, jamais en serif display. Suppression de l'ancienne règle "Score-as-hero / Score 88-96px Fraunces". Anti-patterns ajoutés : pas de "/100", pas de chiffre >32px, pas de display serif sur valeurs numériques. Aligne Charlie sur les outils de finance pro (Bloomberg, Refinitiv, FactSet) au lieu de l'esthétique fintech. |

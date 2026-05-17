@@ -1,6 +1,11 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
-import { fetchInpiDailyDiff, mapInpiTypeToEvent, type InpiFormality } from '@/lib/data-sources/inpi'
+import {
+  fetchInpiDailyDiff,
+  mapInpiTypeToEvent,
+  probeInpi,
+  type InpiFormality,
+} from '@/lib/data-sources/inpi'
 import type { SignalsInboxInsert } from '@/lib/types'
 
 export const dynamic = 'force-dynamic'
@@ -28,7 +33,8 @@ function extractDeptFromCp(cp: string | undefined | null): string | null {
   return m[1].startsWith('97') ? m[1] : m[1].slice(0, 2)
 }
 
-function buildInboxRow(f: InpiFormality): SignalsInboxInsert | null {
+/** Build a signals_inbox row from a single INPI formality. Exported for tests. */
+export function buildInpiInboxRow(f: InpiFormality): SignalsInboxInsert | null {
   if (!f.id) return null
   const dateEvent = f.dateEvenement
     ? new Date(f.dateEvenement).toISOString()
@@ -47,12 +53,14 @@ function buildInboxRow(f: InpiFormality): SignalsInboxInsert | null {
   }
 }
 
-async function runIngest(): Promise<{
+interface IngestResult {
   fetched: number
   ingested: number
   skipped_duplicates: number
   skipped_invalid: number
-}> {
+}
+
+async function runIngest(): Promise<IngestResult> {
   const token = process.env.INPI_API_TOKEN
   const baseUrl = process.env.INPI_API_BASE
   if (!token || !baseUrl) {
@@ -66,12 +74,17 @@ async function runIngest(): Promise<{
   )
 
   const sinceDate = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
-  const records = await fetchInpiDailyDiff({ sinceDate, baseUrl, token })
+  const records = await fetchInpiDailyDiff({
+    sinceDate,
+    baseUrl,
+    token,
+    path: process.env.INPI_API_PATH,
+  })
 
   const rows: SignalsInboxInsert[] = []
   let skippedInvalid = 0
   for (const f of records) {
-    const row = buildInboxRow(f)
+    const row = buildInpiInboxRow(f)
     if (!row) {
       skippedInvalid += 1
       continue
@@ -101,8 +114,26 @@ async function runIngest(): Promise<{
   }
 }
 
+async function runProbe() {
+  const token = process.env.INPI_API_TOKEN
+  const baseUrl = process.env.INPI_API_BASE
+  if (!token || !baseUrl) {
+    return { ok: false as const, skipped: true, reason: 'INPI_API_TOKEN or INPI_API_BASE not set' }
+  }
+  return probeInpi({ baseUrl, token, path: process.env.INPI_API_PATH })
+}
+
 export async function GET(req: NextRequest) {
   if (!isAuthorized(req)) return unauthorized()
+
+  // Probe mode: `?probe=1` returns connection diagnostics without ingesting.
+  // Used to verify INPI credentials + URL + envelope before going live.
+  const url = new URL(req.url)
+  if (url.searchParams.get('probe') === '1') {
+    const result = await runProbe()
+    return NextResponse.json(result)
+  }
+
   try {
     const result = await runIngest()
     return NextResponse.json({ ok: true, ...result })

@@ -9,6 +9,9 @@ vi.mock('@/lib/data-sources/bodacc', () => ({
 
 vi.mock('@/lib/data-sources/pappers', () => ({
   getPappersEnrichment: vi.fn(),
+  // Nouveau (PR portefeuille patrimonial) — par défaut, retourne null
+  // pour ne pas changer le comportement des tests existants.
+  getPersonneEntreprises: vi.fn(() => Promise.resolve(null)),
 }))
 
 vi.mock('@/lib/data-sources/rpps', () => ({
