@@ -35,27 +35,14 @@ export async function queryPersons(
 ): Promise<PersonHit[]> {
   if (!filters.personTypes && !filters.nafCodes && !filters.departements) return []
 
-  let query = supabase
-    .from('prospection_persons')
-    .select(
-      'canonical_key, prenom, nom, siren, departement, naf_code, person_type, raw_data, extended_data, patrimony_score, raison_principale',
-    )
-    .not('patrimony_score', 'is', null)
-    .order('patrimony_score', { ascending: false, nullsFirst: false })
-    .limit(limit)
-
-  // NAF codes priment sur person_type (plus précis pour dirigeants et libéraux en société)
-  if (filters.nafCodes && filters.nafCodes.length > 0) {
-    query = query.in('naf_code', filters.nafCodes)
-  } else if (filters.personTypes && filters.personTypes.length > 0) {
-    query = query.in('person_type', filters.personTypes)
-  }
-
-  if (filters.departements && filters.departements.length > 0) {
-    query = query.in('departement', filters.departements)
-  }
-
-  const { data, error } = await query
+  // Utilise la fonction SECURITY DEFINER qui override le statement_timeout à 30s
+  // (le client REST Supabase est limité à ~3s par le free tier — ORDER BY sur 5k+ rows timeout)
+  const { data, error } = await supabase.rpc('search_persons_by_criteria', {
+    p_naf_codes: filters.nafCodes ?? null,
+    p_person_types: filters.personTypes ?? null,
+    p_departements: filters.departements ?? null,
+    p_limit: limit,
+  })
   if (error || !data) return []
 
   return data.map((row) => {
