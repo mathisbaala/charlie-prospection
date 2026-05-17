@@ -6,6 +6,8 @@ interface Props {
   candidates: SearchCandidate[]
   selected: Set<string>
   onToggle: (uid: string) => void
+  onSelectAll?: () => void
+  onDeselectAll?: () => void
 }
 
 const NIVEAU_LABEL: Record<SearchCandidate['niveau'], string> = {
@@ -34,8 +36,11 @@ function formatCurrency(n: number | null | undefined): string | null {
  * BulkAddBar. Already-in-suivi candidates are visually muted and not
  * selectable.
  */
-export function CandidateList({ candidates, selected, onToggle }: Props) {
+export function CandidateList({ candidates, selected, onToggle, onSelectAll, onDeselectAll }: Props) {
   if (candidates.length === 0) return null
+
+  const selectable = candidates.filter((c) => !c.already_in_suivi)
+  const allSelected = selectable.length > 0 && selectable.every((c) => selected.has(c.uid))
 
   return (
     <div
@@ -59,9 +64,30 @@ export function CandidateList({ candidates, selected, onToggle }: Props) {
           {candidates.length} prospect{candidates.length > 1 ? 's' : ''} trouvé
           {candidates.length > 1 ? 's' : ''}
         </span>
-        <span style={{ fontSize: 11, color: 'var(--color-muted)' }}>
-          Trié par score patrimoine ↓
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          {(onSelectAll || onDeselectAll) && selectable.length > 0 && (
+            <button
+              type="button"
+              onClick={allSelected ? onDeselectAll : onSelectAll}
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                color: 'var(--color-accent)',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                padding: 0,
+                textDecoration: 'underline',
+                letterSpacing: '0.02em',
+              }}
+            >
+              {allSelected ? 'Tout désélectionner' : 'Tout sélectionner'}
+            </button>
+          )}
+          <span style={{ fontSize: 11, color: 'var(--color-muted)' }}>
+            Trié par score patrimoine ↓
+          </span>
+        </div>
       </header>
       <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
         {candidates.map((c) => {
