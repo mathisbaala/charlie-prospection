@@ -20,8 +20,8 @@ import type { PersonIngestInput, PersonType } from '../lib/persons/types'
 
 const RPPS_DATASET_ID = '69025e6c73d1f9b79ca3c365'
 const DATAGOUV_API = 'https://www.data.gouv.fr/api/1'
-const BATCH_SIZE = 30
-const RATE_LIMIT_MS = 2000
+const BATCH_SIZE = 100
+const RATE_LIMIT_MS = 200
 
 function deriveDeptFromCP(cp: string): string {
   const s = cp.trim()

@@ -1,9 +1,10 @@
 /**
  * Utilitaires partagés pour les scripts d'ingest de professions libérales.
- * Charge automatiquement .env.local si présent.
+ * Écrit directement dans Supabase (service_role) pour éviter les timeouts Vercel.
  */
 
 import { readFileSync } from 'fs'
+import { createClient } from '@supabase/supabase-js'
 import type { PersonIngestInput } from '../../lib/persons/types'
 
 // Chargement manuel de .env.local (pas de dépendance dotenv)
@@ -17,49 +18,141 @@ try {
   }
 } catch {}
 
-export function getEnv(): { baseUrl: string; apiKey: string } {
-  const baseUrl = process.env.INGEST_BASE_URL ?? 'http://localhost:3000'
-  const apiKey = process.env.ADMIN_API_KEY ?? ''
-  if (!apiKey) {
-    console.error('❌  ADMIN_API_KEY manquant. Ajouter dans .env.local ou exporter la variable.')
+function canonicalPersonKey(prenom: string, nom: string, siren?: string): string {
+  const norm = (s: string) =>
+    s.normalize('NFD').replace(/\p{Mn}/gu, '').toLowerCase().replace(/\s+/g, ' ').trim()
+  return `${norm(prenom)}|${norm(nom)}|${siren ?? '—'}`
+}
+
+function buildLinkedInSearchUrl(prenom: string, nom: string, entreprise: string): string {
+  const q = encodeURIComponent(`${prenom} ${nom} ${entreprise}`)
+  return `https://www.linkedin.com/search/results/people/?keywords=${q}`
+}
+
+function buildRawProspect(input: PersonIngestInput, canonicalKey: string) {
+  return {
+    uid: canonicalKey,
+    source: 'annuaire_entreprises',
+    source_type: 'personne_physique',
+    entreprise_nom: input.entreprise_nom ?? '',
+    siren: input.siren ?? '',
+    code_naf: input.naf_code ?? '',
+    libelle_naf: input.naf_libelle ?? '',
+    date_creation: '',
+    tranche_effectifs: '',
+    adresse: input.adresse ?? '',
+    code_postal: input.code_postal ?? '',
+    ville: input.ville ?? '',
+    departement: input.departement ?? '',
+    dirigeant_nom: input.nom,
+    dirigeant_prenom: input.prenom,
+    dirigeant_qualite: input.profession_libelle ?? '',
+    dirigeant_annee_naissance: input.annee_naissance,
+    linkedin_search_url: input.linkedin_url ?? buildLinkedInSearchUrl(input.prenom, input.nom, input.entreprise_nom ?? ''),
+    score_initial: 50,
+  }
+}
+
+const FETCH_TIMEOUT_MS = 120_000 // 120s max par appel PostgREST (cold-start free tier)
+
+function fetchWithTimeout(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
+  return fetch(input, { ...init, signal: controller.signal }).finally(() => clearTimeout(timer))
+}
+
+let _supabase: ReturnType<typeof createClient> | null = null
+
+function getSupabase() {
+  if (_supabase) return _supabase
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!url || !key) {
+    console.error('❌ NEXT_PUBLIC_SUPABASE_URL ou SUPABASE_SERVICE_ROLE_KEY manquant dans .env.local')
     process.exit(1)
   }
-  return { baseUrl, apiKey }
+  _supabase = createClient(url, key, {
+    auth: { persistSession: false },
+    global: { fetch: fetchWithTimeout },
+  })
+  return _supabase
+}
+
+// Chunk size pour les upserts Supabase (5 rows = ~2-5s, safe sous le statement_timeout free tier)
+const CHUNK = 5
+
+export function getEnv(): { baseUrl: string; apiKey: string } {
+  // Conservé pour compatibilité avec dry-run (les valeurs ne sont plus utilisées)
+  return { baseUrl: '', apiKey: '' }
 }
 
 export async function postBatch(
   persons: PersonIngestInput[],
-  baseUrl: string,
-  apiKey: string,
+  _baseUrl: string,
+  _apiKey: string,
 ): Promise<{ upserted: number; errors: number }> {
   if (!persons.length) return { upserted: 0, errors: 0 }
-  const url = `${baseUrl}/api/admin/ingest/persons`
-  for (let attempt = 1; attempt <= 3; attempt++) {
-    const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), 120_000)
-    try {
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-admin-key': apiKey },
-        body: JSON.stringify({ persons }),
-        signal: controller.signal,
-      })
-      clearTimeout(timer)
-      if (!res.ok) {
-        const text = await res.text()
-        console.error(`\n[ingest] HTTP ${res.status} (attempt ${attempt}): ${text.slice(0, 200)}`)
-        if (attempt < 3) { await sleep(10_000 * attempt); continue }
-        return { upserted: 0, errors: persons.length }
+
+  const supabase = getSupabase()
+
+  const allRows = persons.map((input) => {
+    const canonical_key = input.rpps_number
+      ? `rpps|${input.rpps_number}`
+      : canonicalPersonKey(input.prenom, input.nom, input.siren)
+    return {
+      canonical_key,
+      prenom: input.prenom,
+      nom: input.nom,
+      annee_naissance: input.annee_naissance ?? null,
+      person_type: input.person_type ?? 'dirigeant',
+      profession_libelle: input.profession_libelle ?? null,
+      rpps_number: input.rpps_number ?? null,
+      siren: input.siren ?? null,
+      siret: input.siret ?? null,
+      naf_code: input.naf_code ?? null,
+      naf_libelle: input.naf_libelle ?? null,
+      entreprise_nom: input.entreprise_nom ?? null,
+      departement: input.departement ?? null,
+      ville: input.ville ?? null,
+      adresse: input.adresse ?? null,
+      code_postal: input.code_postal ?? null,
+      linkedin_url: input.linkedin_url ?? null,
+      ingest_sources: [input.source],
+      raw_data: buildRawProspect(input, canonical_key),
+      updated_at: new Date().toISOString(),
+    }
+  })
+
+  // Dédupliquer par canonical_key dans le batch
+  const rows = Array.from(new Map(allRows.map(r => [r.canonical_key, r])).values())
+
+  let totalUpserted = 0
+  let totalErrors = 0
+
+  for (let i = 0; i < rows.length; i += CHUNK) {
+    const chunk = rows.slice(i, i + CHUNK)
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const { error } = await supabase
+          .from('prospection_persons')
+          .upsert(chunk, { onConflict: 'canonical_key', ignoreDuplicates: false })
+        if (error) {
+          console.error(`\n[ingest] chunk erreur (attempt ${attempt}): ${error.message}`)
+          if (attempt < 3) { await sleep(5_000 * attempt); continue }
+          totalErrors += chunk.length
+        } else {
+          totalUpserted += chunk.length
+        }
+      } catch (e) {
+        console.error(`\n[ingest] chunk exception (attempt ${attempt}):`, String(e))
+        if (attempt < 3) { await sleep(5_000 * attempt); continue }
+        totalErrors += chunk.length
       }
-      return res.json() as Promise<{ upserted: number; errors: number }>
-    } catch (e) {
-      clearTimeout(timer)
-      console.error(`\n[ingest] fetch error (attempt ${attempt}):`, String(e))
-      if (attempt < 3) { await sleep(10_000 * attempt); continue }
-      return { upserted: 0, errors: persons.length }
+      break
     }
   }
-  return { upserted: 0, errors: persons.length }
+
+  return { upserted: totalUpserted, errors: totalErrors }
 }
 
 export const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))

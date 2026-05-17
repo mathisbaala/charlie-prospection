@@ -36,8 +36,8 @@ import { getEnv, postBatch, sleep, DEPTS_FRANCE } from './lib/ingest-client'
 import type { PersonIngestInput, PersonType } from '../lib/persons/types'
 
 const AE_BASE = 'https://recherche-entreprises.api.gouv.fr'
-const BATCH_SIZE = 30
-const RATE_LIMIT_MS = 1000
+const BATCH_SIZE = 100
+const RATE_LIMIT_MS = 200
 const PER_PAGE = 25
 
 interface NafConfig {
