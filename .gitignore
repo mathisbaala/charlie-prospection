@@ -46,3 +46,10 @@ next-env.d.ts
 
 # claude code local config
 .claude/
+
+# CSV data dumps (prospect lists, exports) — never commit raw lists
+*.csv
+
+# Built extension zips — rebuilt from extension/ at need
+charlie-extension-v*.zip
+extension.zip
