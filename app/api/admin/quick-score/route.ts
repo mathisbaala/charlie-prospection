@@ -118,5 +118,5 @@ export async function POST(request: Request) {
     })
   )
 
-  return NextResponse.json({ ok: true, scored: updates.length, done: updates.length < BATCH })
+  return NextResponse.json({ ok: true, scored: persons.length, done: persons.length < BATCH })
 }
