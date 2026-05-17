@@ -13,7 +13,7 @@ function getProspectName(p: Prospect): string {
   const ld = p.linkedin_data as Record<string, unknown>
   const prenom = String(e?.dirigeant_prenom ?? ld?.prenom ?? '').trim()
   const nom = String(e?.dirigeant_nom ?? ld?.nom ?? '').trim()
-  return [prenom, nom].filter(Boolean).join(' ') || p.linkedin_url
+  return [prenom, nom].filter(Boolean).join(' ') || p.linkedin_url || p.id
 }
 
 function getProspectCompany(p: Prospect): string {
