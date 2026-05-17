@@ -7,6 +7,9 @@ export type PersonType =
   | 'avocat'
   | 'notaire'
   | 'expert_comptable'
+  | 'courtier_assurance'
+  | 'conseiller_financier'
+  | 'huissier'
   | 'autre_libéral'
   | 'autre'
 

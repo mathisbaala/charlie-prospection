@@ -47,7 +47,7 @@ const PROFESSIONS: Record<string, ProfessionConfig> = {
     naf: '71.11Z',
     personType: 'autre_libéral',
     professionLibelle: 'Architecte',
-    keywords: null, // 71.11Z est quasi-exclusivement des architectes
+    keywords: null,
   },
   veterinaires: {
     label: 'Vétérinaires',
@@ -55,7 +55,7 @@ const PROFESSIONS: Record<string, ProfessionConfig> = {
     naf: '75.00Z',
     personType: 'autre_libéral',
     professionLibelle: 'Vétérinaire',
-    keywords: null, // 75.00Z = activités vétérinaires uniquement
+    keywords: null,
   },
   geometres: {
     label: 'Géomètres-experts',
@@ -63,8 +63,39 @@ const PROFESSIONS: Record<string, ProfessionConfig> = {
     naf: '71.12B',
     personType: 'autre_libéral',
     professionLibelle: 'Géomètre-expert',
-    // 71.12B est large (ingénierie) — filtrer sur "géomètre"
-    keywords: ['géomètre', 'geometre', 'ogec'],
+    keywords: ['géomètre', 'geometre'],
+  },
+  huissiers: {
+    label: 'Commissaires de justice / Huissiers',
+    sourceId: 'ae_huissiers',
+    naf: '69.10Z',
+    personType: 'autre_libéral',
+    professionLibelle: 'Commissaire de justice',
+    keywords: ['huissier', 'commissaire de justice', 'office de commissaire', 'scp de commissaire'],
+  },
+  courtiers_assurance: {
+    label: 'Courtiers en assurance',
+    sourceId: 'ae_courtiers_assurance',
+    naf: '66.22Z',
+    personType: 'autre_libéral',
+    professionLibelle: 'Courtier en assurance',
+    keywords: null,
+  },
+  conseillers_financiers: {
+    label: 'Conseillers financiers (CGPI / CIF)',
+    sourceId: 'ae_conseillers_financiers',
+    naf: '64.99Z',
+    personType: 'autre_libéral',
+    professionLibelle: 'Conseiller en gestion de patrimoine',
+    keywords: ['patrimoine', 'cgpi', 'gestion privée', 'conseil en investissement', 'family office', 'conseiller financier', 'cif'],
+  },
+  agents_assurance: {
+    label: "Agents généraux d'assurance",
+    sourceId: 'ae_agents_assurance',
+    naf: '66.19Z',
+    personType: 'autre_libéral',
+    professionLibelle: "Agent général d'assurance",
+    keywords: ["agent général", "agence d'assurance", 'assurances', 'agent assurance', 'courtage'],
   },
 }
 
