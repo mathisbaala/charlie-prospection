@@ -1,11 +1,18 @@
 #!/bin/bash
 # run-all-ingest.sh — Lance tous les scripts d'ingest en séquence avec log.
-# Usage : bash scripts/run-all-ingest.sh
-# Usage fond de tâche : nohup bash scripts/run-all-ingest.sh > logs/run-all.log 2>&1 &
+# Lancer en fond : nohup bash scripts/run-all-ingest.sh > logs/ingest-master.log 2>&1 &
+#
+# État base au 17/05/2026 :
+#   RPPS (57k) ✅  Architectes (5k) ✅  EC (3.5k) ✅
+#   Avocats (1k, partiel) ⚠️  Notaires (214, partiel) ⚠️
+#   Autres libéraux ❌  Biologistes médicaux ❌  Médecins SELAS ❌
+#
+# Ce script NE relance PAS le RPPS (déjà complet à 57k).
 
 set -e
 cd "$(dirname "$0")/.."
 
+mkdir -p logs
 LOG="logs/ingest-$(date +%Y%m%d-%H%M%S).log"
 echo "Log : $LOG"
 
@@ -19,19 +26,32 @@ run() {
   echo "  ✓ $name terminé — $(date '+%Y-%m-%d %H:%M:%S')" | tee -a "$LOG"
 }
 
-# 1. RPPS — le plus rapide et le plus haut volume (645k libéraux)
-run "RPPS professions de santé" scripts/ingest-rpps-bulk.ts
-
-# 2. Juridiques (NAF 69.10Z) — avocats + notaires, même source, séquentiels
+# 1. Avocats — relance complète (1 077 en base = très partiel, ~70k attendus)
 run "Avocats (AE NAF 69.10Z)" scripts/ingest-avocats-cnb.ts
+
+# 2. Notaires — relance complète (214 en base = très partiel, ~10k attendus)
 run "Notaires (AE NAF 69.10Z)" scripts/ingest-notaires.ts
 
-# 3. Experts-comptables (NAF 69.20Z)
+# 3. Experts-comptables — relance (3 578 en base, peut avoir de nouveaux)
 run "Experts-comptables (AE NAF 69.20Z)" scripts/ingest-experts-comptables.ts
 
-# 4. Autres libéraux — architectes, vétérinaires, géomètres, huissiers
-#    + financiers — courtiers assurance (66.22Z), CGPI/CIF (64.99Z), agents assurance (66.19Z)
+# 4. Autres libéraux — 12 professions pas encore ingérées :
+#    vétérinaires, géomètres, huissiers, courtiers assurance, CGPI,
+#    agents assurance, ostéopathes, psychologues, experts judiciaires,
+#    commissaires-priseurs, agents immobiliers, architectes (refresh)
 run "Autres libéraux + financiers" scripts/ingest-autres-liberaux.ts
+
+# 5. Biologistes médicaux — NOUVEAU (NAF 86.90B + RPPS Biologiste)
+run "Biologistes médicaux (AE 86.90B + RPPS)" scripts/ingest-biologistes-medicaux.ts
+
+# 6. Médecins libéraux en société — NOUVEAU (NAF 86.22Z + 86.21Z avec SIREN)
+run "Médecins libéraux SELAS/SELARL (AE 86.22Z + 86.21Z)" scripts/ingest-medecins-selas.ts
+
+# 7. Professions AE complémentaires — pharmacies, dentistes SELAS, kinés SELAS
+run "AE Complémentaires (pharmacies 47.73Z, dentistes 86.23Z, kinés 86.90E)" scripts/ingest-professions-ae-complement.ts
+
+# 8. RPPS — médecins, dentistes, pharmaciens, kinés open data Santé
+run "RPPS médecins/dentistes/pharmaciens/kinés" scripts/ingest-rpps-bulk.ts
 
 echo "" | tee -a "$LOG"
 echo "╔══════════════════════════════════╗" | tee -a "$LOG"

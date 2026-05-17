@@ -34,22 +34,32 @@ export async function postBatch(
 ): Promise<{ upserted: number; errors: number }> {
   if (!persons.length) return { upserted: 0, errors: 0 }
   const url = `${baseUrl}/api/admin/ingest/persons`
-  try {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-admin-key': apiKey },
-      body: JSON.stringify({ persons }),
-    })
-    if (!res.ok) {
-      const text = await res.text()
-      console.error(`\n[ingest] HTTP ${res.status}: ${text.slice(0, 300)}`)
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 120_000)
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-key': apiKey },
+        body: JSON.stringify({ persons }),
+        signal: controller.signal,
+      })
+      clearTimeout(timer)
+      if (!res.ok) {
+        const text = await res.text()
+        console.error(`\n[ingest] HTTP ${res.status} (attempt ${attempt}): ${text.slice(0, 200)}`)
+        if (attempt < 3) { await sleep(10_000 * attempt); continue }
+        return { upserted: 0, errors: persons.length }
+      }
+      return res.json() as Promise<{ upserted: number; errors: number }>
+    } catch (e) {
+      clearTimeout(timer)
+      console.error(`\n[ingest] fetch error (attempt ${attempt}):`, String(e))
+      if (attempt < 3) { await sleep(10_000 * attempt); continue }
       return { upserted: 0, errors: persons.length }
     }
-    return res.json() as Promise<{ upserted: number; errors: number }>
-  } catch (e) {
-    console.error('\n[ingest] fetch error:', String(e))
-    return { upserted: 0, errors: persons.length }
   }
+  return { upserted: 0, errors: persons.length }
 }
 
 export const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))

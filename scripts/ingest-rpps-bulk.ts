@@ -20,8 +20,8 @@ import type { PersonIngestInput, PersonType } from '../lib/persons/types'
 
 const RPPS_DATASET_ID = '69025e6c73d1f9b79ca3c365'
 const DATAGOUV_API = 'https://www.data.gouv.fr/api/1'
-const BATCH_SIZE = 500
-const RATE_LIMIT_MS = 1000
+const BATCH_SIZE = 30
+const RATE_LIMIT_MS = 2000
 
 function deriveDeptFromCP(cp: string): string {
   const s = cp.trim()
@@ -205,7 +205,15 @@ async function main() {
 
       batch.push(person)
       if (batch.length >= BATCH_SIZE) {
-        const r = await postBatch(batch, env.baseUrl, env.apiKey)
+        // Dédupliquer par rpps_number dans la batch (un praticien peut avoir plusieurs activités dans le fichier)
+        const seen = new Set<string>()
+        const deduped = batch.filter((p) => {
+          const key = p.rpps_number ?? `${p.prenom}|${p.nom}`
+          if (seen.has(key)) return false
+          seen.add(key)
+          return true
+        })
+        const r = await postBatch(deduped, env.baseUrl, env.apiKey)
         totalUpserted += r.upserted
         totalErrors += r.errors
         batch = []
@@ -224,7 +232,14 @@ async function main() {
     if (person) batch.push(person)
   }
   if (!dryRun && batch.length) {
-    const r = await postBatch(batch, env.baseUrl, env.apiKey)
+    const seen = new Set<string>()
+    const deduped = batch.filter((p) => {
+      const key = p.rpps_number ?? `${p.prenom}|${p.nom}`
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+    const r = await postBatch(deduped, env.baseUrl, env.apiKey)
     totalUpserted += r.upserted
     totalErrors += r.errors
   }

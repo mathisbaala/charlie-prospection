@@ -40,7 +40,12 @@ export async function upsertPersons(
   if (inputs.length === 0) return { upserted: 0, errors: 0 }
 
   const allRows = inputs.map((input) => {
-    const canonical_key = canonicalPersonKey(input.prenom, input.nom, input.siren)
+    // Pour les professions RPPS, le numéro RPPS est l'identifiant national unique.
+    // Sans lui, deux "Jean Martin" de départements différents fusionnent en un seul
+    // enregistrement (collision sur prenom|nom|—). Le RPPS garantit l'unicité réelle.
+    const canonical_key = input.rpps_number
+      ? `rpps|${input.rpps_number}`
+      : canonicalPersonKey(input.prenom, input.nom, input.siren)
     return {
       canonical_key,
       prenom: input.prenom,
@@ -66,16 +71,24 @@ export async function upsertPersons(
   })
   const rows = Array.from(new Map(allRows.map(r => [r.canonical_key, r])).values())
 
-  const { error } = await supabase
-    .from('prospection_persons')
-    .upsert(rows, { onConflict: 'canonical_key', ignoreDuplicates: false })
-
-  if (error) {
-    console.error('[persons/store] upsert error:', error.message)
-    return { upserted: 0, errors: inputs.length }
+  // Supabase statement_timeout fires on large batch upserts → chunk into ≤30-row slices
+  const CHUNK = 30
+  let totalUpserted = 0
+  let totalErrors = 0
+  for (let i = 0; i < rows.length; i += CHUNK) {
+    const chunk = rows.slice(i, i + CHUNK)
+    const { error } = await supabase
+      .from('prospection_persons')
+      .upsert(chunk, { onConflict: 'canonical_key', ignoreDuplicates: false })
+    if (error) {
+      console.error('[persons/store] upsert error:', error.message)
+      totalErrors += chunk.length
+    } else {
+      totalUpserted += chunk.length
+    }
   }
 
-  return { upserted: rows.length, errors: 0 }
+  return { upserted: totalUpserted, errors: totalErrors }
 }
 
 export async function updatePersonEnrichment(
