@@ -1,6 +1,22 @@
 import { describe, it, expect, vi } from 'vitest'
 import { runDiscovery } from '../index'
 
+vi.mock('../annuaire-entreprises', () => ({
+  annuaireEntreprisesSource: { name: 'annuaire-entreprises', discover: vi.fn().mockResolvedValue([]) },
+}))
+
+vi.mock('../inpi-rne', () => ({
+  inpiRneSource: { name: 'inpi-rne', discover: vi.fn().mockResolvedValue([]) },
+}))
+
+vi.mock('../rne-elus', () => ({
+  rneElusSource: { name: 'rne-elus', discover: vi.fn().mockResolvedValue([]) },
+}))
+
+vi.mock('../sirene-creations', () => ({
+  sireneCreationsSource: { name: 'sirene-creations', discover: vi.fn().mockResolvedValue([]) },
+}))
+
 vi.mock('../pappers-naf', () => ({
   pappersNafSource: {
     name: 'pappers-naf',

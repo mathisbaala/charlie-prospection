@@ -18,7 +18,7 @@ import type { RawProspect } from '@/lib/prospect-search/engine'
 
 const DEFAULT_LIMIT = 20
 // ID stable du dataset RNE sur data.gouv.fr
-const RNE_DATASET_ID = '5c34944606e3e7d9de6ced25'
+const RNE_DATASET_ID = '5c34c4d1634f4173183a64f1'
 const RNE_API_URL = `https://www.data.gouv.fr/api/1/datasets/${RNE_DATASET_ID}/`
 
 // Fonctions éligibles — on cible les exécutifs, pas tous les conseillers
