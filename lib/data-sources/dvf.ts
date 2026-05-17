@@ -1,6 +1,11 @@
 import { timedFetch } from '@/lib/observability/logger'
 
-const BASE = 'https://api.dvf.etalab.gouv.fr/dvf/1.0'
+// Geo-DVF — fichiers CSV publiés par la DGFIP via data.gouv.fr
+// Remplace api.dvf.etalab.gouv.fr (NXDOMAIN depuis 2025)
+// Structure : {BASE}/{year}/communes/{dept}/{commune}.csv
+// Exemple   : .../2024/communes/69/69123.csv
+const GEO_DVF_BASE = 'https://files.data.gouv.fr/geo-dvf/2025-12/csv'
+const CANDIDATE_YEARS = [2024, 2023, 2022] as const
 
 export interface DvfRecord {
   id_mutation: string
@@ -17,31 +22,113 @@ export interface DvfRecord {
   nombre_pieces_principales?: number
 }
 
+function deptFromCommune(codeCommune: string): string {
+  // DOM : codes commençant par 971-976 → 3 caractères
+  if (/^97[1-6]/.test(codeCommune)) return codeCommune.slice(0, 3)
+  return codeCommune.slice(0, 2)
+}
+
+function parseCsv(text: string): DvfRecord[] {
+  const lines = text.split('\n')
+  if (lines.length < 2) return []
+
+  const sep = lines[0].includes(';') ? ';' : ','
+  const headers = lines[0].split(sep).map((h) => h.trim().replace(/"/g, '').toLowerCase())
+
+  const col = (name: string) => headers.indexOf(name)
+  const iId = col('id_mutation')
+  const iDate = col('date_mutation')
+  const iNature = col('nature_mutation')
+  const iValeur = col('valeur_fonciere')
+  const iNumero = col('adresse_numero')
+  const iVoie = col('adresse_nom_voie')    // nom du champ dans les CSV geo-dvf
+  const iCodeCommune = col('code_commune')
+  const iNomCommune = col('nom_commune')
+  const iCodeDept = col('code_departement')
+  const iTypeLocal = col('type_local')
+  const iSurface = col('surface_reelle_bati')
+  const iPieces = col('nombre_pieces_principales')
+
+  if (iId === -1 || iDate === -1 || iValeur === -1) return []
+
+  const records: DvfRecord[] = []
+  const seen = new Set<string>()
+
+  for (let i = 1; i < lines.length; i++) {
+    const raw = lines[i]
+    if (!raw.trim()) continue
+    const cells = raw.split(sep)
+
+    const cell = (idx: number) =>
+      idx >= 0 ? (cells[idx]?.trim().replace(/^"|"$/g, '') ?? '') : ''
+
+    const idMutation = cell(iId)
+    if (!idMutation) continue
+    // DVF : plusieurs lignes par mutation (une par lot) — on déduplique
+    if (seen.has(idMutation)) continue
+    seen.add(idMutation)
+
+    // Séparateur décimal français : virgule → point
+    const valeur = parseFloat(cell(iValeur).replace(',', '.')) || 0
+    const surface = cell(iSurface) ? parseFloat(cell(iSurface).replace(',', '.')) : undefined
+    const pieces = cell(iPieces) ? parseInt(cell(iPieces)) : undefined
+
+    records.push({
+      id_mutation: idMutation,
+      date_mutation: cell(iDate),
+      nature_mutation: cell(iNature),
+      valeur_fonciere: valeur,
+      adresse_numero: cell(iNumero) || undefined,
+      adresse_voie: cell(iVoie) || undefined,
+      code_commune: cell(iCodeCommune),
+      nom_commune: cell(iNomCommune),
+      code_departement: cell(iCodeDept),
+      type_local: cell(iTypeLocal) || undefined,
+      surface_reelle_bati: surface,
+      nombre_pieces_principales: pieces,
+    })
+  }
+
+  return records
+}
+
+async function fetchDvfCsv(codeCommune: string): Promise<DvfRecord[]> {
+  const dept = deptFromCommune(codeCommune)
+
+  for (const year of CANDIDATE_YEARS) {
+    const url = `${GEO_DVF_BASE}/${year}/communes/${dept}/${codeCommune}.csv`
+    try {
+      const res = await timedFetch('dvf', 'fetchDvfCsv', url, {
+        next: { revalidate: 86400 * 30 }, // données historiques stables
+      })
+      if (!res.ok) continue
+      const text = await res.text()
+      const records = parseCsv(text)
+      if (records.length > 0) return records
+    } catch {
+      continue
+    }
+  }
+  return []
+}
+
 export async function getDvfByCommune(codeCommune: string, minValeur = 0, limit = 20): Promise<DvfRecord[]> {
   try {
-    const url = `${BASE}/communes/${codeCommune}/dvf/?page=1&page_size=${limit}`
-    const res = await timedFetch('dvf', 'getDvfByCommune', url, { next: { revalidate: 86400 } })
-    if (!res.ok) return []
-    const data = await res.json()
-    const results: DvfRecord[] = data.results ?? []
-    return results.filter(r => r.valeur_fonciere >= minValeur)
+    const records = await fetchDvfCsv(codeCommune)
+    return records
+      .filter((r) => r.valeur_fonciere >= minValeur)
+      .sort((a, b) => b.date_mutation.localeCompare(a.date_mutation))
+      .slice(0, limit)
   } catch {
     return []
   }
 }
 
-// ── DVF perso — address-based matching ───────────────────────────────────────
+// ── DVF perso — matching par adresse ─────────────────────────────────────────
 //
-// DVF doesn't carry the owner's SIREN — just the parcel + address. So we can
-// never be SURE a mutation belongs to a prospect. What we CAN do : list the
-// mutations on the address registered as the company's siège. Confidence
-// remains a heuristic.
-//
-// Why this is useful : a CGP scanning a fiche wants to know "did anyone sell
-// real estate at the dirigeant's business address in the last 5 years?" — even
-// noisy, it's a starting point for a real conversation. We surface candidates
-// with explicit confidence levels and never feed them into the patrimony
-// score (too noisy).
+// DVF ne porte pas le SIREN du propriétaire — on ne peut jamais être CERTAIN
+// qu'une mutation concerne le prospect. On liste les mutations à l'adresse du
+// siège social. Confiance heuristique, affiché en fiche uniquement (hors score).
 
 export type DvfMatchConfidence = 'low' | 'medium' | 'high'
 
@@ -53,15 +140,9 @@ export interface DvfPersoCandidate {
   surface_reelle_bati?: number
   adresse_complete: string
   match_confidence: DvfMatchConfidence
-  /** Human-readable explanation of how the match was scored. Surfaced in the
-   *  fiche so the CGP understands the noise level. */
   match_reason: string
 }
 
-/** Normalize a fragment of address for fuzzy comparison. Strips diacritics,
- *  punctuation, common articles (de, du, la, le, les, l'), and collapses
- *  whitespace. Mirrors the heuristics in the slugify module but kept local
- *  to keep address-matching logic colocated. */
 function normalizeAddressFragment(s: string | undefined): string {
   if (!s) return ''
   return s
@@ -74,14 +155,6 @@ function normalizeAddressFragment(s: string | undefined): string {
     .trim()
 }
 
-/**
- * Score a candidate match between the prospect's address and a DVF row.
- *  - high   : numero exact + voie includes target voie (or vice-versa)
- *  - medium : voie matches but numero differs or one side missing
- *  - low    : substring overlap on voie tokens (weak)
- *
- * Returns null when there's no reasonable overlap — caller drops the row.
- */
 function scoreAddressMatch(
   targetNumero: string,
   targetVoie: string,
@@ -119,41 +192,24 @@ function scoreAddressMatch(
   return { confidence: 'low', reason: 'Recouvrement faible sur la voie' }
 }
 
-/** Returns true if the two address fragments share at least one significant
- *  word (length ≥ 4) — filters out matches on noise like "rue" or "place". */
 function shareSignificantToken(a: string, b: string): boolean {
-  const stop = new Set(['rue', 'avenue', 'av', 'bd', 'boulevard', 'place', 'allee', 'allée', 'chemin', 'route', 'impasse', 'cours', 'quai', 'square'])
+  const stop = new Set(['rue', 'avenue', 'av', 'bd', 'boulevard', 'place', 'allee', 'allee', 'chemin', 'route', 'impasse', 'cours', 'quai', 'square'])
   const tokensA = a.split(' ').filter((t) => t.length >= 4 && !stop.has(t))
   const tokensB = new Set(b.split(' ').filter((t) => t.length >= 4 && !stop.has(t)))
   return tokensA.some((t) => tokensB.has(t))
 }
 
-/**
- * Fetch DVF mutations for `codeCommune` and filter to those that plausibly
- * match the target address. Returns a confidence-scored list, sorted by
- * confidence (high → low) then date (recent → old).
- *
- * NOT used in patrimony scoring — too noisy. Pure display signal in the fiche.
- * Caller is responsible for hiding low-confidence rows behind a "voir plus"
- * if desired.
- */
 export async function getDvfByAddress(params: {
   codeCommune: string
   adresseVoie: string
   adresseNumero?: string
-  /** Cap fetched rows — DVF API pages are bounded at 500 typically. */
   pageSize?: number
-  /** Confidence floor — defaults to 'low' to include weak matches. */
   minConfidence?: DvfMatchConfidence
 }): Promise<DvfPersoCandidate[]> {
   if (!params.codeCommune || !params.adresseVoie) return []
 
   try {
-    const url = `${BASE}/communes/${params.codeCommune}/dvf/?page=1&page_size=${params.pageSize ?? 500}`
-    const res = await timedFetch('dvf', 'getDvfByAddress', url, { next: { revalidate: 86400 } })
-    if (!res.ok) return []
-    const data = await res.json()
-    const records: DvfRecord[] = data.results ?? []
+    const records = await fetchDvfCsv(params.codeCommune)
 
     const order: Record<DvfMatchConfidence, number> = { high: 3, medium: 2, low: 1 }
     const floor = order[params.minConfidence ?? 'low']

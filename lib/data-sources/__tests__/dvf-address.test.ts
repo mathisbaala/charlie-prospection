@@ -1,10 +1,60 @@
 import { describe, it, expect, afterEach, vi } from 'vitest'
 
 // Test the address-matching DVF flow. We mock timedFetch to return a known
-// DVF payload and verify the candidates come back with the right confidence
-// tiers — high (exact match), medium (voie match, num diff), low (token
-// overlap only). Filtering correctness is the contract that determines
-// whether the patrimony fiche shows noise or signal.
+// geo-dvf CSV payload and verify the candidates come back with the right
+// confidence tiers — high (exact match), medium (voie match, num diff),
+// low (token overlap only). Filtering correctness is the contract that
+// determines whether the patrimony fiche shows noise or signal.
+
+type CsvRow = {
+  id_mutation: string
+  date_mutation: string
+  nature_mutation: string
+  valeur_fonciere: number | string
+  adresse_numero?: string
+  adresse_nom_voie?: string
+  code_commune?: string
+  nom_commune?: string
+  code_departement?: string
+  type_local?: string
+  surface_reelle_bati?: number | string
+  nombre_pieces_principales?: number | string
+}
+
+const CSV_HEADERS = [
+  'id_mutation',
+  'date_mutation',
+  'nature_mutation',
+  'valeur_fonciere',
+  'adresse_numero',
+  'adresse_nom_voie',
+  'code_commune',
+  'nom_commune',
+  'code_departement',
+  'type_local',
+  'surface_reelle_bati',
+  'nombre_pieces_principales',
+].join(';')
+
+function buildCsv(rows: CsvRow[]): string {
+  const lines = rows.map((r) =>
+    [
+      r.id_mutation,
+      r.date_mutation,
+      r.nature_mutation,
+      String(r.valeur_fonciere ?? '').replace('.', ','),
+      r.adresse_numero ?? '',
+      r.adresse_nom_voie ?? '',
+      r.code_commune ?? '',
+      r.nom_commune ?? '',
+      r.code_departement ?? '',
+      r.type_local ?? '',
+      r.surface_reelle_bati !== undefined ? String(r.surface_reelle_bati).replace('.', ',') : '',
+      r.nombre_pieces_principales !== undefined ? String(r.nombre_pieces_principales) : '',
+    ].join(';'),
+  )
+  return [CSV_HEADERS, ...lines].join('\n')
+}
 
 describe('getDvfByAddress', () => {
   afterEach(() => {
@@ -12,13 +62,14 @@ describe('getDvfByAddress', () => {
     vi.doUnmock('@/lib/observability/logger')
   })
 
-  async function setup(records: Array<Record<string, unknown>>) {
+  async function setup(rows: CsvRow[]) {
+    const csvText = buildCsv(rows)
     vi.doMock('@/lib/observability/logger', () => ({
       timedFetch: async () =>
         ({
           ok: true,
           status: 200,
-          json: async () => ({ results: records }),
+          text: async () => csvText,
         }) as unknown as Response,
     }))
     return await import('../dvf')
@@ -32,7 +83,7 @@ describe('getDvfByAddress', () => {
         nature_mutation: 'Vente',
         valeur_fonciere: 850000,
         adresse_numero: '12',
-        adresse_voie: 'rue de la République',
+        adresse_nom_voie: 'rue de la République',
         code_commune: '69123',
         nom_commune: 'Lyon',
         code_departement: '69',
@@ -58,7 +109,7 @@ describe('getDvfByAddress', () => {
         nature_mutation: 'Vente',
         valeur_fonciere: 850000,
         adresse_numero: '14',
-        adresse_voie: 'rue de la République',
+        adresse_nom_voie: 'rue de la République',
         code_commune: '69123',
         nom_commune: 'Lyon',
         code_departement: '69',
@@ -82,7 +133,7 @@ describe('getDvfByAddress', () => {
         nature_mutation: 'Vente',
         valeur_fonciere: 850000,
         adresse_numero: '12',
-        adresse_voie: 'rue du Bourg',
+        adresse_nom_voie: 'rue du Bourg',
         code_commune: '69123',
         nom_commune: 'Lyon',
         code_departement: '69',
@@ -104,7 +155,7 @@ describe('getDvfByAddress', () => {
         nature_mutation: 'Vente',
         valeur_fonciere: 850000,
         adresse_numero: '14',
-        adresse_voie: 'rue de la République',
+        adresse_nom_voie: 'rue de la République',
         code_commune: '69123',
         nom_commune: 'Lyon',
         code_departement: '69',
@@ -127,7 +178,7 @@ describe('getDvfByAddress', () => {
         nature_mutation: 'Vente',
         valeur_fonciere: 100000,
         adresse_numero: '14',
-        adresse_voie: 'rue de la République',
+        adresse_nom_voie: 'rue de la République',
         code_commune: '69123',
         nom_commune: 'Lyon',
         code_departement: '69',
@@ -138,7 +189,7 @@ describe('getDvfByAddress', () => {
         nature_mutation: 'Vente',
         valeur_fonciere: 200000,
         adresse_numero: '12',
-        adresse_voie: 'rue de la République',
+        adresse_nom_voie: 'rue de la République',
         code_commune: '69123',
         nom_commune: 'Lyon',
         code_departement: '69',
@@ -149,7 +200,7 @@ describe('getDvfByAddress', () => {
         nature_mutation: 'Vente',
         valeur_fonciere: 300000,
         adresse_numero: '13',
-        adresse_voie: 'rue de la République',
+        adresse_nom_voie: 'rue de la République',
         code_commune: '69123',
         nom_commune: 'Lyon',
         code_departement: '69',
@@ -173,7 +224,7 @@ describe('getDvfByAddress', () => {
         nature_mutation: 'Vente',
         valeur_fonciere: 850000,
         adresse_numero: '12',
-        adresse_voie: 'Rue de la Republique', // no accent in DVF
+        adresse_nom_voie: 'Rue de la Republique', // sans accent dans DVF
         code_commune: '69123',
         nom_commune: 'Lyon',
         code_departement: '69',
