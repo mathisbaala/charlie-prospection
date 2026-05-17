@@ -53,3 +53,5 @@ next-env.d.ts
 # Built extension zips — rebuilt from extension/ at need
 charlie-extension-v*.zip
 extension.zip
+logs/
+scripts/db-check.ts
