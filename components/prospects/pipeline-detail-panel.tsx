@@ -21,6 +21,7 @@ const STAGE_LABELS: Record<CrmStage, string> = {
   meeting: 'RDV',
   client: 'Client',
   lost: 'Perdu',
+  linkedin_404: 'LinkedIn introuvable',
 }
 
 const STAGE_HINTS: Record<CrmStage, string> = {
@@ -30,6 +31,7 @@ const STAGE_HINTS: Record<CrmStage, string> = {
   meeting: 'Rendez-vous planifié',
   client: 'Engagé en mission',
   lost: 'Sorti du pipeline',
+  linkedin_404: 'URL LinkedIn 404 — profil conservé, à rechercher manuellement',
 }
 
 interface Props {

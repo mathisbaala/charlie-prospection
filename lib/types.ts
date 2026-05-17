@@ -14,7 +14,7 @@ export type ProspectSource =
   | 'rne_elus'
   | 'sirene_creations'
 export type OrgRole = 'owner' | 'member'
-export type CrmStage = 'new' | 'to_contact' | 'contacted' | 'meeting' | 'client' | 'lost'
+export type CrmStage = 'new' | 'to_contact' | 'contacted' | 'meeting' | 'client' | 'lost' | 'linkedin_404'
 export type SignalType =
   | 'cession_entreprise' | 'levee_fonds' | 'creation_holding' | 'transaction_immo'
   | 'nouveau_poste' | 'installation_cabinet' | 'post_linkedin' | 'retraite_imminente'

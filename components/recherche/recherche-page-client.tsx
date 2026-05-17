@@ -25,6 +25,7 @@ export function RecherchePageClient({ personas }: Props) {
   const [adding, setAdding] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [addedSummary, setAddedSummary] = useState<string | null>(null)
+  const [quotaPappers, setQuotaPappers] = useState<{ count: number; cap: number; remaining: number } | null>(null)
 
   async function handleLaunch() {
     if (!selectedPersonaId) return
@@ -53,6 +54,10 @@ export function RecherchePageClient({ personas }: Props) {
           ? (data.filter_breakdown as Record<string, number>)
           : {},
       )
+      if (data.quota_pappers && typeof data.quota_pappers === 'object') {
+        const q = data.quota_pappers as { count: number; cap: number; remaining: number }
+        setQuotaPappers({ count: q.count, cap: q.cap, remaining: q.remaining })
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur inconnue')
     } finally {
@@ -67,6 +72,14 @@ export function RecherchePageClient({ personas }: Props) {
       else next.add(uid)
       return next
     })
+  }
+
+  function selectAll() {
+    setSelected(new Set(candidates.filter((c) => !c.already_in_suivi).map((c) => c.uid)))
+  }
+
+  function deselectAll() {
+    setSelected(new Set())
   }
 
   async function handleAdd() {
@@ -132,6 +145,51 @@ export function RecherchePageClient({ personas }: Props) {
         loading={loading}
         disabled={adding}
       />
+
+      {quotaPappers && !loading && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            marginBottom: 12,
+            marginTop: -12,
+            fontSize: 11,
+            color: 'var(--color-muted)',
+          }}
+        >
+          <span
+            style={{
+              width: 6,
+              height: 6,
+              borderRadius: '50%',
+              background: quotaPappers.remaining > 50 ? '#22A855' : quotaPappers.remaining > 0 ? '#E09A2A' : '#E05C2A',
+              display: 'inline-block',
+              flexShrink: 0,
+            }}
+          />
+          <span>
+            Pappers :{' '}
+            <span
+              style={{
+                fontFamily: 'var(--font-mono, monospace)',
+                fontVariantNumeric: 'tabular-nums',
+                color: 'var(--color-text)',
+                fontWeight: 600,
+              }}
+            >
+              {quotaPappers.count}
+            </span>
+            {' / '}
+            {quotaPappers.cap} crédits ce mois
+            {quotaPappers.remaining <= 50 && (
+              <span style={{ color: quotaPappers.remaining === 0 ? '#E05C2A' : '#E09A2A', marginLeft: 6 }}>
+                ({quotaPappers.remaining === 0 ? 'quota atteint — cache uniquement' : `${quotaPappers.remaining} restants`})
+              </span>
+            )}
+          </span>
+        </div>
+      )}
 
       {error && (
         <div
@@ -240,7 +298,13 @@ export function RecherchePageClient({ personas }: Props) {
         </div>
       )}
 
-      <CandidateList candidates={candidates} selected={selected} onToggle={toggle} />
+      <CandidateList
+        candidates={candidates}
+        selected={selected}
+        onToggle={toggle}
+        onSelectAll={selectAll}
+        onDeselectAll={deselectAll}
+      />
 
       <BulkAddBar
         count={selected.size}

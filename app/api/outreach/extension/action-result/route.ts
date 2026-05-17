@@ -65,22 +65,27 @@ export async function POST(request: Request) {
   const updates: Record<string, unknown> = { last_action_at: new Date().toISOString() }
 
   if (!body.ok) {
-    // Cas spécial : URL LinkedIn 404 = profil supprimé ou inexistant. On purge
-    // complètement le prospect (cascade aussi sur enrollments et activity).
+    // Cas spécial : URL LinkedIn 404 = profil supprimé ou introuvable.
+    // On conserve le prospect et toute sa donnée d'enrichissement — le CGP
+    // pourra retrouver le profil manuellement ou via une future campagne.
+    // On nullifie linkedin_url (URL morte) et on marque crm_stage='linkedin_404'
+    // pour filtrer facilement dans l'UI. L'enrôlement passe à 'failed'.
     if (body.error === 'profile_not_found_404') {
-      const prospect_id = enr.prospect_id as string
-      // Log avant suppression (sinon on perd la trace)
+      await service
+        .from('prospection_prospects')
+        .update({ crm_stage: 'linkedin_404', linkedin_url: null })
+        .eq('id', enr.prospect_id)
+      await service
+        .from('prospection_campaign_enrollments')
+        .update({ status: 'failed', last_action_at: new Date().toISOString() })
+        .eq('id', body.enrollment_id)
       await logActivity(
         service,
         enr,
-        `🗑️ Profil 404 LinkedIn — prospect supprimé de la base`,
+        `⚠️ Profil LinkedIn introuvable (404) — URL nullifiée, prospect conservé`,
         auth.org_id
       )
-      // Supprimer toutes les activités, enrôlements et le prospect
-      await service.from('prospection_prospect_activity').delete().eq('prospect_id', prospect_id)
-      await service.from('prospection_campaign_enrollments').delete().eq('prospect_id', prospect_id)
-      await service.from('prospection_prospects').delete().eq('id', prospect_id)
-      return NextResponse.json({ ok: true, prospect_deleted: true })
+      return NextResponse.json({ ok: true, prospect_flagged: true })
     }
 
     // Cas spécial : quota mensuel LinkedIn atteint. C'est une limite du COMPTE,
@@ -192,7 +197,6 @@ export async function POST(request: Request) {
 }
 
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function logActivity(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   service: any,
