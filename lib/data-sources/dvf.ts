@@ -1,9 +1,14 @@
 import { timedFetch } from '@/lib/observability/logger'
 
-// Geo-DVF — fichiers CSV publiés par la DGFIP via data.gouv.fr
-// Remplace api.dvf.etalab.gouv.fr (NXDOMAIN depuis 2025)
-// Structure : {BASE}/{year}/communes/{dept}/{commune}.csv
-// Exemple   : .../2024/communes/69/69123.csv
+// DVF+ API (Cerema / data.gouv.fr — accès libre)
+// Endpoint référencé dans la dataservice data.gouv.fr 672cf655a474f2d73502b5ce
+// Retourne les mutations agrégées par transaction (filtrage côté serveur).
+// ⚠ La table mutations DVF+ ne porte PAS les données lot-niveau (adresse).
+const DVF_API_BASE = 'https://apidf-preprod.cerema.fr'
+
+// Geo-DVF CSV (DGFIP via data.gouv.fr — données brutes)
+// Seule source avec l'adresse au niveau lot (adresse_nom_voie, adresse_numero).
+// Nécessaire pour getDvfByAddress() — le modèle DVF+ ne porte pas ces champs.
 const GEO_DVF_BASE = 'https://files.data.gouv.fr/geo-dvf/2025-12/csv'
 const CANDIDATE_YEARS = [2024, 2023, 2022] as const
 
@@ -22,8 +27,63 @@ export interface DvfRecord {
   nombre_pieces_principales?: number
 }
 
+// ── DVF+ API — données mutation-niveau ───────────────────────────────────────
+
+interface DvfPlusMutation {
+  idmutation: number
+  datemut: string        // "YYYY-MM-DD"
+  valeurfonc: string     // décimal en string
+  libnatmut: string      // "Vente", "Donation", …
+  libtypbien?: string    // "Appartement", "Maison", …
+  coddep: string         // "69"
+  l_codinsee: string[]   // ["69123"]
+  sbati?: number | null  // surface bâtie (m²)
+  sterr?: number | null  // surface terrain (m²)
+  nblocmut?: number | null
+}
+
+interface DvfPlusResponse {
+  count: number
+  next: string | null
+  results: DvfPlusMutation[]
+}
+
+function dvfPlusToRecord(r: DvfPlusMutation): DvfRecord {
+  return {
+    id_mutation: String(r.idmutation),
+    date_mutation: r.datemut,
+    nature_mutation: r.libnatmut,
+    valeur_fonciere: parseFloat(String(r.valeurfonc).replace(',', '.')) || 0,
+    code_commune: r.l_codinsee?.[0] ?? '',
+    nom_commune: '',  // non disponible dans la table mutations DVF+
+    code_departement: r.coddep,
+    type_local: r.libtypbien ?? undefined,
+    surface_reelle_bati: r.sbati ?? undefined,
+    // adresse_numero / adresse_voie : données lot-niveau, absentes du DVF+ agrégé
+  }
+}
+
+async function fetchDvfPlusByCommune(codeCommune: string, minValeur: number, limit: number): Promise<DvfRecord[]> {
+  const params = new URLSearchParams({
+    code_insee: codeCommune,
+    page_size: String(limit),
+    format: 'json',
+  })
+  if (minValeur > 0) params.set('valeurfonc_min', String(minValeur))
+
+  const url = `${DVF_API_BASE}/dvf_opendata/mutations/?${params}`
+  const res = await timedFetch('dvf', 'getDvfByCommune', url, {
+    next: { revalidate: 86400 * 7 },
+  })
+  if (!res.ok) throw new Error(`DVF+ API ${res.status}`)
+
+  const data = (await res.json()) as DvfPlusResponse
+  return (data.results ?? []).map(dvfPlusToRecord)
+}
+
+// ── Geo-DVF CSV — données lot-niveau (adresse) ───────────────────────────────
+
 function deptFromCommune(codeCommune: string): string {
-  // DOM : codes commençant par 971-976 → 3 caractères
   if (/^97[1-6]/.test(codeCommune)) return codeCommune.slice(0, 3)
   return codeCommune.slice(0, 2)
 }
@@ -41,7 +101,7 @@ function parseCsv(text: string): DvfRecord[] {
   const iNature = col('nature_mutation')
   const iValeur = col('valeur_fonciere')
   const iNumero = col('adresse_numero')
-  const iVoie = col('adresse_nom_voie')    // nom du champ dans les CSV geo-dvf
+  const iVoie = col('adresse_nom_voie')   // nom du champ dans les CSV geo-dvf
   const iCodeCommune = col('code_commune')
   const iNomCommune = col('nom_commune')
   const iCodeDept = col('code_departement')
@@ -112,19 +172,21 @@ async function fetchDvfCsv(codeCommune: string): Promise<DvfRecord[]> {
   return []
 }
 
+// ── API publiques ─────────────────────────────────────────────────────────────
+
+/**
+ * Contexte marché d'une commune — utilise le DVF+ API (mutation-niveau).
+ * Pas de données adresse (lot-niveau) dans les résultats.
+ */
 export async function getDvfByCommune(codeCommune: string, minValeur = 0, limit = 20): Promise<DvfRecord[]> {
   try {
-    const records = await fetchDvfCsv(codeCommune)
-    return records
-      .filter((r) => r.valeur_fonciere >= minValeur)
-      .sort((a, b) => b.date_mutation.localeCompare(a.date_mutation))
-      .slice(0, limit)
+    return await fetchDvfPlusByCommune(codeCommune, minValeur, limit)
   } catch {
     return []
   }
 }
 
-// ── DVF perso — matching par adresse ─────────────────────────────────────────
+// ── DVF perso — matching par adresse (CSV lot-niveau) ────────────────────────
 //
 // DVF ne porte pas le SIREN du propriétaire — on ne peut jamais être CERTAIN
 // qu'une mutation concerne le prospect. On liste les mutations à l'adresse du
@@ -193,12 +255,17 @@ function scoreAddressMatch(
 }
 
 function shareSignificantToken(a: string, b: string): boolean {
-  const stop = new Set(['rue', 'avenue', 'av', 'bd', 'boulevard', 'place', 'allee', 'allee', 'chemin', 'route', 'impasse', 'cours', 'quai', 'square'])
+  const stop = new Set(['rue', 'avenue', 'av', 'bd', 'boulevard', 'place', 'allee', 'chemin', 'route', 'impasse', 'cours', 'quai', 'square'])
   const tokensA = a.split(' ').filter((t) => t.length >= 4 && !stop.has(t))
   const tokensB = new Set(b.split(' ').filter((t) => t.length >= 4 && !stop.has(t)))
   return tokensA.some((t) => tokensB.has(t))
 }
 
+/**
+ * Mutations DVF à l'adresse du siège — source geo-dvf CSV (lot-niveau).
+ * Résultats triés par confiance puis date décroissante.
+ * Non intégré au score patrimonial — signal de contexte uniquement.
+ */
 export async function getDvfByAddress(params: {
   codeCommune: string
   adresseVoie: string
