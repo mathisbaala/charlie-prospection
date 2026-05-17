@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
-import { storePersonsToCache } from '@/lib/persons-cache/store'
+import { updatePersonEnrichment } from '@/lib/persons/store'
 import { persistPremiumSignals } from '@/lib/enrichment/persist-premium-signals'
 import { buildPatrimoineImmo } from '@/lib/enrichment/enricher'
 import { getBodaccBySiren, classifyBodaccEvent } from '@/lib/data-sources/bodacc'
@@ -189,15 +189,16 @@ export async function POST(request: Request) {
           })
           .eq('id', prospectId)
 
-        // Fire-and-forget : upgrade Premium+portfolio → cache global.
-        // C'est l'enrichissement le plus riche du système : toutes les orgs
-        // bénéficieront de cette donnée lors de leur prochaine recherche.
-        storePersonsToCache(serviceSupabase, [{
-          raw: candidate.raw,
-          enrichment: currentEnrichment,
-          patrimonyScore: upgradeScoring.score,
-          raisonPrincipale: upgradeScoring.raison_principale ?? null,
-        }]).catch((err) => console.error('[suivi/add] cache store error:', err))
+        // Fire-and-forget : upgrade Premium+portfolio → base interne.
+        // L'enrichissement profond remonte dans prospection_persons pour que
+        // toutes les orgs bénéficient de ce score amélioré lors de la recherche.
+        updatePersonEnrichment(
+          serviceSupabase,
+          candidate.raw.uid,
+          currentEnrichment as Record<string, unknown>,
+          upgradeScoring.score,
+          upgradeScoring.raison_principale ?? null,
+        ).catch((err) => console.error('[suivi/add] persons store error:', err))
       } catch (e) {
         console.error('[suivi/add] upgrade enrichissement failed:', e)
         // Best-effort — l'enrichissement standard reste valide

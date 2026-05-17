@@ -5,7 +5,7 @@ import { scorePatrimony } from '@/lib/enrichment/patrimony-scorer'
 import { persistPremiumSignals } from '@/lib/enrichment/persist-premium-signals'
 import { getPappersEnrichment, getPersonneEntreprises } from '@/lib/data-sources/pappers'
 import { analyzePersonalPortfolio } from '@/lib/enrichment/personal-portfolio'
-import { storePersonsToCache } from '@/lib/persons-cache/store'
+import { updatePersonEnrichment } from '@/lib/persons/store'
 import { canonicalPersonKey } from '@/lib/prospect-search/engine'
 import type { RawProspect } from '@/lib/prospect-search/engine'
 import type { ProspectEnrichmentData } from '@/lib/types'
@@ -194,13 +194,14 @@ async function runRefresh(): Promise<{
         await persistPremiumSignals(supabase, p.id, p.org_id, fresh.pappers_premium)
       }
 
-      // Fire-and-forget : refresh → cache global (supabase est service role ici).
-      storePersonsToCache(supabase, [{
-        raw,
-        enrichment: fresh,
-        patrimonyScore: scoring.score,
-        raisonPrincipale: scoring.raison_principale ?? null,
-      }]).catch((err) => console.error('[refresh-enrichment] cache store error:', err))
+      // Fire-and-forget : refresh → base interne (améliore le score visible à la recherche).
+      updatePersonEnrichment(
+        supabase,
+        canonicalPersonKey(raw.dirigeant_prenom, raw.dirigeant_nom, raw.siren),
+        fresh as Record<string, unknown>,
+        scoring.score,
+        scoring.raison_principale ?? null,
+      ).catch((err) => console.error('[refresh-enrichment] persons store error:', err))
 
       refreshed += 1
     } catch {
