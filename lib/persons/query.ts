@@ -40,7 +40,7 @@ export async function queryPersons(
     .select(
       'canonical_key, prenom, nom, siren, departement, naf_code, person_type, raw_data, extended_data, patrimony_score, raison_principale',
     )
-    .eq('enrichment_level', 'standard')
+    .not('patrimony_score', 'is', null)
     .order('patrimony_score', { ascending: false, nullsFirst: false })
     .limit(limit)
 

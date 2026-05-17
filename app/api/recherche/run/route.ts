@@ -81,7 +81,9 @@ export async function POST(request: Request) {
 
   const filters: PersonFilters = {
     personTypes,
-    nafCodes: nafCodes.length > 0 ? nafCodes : null,
+    // Les personnes RPPS (médecin, dentiste, kiné…) n'ont pas de naf_code — si une
+    // profession RPPS est identifiée, le filtre NAF serait contre-productif.
+    nafCodes: rppsProfession ? null : (nafCodes.length > 0 ? nafCodes : null),
     departements: dept ? [dept] : null,
   }
 
