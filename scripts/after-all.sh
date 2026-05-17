@@ -44,6 +44,14 @@ for prof in architectes veterinaires geometres; do
   run "Autres libéraux — $prof (refresh)" scripts/ingest-autres-liberaux.ts --profession "$prof"
 done
 
+# 3. Quick-score bulk — scoring patrimonial initial sur tous les profils raw
+#    Pas bloquant : si l'API Next.js est down, le cron enrich-persons prendra le relai
+log ""
+log "════════════════════════════════════════════"
+log "  Quick-score bulk (scoring initial toutes personnes raw)"
+log "════════════════════════════════════════════"
+npx tsx scripts/quick-score-bulk.ts 2>&1 | tee -a "$LOG" || log "  ⚠️  quick-score non bloquant — continuera via cron enrich-persons"
+
 log ""
 log "╔══════════════════════════════════════╗"
 log "║  PIPELINE VAGUE 3 COMPLET — $(date '+%H:%M:%S')  ║"
