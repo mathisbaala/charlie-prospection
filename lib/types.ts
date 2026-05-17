@@ -363,6 +363,90 @@ export interface ProspectActivity {
   created_at: string
 }
 
+// ── Engagement — Campagnes LinkedIn (Associé) ─────────────────────────────────
+
+export type CampaignStatus = 'draft' | 'active' | 'paused' | 'completed'
+export type StepType = 'invitation' | 'message'
+export type EnrollmentStatus =
+  | 'pending'
+  | 'profile_search'
+  | 'invitation_sent'
+  | 'connected'
+  | 'dm_sent'
+  | 'replied'
+  | 'finished'
+  | 'failed'
+  | 'opted_out'
+
+export interface Campaign {
+  id: string
+  org_id: string
+  created_by: string | null
+  name: string
+  emoji: string
+  status: CampaignStatus
+  created_at: string
+  updated_at: string
+  steps?: CampaignStep[]
+  enrollment_count?: number
+  active_count?: number
+  status_breakdown?: {
+    searching: number
+    invited: number
+    connected: number
+    messaged: number
+    replied: number
+    finished: number
+    failed: number
+  }
+}
+
+export interface CampaignStep {
+  id: string
+  campaign_id: string
+  org_id: string
+  position: number
+  type: StepType
+  delay_days: number
+  template: string
+  created_at: string
+}
+
+export interface CampaignEnrollment {
+  id: string
+  campaign_id: string
+  prospect_id: string
+  org_id: string
+  status: EnrollmentStatus
+  current_step: number
+  linkedin_url_resolved: string | null
+  fail_count: number
+  enrolled_at: string
+  last_action_at: string | null
+  prospect?: Prospect
+}
+
+export interface LinkedInSession {
+  id: string
+  org_id: string
+  user_id: string
+  is_valid: boolean
+  last_seen_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+// Variables disponibles dans les templates de messages
+export interface TemplateVariables {
+  firstName: string
+  lastName: string
+  company: string
+  city: string
+  role: string
+  sector: string
+  recentSignal: string
+}
+
 // ── Recherche tab — ephemeral search candidates (PR 3) ──────────────────────
 //
 // SearchCandidate is the unit returned by POST /api/recherche/run. It carries
