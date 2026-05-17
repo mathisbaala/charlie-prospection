@@ -98,6 +98,69 @@ export function normaliseSireneNaf(naf: string | null | undefined): string | nul
   return cleaned.replace(/\./g, '').toUpperCase()
 }
 
+export interface SireneUniteLegale {
+  siren: string
+  denominationUniteLegale?: string | null
+  nomUniteLegale?: string | null
+  prenom1UniteLegale?: string | null
+  activitePrincipaleUniteLegale?: string | null
+  categorieJuridiqueUniteLegale?: string | null
+  trancheEffectifsUniteLegale?: string | null
+  /** 'A' = actif, 'C' = cessé */
+  etatAdministratifUniteLegale?: string | null
+  dateCreationUniteLegale?: string | null
+}
+
+interface SireneUniteLegaleResponse {
+  header?: { statut: number; message: string }
+  uniteLegale?: SireneUniteLegale
+}
+
+/**
+ * Fetch a single unité légale by SIREN.
+ *
+ * Used in enrichProspect() for persons with a known SIREN — gives more
+ * reliable tranche effectifs and entity status than Pappers alone.
+ *
+ * Returns null on error, quota exhaustion, or entity not found.
+ */
+export async function fetchSireneBySiren(
+  siren: string,
+  apiKey: string,
+): Promise<SireneUniteLegale | null> {
+  if (!siren || !apiKey) return null
+  if (!(await tryConsumeQuota('sirene'))) return null
+
+  const url = `https://api.insee.fr/api-sirene/3.11/siren/${encodeURIComponent(siren)}`
+  try {
+    const res = await timedFetch('sirene', 'fetchSireneBySiren', url, {
+      headers: {
+        'X-INSEE-Api-Key-Integration': apiKey,
+        Accept: 'application/json',
+      },
+      next: { revalidate: 86400 },
+      signal: AbortSignal.timeout(8000),
+    })
+    if (!res.ok) return null
+    const data = (await res.json()) as SireneUniteLegaleResponse
+    const ul = data.uniteLegale
+    if (!ul) return null
+    return {
+      siren,
+      denominationUniteLegale: denull(ul.denominationUniteLegale),
+      nomUniteLegale: denull(ul.nomUniteLegale),
+      prenom1UniteLegale: denull(ul.prenom1UniteLegale),
+      activitePrincipaleUniteLegale: denull(ul.activitePrincipaleUniteLegale),
+      categorieJuridiqueUniteLegale: denull(ul.categorieJuridiqueUniteLegale),
+      trancheEffectifsUniteLegale: denull(ul.trancheEffectifsUniteLegale),
+      etatAdministratifUniteLegale: denull(ul.etatAdministratifUniteLegale),
+      dateCreationUniteLegale: denull(ul.dateCreationUniteLegale),
+    }
+  } catch {
+    return null
+  }
+}
+
 /**
  * Fetch Sirene établissements created within [sinceDate, untilDate] (inclusive).
  * Uses offset-based pagination (`debut`/`nombre`) which is sufficient for our

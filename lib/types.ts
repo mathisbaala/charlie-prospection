@@ -393,6 +393,10 @@ export interface ProspectEnrichmentData {
   // Voir lib/data-sources/cadastre.ts.
   proprietes_foncier?: ProprieteFoncier[]
 
+  // INSEE Sirene — état de l'entité légale (gratuit, lookup par SIREN)
+  // 'actif' = unité légale active ; 'cessé' = entité dissoute/radiée
+  sirene_etat?: 'actif' | 'cessé' | null
+
   // Scores calculés
   valeur_entreprise_estimee?: number
   revenus_implicites_estimes?: number

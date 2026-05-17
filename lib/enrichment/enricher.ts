@@ -7,6 +7,8 @@ import { buildDoctolibSearchUrl } from '@/lib/data-sources/doctolib'
 import { buildLiberalDirectoryUrls } from '@/lib/data-sources/professional-directories'
 import { buildInfogreffeUrl } from '@/lib/data-sources/infogreffe'
 import { computeFinanceDerivatives } from '@/lib/enrichment/finance-derivatives'
+import { fetchSireneBySiren } from '@/lib/data-sources/sirene'
+import { getMarquesDeposees } from '@/lib/data-sources/euipo-marques'
 import type {
   BodaccEvent,
   CeremaHolding,
@@ -201,7 +203,7 @@ export async function enrichProspect(raw: RawProspect): Promise<ProspectEnrichme
   // Sources gratuites + Pappers standard (1 jeton, pas de Premium).
   // Le portfolio dirigeant (getPersonneEntreprises) et le payload Premium
   // sont réservés à /suivi/add et au cron refresh — pas à la recherche.
-  const [bodaccResult, pappersResult, rppsResult, codeCommune] =
+  const [bodaccResult, pappersResult, rppsResult, codeCommune, sireneResult, marquesResult] =
     await Promise.allSettled([
       raw.siren ? getBodaccBySiren(raw.siren, 10) : Promise.resolve([]),
       raw.siren
@@ -216,6 +218,12 @@ export async function enrichProspect(raw: RawProspect): Promise<ProspectEnrichme
           })
         : Promise.resolve([]),
       codeCommunePromise,
+      raw.siren
+        ? fetchSireneBySiren(raw.siren, process.env.INSEE_SIRENE_API_KEY ?? '')
+        : Promise.resolve(null),
+      raw.entreprise_nom
+        ? getMarquesDeposees(raw.entreprise_nom)
+        : Promise.resolve([]),
     ])
 
   // ── BODACC ─────────────────────────────────────────────
@@ -369,6 +377,26 @@ export async function enrichProspect(raw: RawProspect): Promise<ProspectEnrichme
       enrichment.potentiel_rpps = computePotentielRpps(enrichment.rpps)
       enrichment.sources_utilisees?.push('rpps')
     }
+  }
+
+  // ── INSEE Sirene — état de l'entité légale ─────────────────────────────
+  // Gratuit, lookup par SIREN. Complète tranche effectifs quand Pappers
+  // ne l'a pas remonté (ex: BNC libéraux sans bilan publié).
+  if (sireneResult.status === 'fulfilled' && sireneResult.value) {
+    const ul = sireneResult.value
+    if (!enrichment.tranche_effectifs && ul.trancheEffectifsUniteLegale) {
+      enrichment.tranche_effectifs = ul.trancheEffectifsUniteLegale
+    }
+    enrichment.sirene_etat =
+      ul.etatAdministratifUniteLegale === 'A' ? 'actif' :
+      ul.etatAdministratifUniteLegale === 'C' ? 'cessé' : null
+    enrichment.sources_utilisees?.push('sirene')
+  }
+
+  // ── Marques EUIPO + INPI (si INPI_API_TOKEN configuré) ────────────────
+  if (marquesResult.status === 'fulfilled' && marquesResult.value.length > 0) {
+    enrichment.marques_deposees = marquesResult.value
+    enrichment.sources_utilisees?.push('euipo_marques')
   }
 
   // ── DVF — contexte marché immobilier local (PAS patrimoine perso) ───────
