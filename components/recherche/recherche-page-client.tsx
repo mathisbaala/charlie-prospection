@@ -237,9 +237,7 @@ export function RecherchePageClient({ personas }: Props) {
             fontSize: 13,
           }}
         >
-          Recherche + enrichissement Pappers / BODACC / DVF / RPPS / scoring Claude…
-          <br />
-          <span style={{ fontSize: 11, opacity: 0.7 }}>30s à 2 min selon la taille</span>
+          Recherche dans la base de personnes…
         </div>
       )}
 
