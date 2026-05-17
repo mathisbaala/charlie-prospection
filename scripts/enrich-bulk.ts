@@ -41,7 +41,7 @@ function loadEnv(): Record<string, string> {
 }
 
 async function countRaw(baseUrl: string, adminKey: string): Promise<number> {
-  const res = await fetch(`${baseUrl}/api/admin/ingest/persons/count-raw`, {
+  const res = await fetch(`${baseUrl}/api/admin/ingest/persons`, {
     headers: { 'x-admin-key': adminKey },
   })
   if (!res.ok) return -1
