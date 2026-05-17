@@ -9,7 +9,7 @@ import { canonicalPersonKey } from '@/lib/prospect-search/engine'
 
 export const maxDuration = 300
 
-const BATCH_SIZE = 50
+const BATCH_SIZE = 10
 
 type PersonRow = {
   canonical_key: string
