@@ -123,6 +123,8 @@ export async function GET(request: Request) {
       enriched++
     } catch (err) {
       console.error('[enrich-persons] error on', row.canonical_key, err)
+      // Marquer en dropped pour sortir de la file FIFO et éviter la boucle infinie
+      await updatePersonEnrichment(supabase, row.canonical_key, {}, 0, null, 'dropped')
       dropped++
     }
   }

@@ -41,7 +41,6 @@ export const config: VercelConfig = {
     { path: '/api/cron/match-icps', schedule: '30 6 * * *' },
     { path: '/api/cron/refresh-enrichment', schedule: '0 4 1,15 * *' },  // 1er et 15 de chaque mois à 04:00 UTC
     { path: '/api/cron/refresh-rpps', schedule: '0 4 1 * *' },  // 1st of each month at 04:00 UTC
-    { path: '/api/cron/refresh-persons-cache', schedule: '0 3 * * 1' },  // Mondays at 03:00 UTC
     { path: '/api/cron/enrich-persons', schedule: '0 7 * * *' },         // Daily 07:00 UTC — enrichit les entrées 'raw' de prospection_persons
   ],
 }

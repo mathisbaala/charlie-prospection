@@ -139,7 +139,7 @@ export async function POST(request: Request) {
     // Copie mutable — upgrade enrichit avant le calcul des SIRENs pour que
     // portfolioSirens inclue les SCIs/holdings du dirigeant.
     const currentEnrichment = { ...candidate.enrichment_data }
-    const principalSiren = currentEnrichment?.siren
+    const principalSiren = (currentEnrichment?.siren ?? candidate.raw.siren) || null
 
     // Upgrade vers enrichissement profond — Pappers Premium + portfolio dirigeant.
     // Doit précéder allSirens : sans portfolio, deep BODACC ne couvre que la société principale.
@@ -306,7 +306,7 @@ export async function POST(request: Request) {
     const existingPortfolio = currentEnrichment?.personal_portfolio
     if (existingPortfolio && prospectId) {
       try {
-        const patrimoineImmo = await buildPatrimoineImmo(existingPortfolio, principalSiren)
+        const patrimoineImmo = await buildPatrimoineImmo(existingPortfolio, principalSiren ?? undefined)
         if (patrimoineImmo) {
           // Re-fetch the latest enrichment_data from DB to pick up any BODACC
           // changes written just above, then merge patrimoine_immo into it.
