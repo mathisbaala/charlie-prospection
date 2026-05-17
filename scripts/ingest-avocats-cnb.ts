@@ -1,14 +1,19 @@
 #!/usr/bin/env node
 /**
- * ingest-avocats-cnb.ts — Alimentation prospection_persons depuis l'API CNB.
+ * ingest-avocats-cnb.ts — Alimentation prospection_persons pour les avocats.
  *
- * Source : https://annuaire.cnb.avocat.fr/api/v1/avocats
- * API publique JSON, pas de clé requise.
- * Pagination par département (code numérique = code barreau principal).
+ * Source : API Recherche Entreprises (data.gouv.fr / INSEE)
+ *   https://recherche-entreprises.api.gouv.fr/search
+ *   NAF 69.10Z (Activités juridiques) + filtre mot-clé "avocat" dans nom entreprise
+ *   include_dirigeants=true → prénom + nom directement
+ *
+ * Note : L'API CNB annuaire.cnb.avocat.fr n'est pas disponible (NXDOMAIN).
+ * Fallback sur AE API qui couvre les SELARLs, SCPs et EI d'avocats inscrits au barreau.
+ * Coverage estimée : ~60-70% des avocats libéraux (les cabinets dont le nom contient "avocat").
  *
  * Usage :
  *   npx tsx scripts/ingest-avocats-cnb.ts
- *   npx tsx scripts/ingest-avocats-cnb.ts --dept 75         # un département
+ *   npx tsx scripts/ingest-avocats-cnb.ts --dept 75
  *   npx tsx scripts/ingest-avocats-cnb.ts --dry-run
  *
  * Env :
@@ -19,84 +24,89 @@
 import { getEnv, postBatch, sleep, DEPTS_FRANCE } from './lib/ingest-client'
 import type { PersonIngestInput } from '../lib/persons/types'
 
-const CNB_BASE = 'https://annuaire.cnb.avocat.fr/api/v1'
+const AE_BASE = 'https://recherche-entreprises.api.gouv.fr'
 const BATCH_SIZE = 500
-const RATE_LIMIT_MS = 1200 // ~50 req/min, généreux
+const RATE_LIMIT_MS = 1000
+const PER_PAGE = 25
 
-interface CnbAvocat {
-  nom?: string
-  prenom?: string
-  barreau?: string
-  cabinet?: string
+/** Mots-clés qui discriminent avocat dans le nom de la société */
+const AVOCAT_KEYWORDS = ['avocat', 'barreau', 'associes avocats', 'selarl avocats', 'scp avocats']
+
+function isAvocat(nom: string): boolean {
+  const lower = nom.toLowerCase()
+  return AVOCAT_KEYWORDS.some((kw) => lower.includes(kw))
+    && !lower.includes('notaire') // exclure les offices notariales
+}
+
+interface AEDirigeant {
+  nom: string
+  prenoms?: string
+  qualite?: string
+  annee_de_naissance?: string
+}
+
+interface AESiege {
   adresse?: string
-  ville?: string
   code_postal?: string
-  [key: string]: unknown
+  libelle_commune?: string
+  departement?: string
 }
 
-interface CnbResponse {
-  data?: CnbAvocat[]
-  total?: number
-  per_page?: number
-  current_page?: number
-  last_page?: number
-  // Certaines versions : tableau direct
-  [key: string]: unknown
+interface AEResult {
+  siren: string
+  nom_complet: string
+  activite_principale: string
+  libelle_activite_principale?: string
+  siege: AESiege
+  dirigeants?: AEDirigeant[]
 }
 
-function normalize(text: string): string {
-  return text.trim().replace(/\s+/g, ' ')
+async function fetchAvocatsPage(
+  dept: string,
+  page: number,
+): Promise<{ results: AEResult[]; total: number }> {
+  const url = new URL(`${AE_BASE}/search`)
+  url.searchParams.set('activite_principale', '69.10Z')
+  url.searchParams.set('departement', dept)
+  url.searchParams.set('include_dirigeants', 'true')
+  url.searchParams.set('per_page', String(PER_PAGE))
+  url.searchParams.set('page', String(page))
+
+  const res = await fetch(url.toString(), { headers: { Accept: 'application/json' } })
+  if (!res.ok) {
+    console.error(`\n[AE] HTTP ${res.status} dept=${dept} page=${page}`)
+    return { results: [], total: 0 }
+  }
+  const data = await res.json()
+  return {
+    results: (data.results ?? []) as AEResult[],
+    total: data.total_results ?? 0,
+  }
 }
 
-function mapAvocat(avocat: CnbAvocat, dept: string): PersonIngestInput | null {
-  const nom = normalize(avocat.nom ?? '')
-  const prenom = normalize(avocat.prenom ?? '')
+function mapDirigeant(d: AEDirigeant, company: AEResult): PersonIngestInput | null {
+  const nom = (d.nom ?? '').trim()
+  const prenom = (d.prenoms ?? '').trim()
   if (!nom || !prenom) return null
+
+  const annee = d.annee_de_naissance ? parseInt(d.annee_de_naissance, 10) : undefined
 
   return {
     prenom,
     nom,
-    source: 'cnb_annuaire',
+    source: 'ae_avocats',
     person_type: 'avocat',
     profession_libelle: 'Avocat',
-    entreprise_nom: avocat.cabinet ? normalize(avocat.cabinet) : undefined,
-    departement: dept,
-    ville: avocat.ville ? normalize(avocat.ville) : undefined,
-    adresse: avocat.adresse ? normalize(avocat.adresse) : undefined,
-    code_postal: avocat.code_postal?.trim() || undefined,
+    annee_naissance: annee && !isNaN(annee) ? annee : undefined,
+    siren: company.siren,
+    entreprise_nom: company.nom_complet,
+    naf_code: company.activite_principale,
+    naf_libelle: company.libelle_activite_principale ?? undefined,
+    departement: company.siege.departement ?? undefined,
+    ville: company.siege.libelle_commune ?? undefined,
+    adresse: company.siege.adresse ?? undefined,
+    code_postal: company.siege.code_postal ?? undefined,
   }
-}
-
-async function fetchAvocatsDept(
-  dept: string,
-  page: number,
-): Promise<{ avocats: CnbAvocat[]; lastPage: number }> {
-  const url = `${CNB_BASE}/avocats?barreau=${dept}&page=${page}`
-  const res = await fetch(url, {
-    headers: { Accept: 'application/json' },
-  })
-
-  if (res.status === 404) return { avocats: [], lastPage: 0 }
-  if (!res.ok) {
-    console.error(`\n[CNB] HTTP ${res.status} pour dept=${dept} page=${page}`)
-    return { avocats: [], lastPage: 0 }
-  }
-
-  const body: CnbResponse = await res.json()
-
-  // Normalise la réponse selon le format retourné
-  if (Array.isArray(body)) {
-    return { avocats: body as CnbAvocat[], lastPage: 1 }
-  }
-  if (Array.isArray(body.data)) {
-    const lastPage = body.last_page ?? Math.ceil((body.total ?? 0) / (body.per_page ?? 25))
-    return { avocats: body.data, lastPage: Math.max(lastPage, 1) }
-  }
-  // Fallback : si la structure est inconnue, on log pour debug
-  if (page === 1) {
-    console.warn(`\n[CNB] Format inattendu dept=${dept}:`, JSON.stringify(body).slice(0, 200))
-  }
-  return { avocats: [], lastPage: 0 }
 }
 
 async function main() {
@@ -108,54 +118,62 @@ async function main() {
 
   const env = dryRun ? { baseUrl: '', apiKey: 'dry-run' } : getEnv()
 
-  console.log('=== Ingest Avocats CNB ===')
+  console.log('=== Ingest Avocats (Annuaire Entreprises NAF 69.10Z + filtre "avocat") ===')
   console.log(`  Départements : ${deptFilter.length === 1 ? deptFilter[0] : `${deptFilter.length} depts`}`)
   if (dryRun) console.log('  Mode dry-run : pas de POST')
 
   let batch: PersonIngestInput[] = []
   let totalUpserted = 0
   let totalErrors = 0
-  let totalSkipped = 0
+  let companiesScanned = 0
+  let companiesKept = 0
   const startAt = Date.now()
 
   for (const dept of deptFilter) {
     let page = 1
-    let lastPage = 1
 
-    do {
-      const { avocats, lastPage: lp } = await fetchAvocatsDept(dept, page)
-      lastPage = lp
+    while (true) {
+      const { results, total } = await fetchAvocatsPage(dept, page)
       await sleep(RATE_LIMIT_MS)
 
-      for (const avocat of avocats) {
-        const person = mapAvocat(avocat, dept)
-        if (!person) { totalSkipped++; continue }
+      const lastPage = Math.ceil(total / PER_PAGE) || 1
 
-        if (dryRun) {
-          if (totalUpserted < 5) console.log('  DRY:', JSON.stringify(person))
-          totalUpserted++
-          continue
-        }
+      for (const company of results) {
+        companiesScanned++
+        if (!isAvocat(company.nom_complet)) continue
+        companiesKept++
 
-        batch.push(person)
-        if (batch.length >= BATCH_SIZE) {
-          const r = await postBatch(batch, env.baseUrl, env.apiKey)
-          totalUpserted += r.upserted
-          totalErrors += r.errors
-          batch = []
-          await sleep(RATE_LIMIT_MS)
+        for (const d of company.dirigeants ?? []) {
+          const person = mapDirigeant(d, company)
+          if (!person) continue
+
+          if (dryRun) {
+            if (totalUpserted < 5) console.log('  DRY:', JSON.stringify(person))
+            totalUpserted++
+            continue
+          }
+
+          batch.push(person)
+          if (batch.length >= BATCH_SIZE) {
+            const r = await postBatch(batch, env.baseUrl, env.apiKey)
+            totalUpserted += r.upserted
+            totalErrors += r.errors
+            batch = []
+            await sleep(RATE_LIMIT_MS)
+          }
         }
       }
 
       const elapsed = ((Date.now() - startAt) / 1000).toFixed(0)
       process.stdout.write(
-        `\r  Dept ${dept} page ${page}/${lastPage} | Upserted: ${totalUpserted} | Errors: ${totalErrors} | ${elapsed}s  `,
+        `\r  Dept ${dept} page ${page}/${lastPage} | Cabinets avocat: ${companiesKept}/${companiesScanned} | Upserted: ${totalUpserted} | ${elapsed}s  `,
       )
+
+      if (results.length < PER_PAGE || page >= lastPage) break
       page++
-    } while (page <= lastPage)
+    }
   }
 
-  // Flush dernier batch
   if (!dryRun && batch.length) {
     const r = await postBatch(batch, env.baseUrl, env.apiKey)
     totalUpserted += r.upserted
@@ -164,7 +182,8 @@ async function main() {
 
   const elapsed = ((Date.now() - startAt) / 1000).toFixed(0)
   console.log('\n\n=== Terminé ===')
-  console.log(`  Upserted : ${totalUpserted} | Errors : ${totalErrors} | Ignorés : ${totalSkipped}`)
+  console.log(`  Cabinets scannés : ${companiesScanned} | Cabinets avocat : ${companiesKept}`)
+  console.log(`  Upserted : ${totalUpserted} | Errors : ${totalErrors}`)
   console.log(`  Durée : ${elapsed}s`)
 }
 
