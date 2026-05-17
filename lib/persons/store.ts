@@ -39,10 +39,9 @@ export async function upsertPersons(
 ): Promise<{ upserted: number; errors: number }> {
   if (inputs.length === 0) return { upserted: 0, errors: 0 }
 
-  const rowMap = new Map<string, ReturnType<typeof buildRawProspect> & { canonical_key: string }>()
-  for (const input of inputs) {
+  const allRows = inputs.map((input) => {
     const canonical_key = canonicalPersonKey(input.prenom, input.nom, input.siren)
-    rowMap.set(canonical_key, {
+    return {
       canonical_key,
       prenom: input.prenom,
       nom: input.nom,
@@ -63,9 +62,9 @@ export async function upsertPersons(
       ingest_sources: [input.source],
       raw_data: buildRawProspect(input, canonical_key),
       updated_at: new Date().toISOString(),
-    })
-  }
-  const rows = Array.from(rowMap.values())
+    }
+  })
+  const rows = Array.from(new Map(allRows.map(r => [r.canonical_key, r])).values())
 
   const { error } = await supabase
     .from('prospection_persons')
