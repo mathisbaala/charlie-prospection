@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Charlie Prospection</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      width: 300px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 13px;
+      background: #F3EFE6;
+      color: #1A1612;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 16px 12px;
+      border-bottom: 1px solid #E2DBD0;
+      background: #FDFAF5;
+    }
+
+    .dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #BC6B2A;
+      flex-shrink: 0;
+    }
+
+    .header-title {
+      font-weight: 600;
+      font-size: 14px;
+      color: #1A1612;
+    }
+
+    .header-sub {
+      font-size: 11px;
+      color: #6F6358;
+      margin-left: auto;
+    }
+
+    .body { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+
+    /* Status rows */
+    .status-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 12px;
+      background: #FDFAF5;
+      border: 1px solid #E2DBD0;
+    }
+
+    .status-label { font-size: 12px; color: #6F6358; }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 2px;
+    }
+
+    .badge-ok { background: rgba(42, 107, 74, 0.12); color: #2A6B4A; }
+    .badge-err { background: rgba(139, 34, 51, 0.10); color: #8B2233; }
+    .badge-warn { background: rgba(188, 107, 42, 0.12); color: #BC6B2A; }
+
+    .badge-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+
+    /* Buttons */
+    .btn {
+      width: 100%;
+      padding: 9px 14px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      border: 1px solid #E2DBD0;
+      background: #FDFAF5;
+      color: #1A1612;
+      text-align: center;
+      transition: background 0.12s;
+    }
+
+    .btn:hover { background: #F0EBE0; }
+
+    .btn-primary {
+      background: #BC6B2A;
+      border-color: #BC6B2A;
+      color: #fff;
+    }
+
+    .btn-primary:hover { background: #a55c22; }
+
+    .btn-danger { border-color: #8B2233; color: #8B2233; }
+    .btn-danger:hover { background: rgba(139, 34, 51, 0.07); }
+
+    .divider { border: none; border-top: 1px solid #E2DBD0; margin: 4px 0; }
+
+    .footer {
+      padding: 10px 16px;
+      border-top: 1px solid #E2DBD0;
+      font-size: 11px;
+      color: #6F6358;
+      text-align: center;
+      background: #FDFAF5;
+    }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="dot"></div>
+    <span class="header-title">Charlie</span>
+    <span class="header-sub" id="version">v2.0</span>
+  </div>
+
+  <div class="body">
+    <!-- Statut Charlie -->
+    <div class="status-row">
+      <span class="status-label">Charlie Prospection</span>
+      <span class="badge badge-err" id="charlie-badge">
+        <span class="badge-dot"></span>
+        Non connecté
+      </span>
+    </div>
+
+    <!-- Statut LinkedIn -->
+    <div class="status-row">
+      <span class="status-label">LinkedIn</span>
+      <span class="badge badge-err" id="linkedin-badge">
+        <span class="badge-dot"></span>
+        Non détecté
+      </span>
+    </div>
+
+    <hr class="divider" />
+
+    <!-- Liaison par code PIN -->
+    <div id="pin-section">
+      <div style="font-size:11px;color:#6F6358;margin-bottom:6px;">
+        Code de liaison (généré sur Charlie)
+      </div>
+      <div style="display:flex;gap:6px;">
+        <input
+          type="text"
+          id="pin-input"
+          maxlength="6"
+          placeholder="A1B2C3"
+          style="
+            flex:1; padding:8px 10px; font-size:14px; font-family:monospace;
+            letter-spacing:0.15em; text-transform:uppercase;
+            border:1px solid #E2DBD0; background:#FDFAF5;
+            color:#1A1612; outline:none; text-align:center;
+          "
+        />
+        <button class="btn btn-primary" id="btn-link-pin" style="width:auto;padding:8px 14px;">
+          Lier
+        </button>
+      </div>
+      <div id="pin-error" style="font-size:11px;color:#8B2233;margin-top:5px;display:none;"></div>
+    </div>
+
+    <!-- Bouton start/stop (visible si connecté) -->
+    <button class="btn hidden" id="btn-toggle">
+      Démarrer la prospection
+    </button>
+
+    <button class="btn btn-danger hidden" id="btn-unlink">
+      Déconnecter
+    </button>
+  </div>
+
+  <div class="footer" id="footer-msg">
+    Ouvrez l'app Charlie pour créer des campagnes.
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

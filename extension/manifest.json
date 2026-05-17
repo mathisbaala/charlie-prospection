@@ -1,0 +1,45 @@
+{
+  "manifest_version": 3,
+  "name": "Charlie Prospection",
+  "version": "2.0.0",
+  "description": "Automatisation LinkedIn pour Charlie Prospection — campagnes de prospection multi-étapes.",
+
+  "permissions": [
+    "storage",
+    "alarms",
+    "cookies",
+    "tabs",
+    "scripting"
+  ],
+
+  "host_permissions": [
+    "https://www.linkedin.com/*",
+    "http://localhost:3000/*",
+    "https://charlie-prospection.vercel.app/*"
+  ],
+
+  "externally_connectable": {
+    "matches": [
+      "http://localhost:3000/*",
+      "https://charlie-prospection.vercel.app/*"
+    ]
+  },
+
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+
+  "content_scripts": [
+    {
+      "matches": ["https://www.linkedin.com/*"],
+      "js": ["content-linkedin.js"],
+      "run_at": "document_idle"
+    }
+  ],
+
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Charlie Prospection"
+  }
+}
