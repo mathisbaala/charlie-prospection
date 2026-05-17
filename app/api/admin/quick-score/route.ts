@@ -107,21 +107,16 @@ export async function POST(request: Request) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   if (!persons || persons.length === 0) return NextResponse.json({ ok: true, scored: 0, done: true })
 
-  const updates = (persons as PersonRow[]).map(p => {
-    const { score, raison } = quickScore(p)
-    return {
-      canonical_key: p.canonical_key,
-      patrimony_score: score,
-      raison_principale: raison,
-      updated_at: new Date().toISOString(),
-    }
-  })
-
-  const { error: upsertErr } = await supabase
-    .from('prospection_persons')
-    .upsert(updates, { onConflict: 'canonical_key', ignoreDuplicates: false })
-
-  if (upsertErr) return NextResponse.json({ error: upsertErr.message }, { status: 500 })
+  const now = new Date().toISOString()
+  await Promise.all(
+    (persons as PersonRow[]).map(p => {
+      const { score, raison } = quickScore(p)
+      return supabase
+        .from('prospection_persons')
+        .update({ patrimony_score: score, raison_principale: raison, updated_at: now })
+        .eq('canonical_key', p.canonical_key)
+    })
+  )
 
   return NextResponse.json({ ok: true, scored: updates.length, done: updates.length < BATCH })
 }
