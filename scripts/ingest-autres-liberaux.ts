@@ -97,6 +97,53 @@ const PROFESSIONS: Record<string, ProfessionConfig> = {
     professionLibelle: "Agent général d'assurance",
     keywords: ["agent général", "agence d'assurance", 'assurances', 'agent assurance', 'courtage'],
   },
+
+  // ── Santé hors RPPS ───────────────────────────────────────────────────────
+  osteopathes: {
+    label: 'Ostéopathes',
+    sourceId: 'ae_osteopathes',
+    naf: '86.90F',
+    personType: 'autre_libéral',
+    professionLibelle: 'Ostéopathe',
+    keywords: ['ostéopath', 'osteopath'],
+  },
+  psychologues: {
+    label: 'Psychologues libéraux',
+    sourceId: 'ae_psychologues',
+    naf: '86.90F',
+    personType: 'autre_libéral',
+    professionLibelle: 'Psychologue',
+    keywords: ['psycholog', 'psychothérapeut', 'psychotherapeut'],
+  },
+
+  // ── Professions judiciaires ───────────────────────────────────────────────
+  experts_judiciaires: {
+    label: 'Experts judiciaires',
+    sourceId: 'ae_experts_judiciaires',
+    naf: '69.10Z',
+    personType: 'autre_libéral',
+    professionLibelle: 'Expert judiciaire',
+    keywords: ['expert judiciaire', 'expertise judiciaire', 'cabinet d\'expertise'],
+  },
+  commissaires_priseurs: {
+    label: 'Commissaires-priseurs',
+    sourceId: 'ae_commissaires_priseurs',
+    naf: '74.90Z',
+    personType: 'autre_libéral',
+    professionLibelle: 'Commissaire-priseur',
+    keywords: ['commissaire-priseur', 'commissaire priseur', 'ventes aux enchères', 'enchères'],
+  },
+
+  // ── Immobilier libéral ────────────────────────────────────────────────────
+  agents_immo: {
+    label: 'Agents immobiliers indépendants',
+    sourceId: 'ae_agents_immo',
+    naf: '68.31Z',
+    personType: 'autre_libéral',
+    professionLibelle: 'Agent immobilier',
+    // 68.31Z regroupe agences et indépendants — filtrer sur les structures légères
+    keywords: ['agent immobilier', 'transaction immobilière', 'cabinet immobilier', 'immobilier conseil'],
+  },
 }
 
 interface AEDirigeant {

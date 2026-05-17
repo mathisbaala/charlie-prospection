@@ -17,6 +17,22 @@ export const maxDuration = 300
  * Les personnes sont insérées avec enrichment_level='raw'.
  * Le cron /api/cron/enrich-persons les enrichit de façon asynchrone.
  */
+export async function GET(request: Request) {
+  const adminKey = request.headers.get('x-admin-key')
+  if (!adminKey || adminKey !== process.env.ADMIN_API_KEY) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  )
+  const { count } = await supabase
+    .from('prospection_persons')
+    .select('*', { count: 'exact', head: true })
+    .eq('enrichment_level', 'raw')
+  return NextResponse.json({ ok: true, count: count ?? 0 })
+}
+
 export async function POST(request: Request) {
   const adminKey = request.headers.get('x-admin-key')
   if (!adminKey || adminKey !== process.env.ADMIN_API_KEY) {
