@@ -45,7 +45,21 @@ export async function queryPersons(
   })
   if (error || !data) return []
 
-  return data.map((row) => {
+  type Row = {
+    canonical_key: string
+    prenom: string | null
+    nom: string | null
+    siren: string | null
+    departement: string | null
+    naf_code: string | null
+    person_type: string | null
+    raw_data: unknown
+    extended_data: unknown
+    patrimony_score: number | null
+    raison_principale: string | null
+  }
+
+  return (data as Row[]).map((row) => {
     const score = row.patrimony_score ?? 0
 
     // Réutilise raw_data si disponible (snapshot RawProspect), sinon reconstruit un minimal
