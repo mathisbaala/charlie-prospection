@@ -102,7 +102,7 @@ export async function POST(request: Request) {
   // enrichir dans ce cycle (au-delà du gap) sont stockés en 'raw' et seront
   // enrichis à la prochaine recherche qui les croise en cache.
   const cachedUids = new Set(cacheHits.map((h) => h.uid))
-  let externalRaw: RawProspect[] = []
+  const externalRaw: RawProspect[] = []
 
   const [rawProspects, discoveryRaw] = await Promise.all([
     searchProspects(criteria, { limit, strictFilters }),

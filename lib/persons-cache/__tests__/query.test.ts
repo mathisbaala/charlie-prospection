@@ -47,6 +47,7 @@ describe('cacheRowToPartialCandidate', () => {
   }
 
   it('mappe correctement un hit fresh', () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const hit = cacheRowToPartialCandidate(row as any)
     expect(hit.uid).toBe('jean|dupont|123456789')
     expect(hit.patrimony_score).toBe(70)
@@ -58,6 +59,7 @@ describe('cacheRowToPartialCandidate', () => {
       ...row,
       last_enriched_at: new Date(Date.now() - 90 * 86400 * 1000).toISOString(),
     }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const hit = cacheRowToPartialCandidate(staleRow as any)
     expect(hit.needsEnrichment).toBe(true)
     expect(hit.isDropped).toBe(false)
@@ -71,6 +73,7 @@ describe('cacheRowToPartialCandidate', () => {
       patrimony_score: null,
       last_enriched_at: new Date().toISOString(),
     }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const hit = cacheRowToPartialCandidate(droppedRow as any)
     expect(hit.isDropped).toBe(true)
     expect(hit.needsEnrichment).toBe(false)

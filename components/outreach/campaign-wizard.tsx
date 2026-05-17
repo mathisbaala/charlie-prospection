@@ -264,8 +264,8 @@ export function CampaignWizard({ onClose, onCreated }: Props) {
                   lineHeight: 1.6,
                 }}
               >
-                <strong>Comment ça marche :</strong> L'extension Chrome exécutera les actions sur LinkedIn depuis votre navigateur.
-                Assurez-vous que l'extension est connectée et que vous êtes connecté à LinkedIn.
+                <strong>Comment ça marche :</strong> L&apos;extension Chrome exécutera les actions sur LinkedIn depuis votre navigateur.
+                Assurez-vous que l&apos;extension est connectée et que vous êtes connecté à LinkedIn.
                 Le bot respecte les limites LinkedIn (30 invitations/jour, 50 DMs/jour) et tourne entre 8h et 22h.
               </div>
 

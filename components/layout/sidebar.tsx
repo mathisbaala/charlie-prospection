@@ -161,7 +161,7 @@ function ExtensionWidget() {
               onClick={disconnect}
               style={{ width: '100%', padding: '6px 0', fontSize: 11, color: '#E05C2A', background: 'none', border: '1px solid #E05C2A', cursor: 'pointer' }}
             >
-              Déconnecter l'extension
+              Déconnecter l&apos;extension
             </button>
           )}
         </div>

@@ -138,7 +138,7 @@ export async function POST(request: Request) {
 
     // Copie mutable — upgrade enrichit avant le calcul des SIRENs pour que
     // portfolioSirens inclue les SCIs/holdings du dirigeant.
-    let currentEnrichment = { ...candidate.enrichment_data }
+    const currentEnrichment = { ...candidate.enrichment_data }
     const principalSiren = currentEnrichment?.siren
 
     // Upgrade vers enrichissement profond — Pappers Premium + portfolio dirigeant.

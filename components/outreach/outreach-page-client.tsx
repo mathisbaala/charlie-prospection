@@ -28,7 +28,8 @@ export function OutreachPageClient({ extensionLinkParam: _extensionLinkParam }: 
   }, [])
 
   useEffect(() => {
-    fetchCampaigns()
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void fetchCampaigns()
   }, [fetchCampaigns])
 
   async function toggleStatus(campaign: Campaign) {
@@ -69,7 +70,7 @@ export function OutreachPageClient({ extensionLinkParam: _extensionLinkParam }: 
             Campagnes
           </h1>
           <p style={{ color: 'var(--color-muted)', fontSize: 14, marginTop: 10, maxWidth: 560, lineHeight: 1.6 }}>
-            Prospection LinkedIn multi-étapes. L'extension exécute les actions depuis votre navigateur, vous gardez le contrôle.
+            Prospection LinkedIn multi-étapes. L&apos;extension exécute les actions depuis votre navigateur, vous gardez le contrôle.
           </p>
         </div>
 
@@ -415,7 +416,7 @@ function CampaignEditModal({ campaignId, onClose, onSaved }: {
             onBlur={e => { e.currentTarget.style.borderColor = 'var(--color-border)'; e.currentTarget.style.boxShadow = 'inset 0 1px 2px rgba(53,40,24,0.04)' }}
           />
           <div style={{ fontSize: 11, color: 'var(--color-muted)', marginBottom: 14, fontStyle: 'italic', lineHeight: 1.6 }}>
-            Les nouveaux messages s'appliqueront uniquement aux prospects qui n'ont pas encore reçu cette étape. Les messages déjà envoyés ne sont pas réécrits.
+            Les nouveaux messages s&apos;appliqueront uniquement aux prospects qui n&apos;ont pas encore reçu cette étape. Les messages déjà envoyés ne sont pas réécrits.
           </div>
           <SequenceBuilder steps={steps} onChange={setSteps} />
         </div>
@@ -922,7 +923,7 @@ function EmptyState({ onNew }: { onNew: () => void }) {
         Lancez votre première séquence de prospection.
       </p>
       <p style={{ color: 'var(--color-muted)', fontSize: 13, marginTop: 12, marginBottom: 28, maxWidth: 480, marginLeft: 'auto', marginRight: 'auto', lineHeight: 1.6 }}>
-        Définissez vos messages, sélectionnez vos prospects, l'extension fait le reste depuis votre LinkedIn.
+        Définissez vos messages, sélectionnez vos prospects, l&apos;extension fait le reste depuis votre LinkedIn.
       </p>
       <button
         onClick={onNew}

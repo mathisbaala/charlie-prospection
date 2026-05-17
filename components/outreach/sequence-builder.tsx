@@ -218,7 +218,7 @@ export function SequenceBuilder({ steps, onChange }: Props) {
           {selected > 0 && (
             <div>
               <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-muted)', letterSpacing: '0.07em', textTransform: 'uppercase', display: 'block', marginBottom: 8 }}>
-                Délai depuis l'étape précédente
+                Délai depuis l&apos;étape précédente
               </label>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <input

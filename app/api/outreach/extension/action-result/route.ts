@@ -191,8 +191,10 @@ export async function POST(request: Request) {
   return NextResponse.json({ ok: true })
 }
 
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function logActivity(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   service: any,
   enr: Record<string, unknown>,
   body: string,
