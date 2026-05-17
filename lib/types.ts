@@ -86,7 +86,7 @@ export interface Prospect {
   id: string
   org_id: string
   icp_id: string | null
-  linkedin_url: string
+  linkedin_url: string | null
   linkedin_data: Record<string, unknown>
   enrichment_data: Record<string, unknown>
   patrimony_score: number | null
