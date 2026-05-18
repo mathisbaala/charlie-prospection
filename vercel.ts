@@ -3,23 +3,31 @@ import { type VercelConfig } from '@vercel/config/v1'
 /**
  * Charlie Prospection — Vercel project configuration.
  *
+ * Pipeline en 3 étapes (enrichissement progressif) :
+ *
+ *   Étape 1 — Collecte : ingest scripts (RPPS, AE, Pappers bulk…)
+ *             → prospection_persons avec enrichment_level='raw'
+ *
+ *   Étape 2 — Standard (ce cron, 08:00 UTC, quotidien) :
+ *             Personnes 'raw' depuis 24h → Pappers standard + BODACC léger
+ *             + score règles métier. Pas de Claude. Refresh 2x/an.
+ *             → enrichment_level='standard'
+ *
+ *   Étape 3 — Deep (déclenché par /api/suivi/add + refresh-enrichment) :
+ *             Pappers premium + 10 sources + Claude Sonnet scoring.
+ *             Prospects en suivi uniquement. Refresh mensuel.
+ *             → enrichment_level='deep'
+ *
  * Daily firehose pipeline (all times UTC):
- *   - 05:30  /api/cron/sirene-ingest    INSEE Sirene v3.11 firehose. Captures
- *                                       SIREN/SIRET creations across the ENTIRE
- *                                       French economy (incl. BNC / libéraux
- *                                       absent from BODACC). Skipped silently
- *                                       if INSEE_SIRENE_TOKEN is unset.
- *   - 05:45  /api/cron/inpi-ingest      INPI RNE daily diff: cessations,
- *                                       modifications de capital, modifs BE.
- *                                       Skipped silently if INPI credentials
- *                                       are unset.
- *   - 06:00  /api/cron/bodacc-ingest    BODACC annonces-commerciales of the
- *                                       last 24h.
- *   - 06:30  /api/cron/match-icps       Walks every active ICP and flags inbox
- *                                       signals that intersect the ICP's NAF
- *                                       codes + departements. Runs 30 minutes
- *                                       after the last ingest to give all
- *                                       three feeds room to land.
+ *   - 05:30  /api/cron/sirene-ingest    INSEE Sirene v3.11 firehose.
+ *   - 05:45  /api/cron/inpi-ingest      INPI RNE daily diff.
+ *   - 06:00  /api/cron/bodacc-ingest    BODACC annonces-commerciales 24h.
+ *   - 06:30  /api/cron/match-icps       Signaux → ICPs matching.
+ *   - 08:00  /api/cron/enrich-persons-standard  Étape 2 — enrichissement
+ *                                       standard (Pappers + BODACC léger,
+ *                                       sans Claude). Batch 50/run.
+ *   - 09:00  /api/cron/enrich-persons   Étape 3 — deep enrichment Claude
+ *                                       sur les prospects en suivi 'raw'.
  *
  * Refresh per-prospect enrichment : 2× par mois (1er et 15 à 04:00 UTC).
  * BATCH_SIZE=30, REFRESH_AFTER_DAYS=14 — voir app/api/cron/refresh-enrichment/route.ts.
@@ -39,9 +47,10 @@ export const config: VercelConfig = {
     { path: '/api/cron/inpi-ingest', schedule: '45 5 * * *' },
     { path: '/api/cron/bodacc-ingest', schedule: '0 6 * * *' },
     { path: '/api/cron/match-icps', schedule: '30 6 * * *' },
-    { path: '/api/cron/refresh-enrichment', schedule: '0 4 1,15 * *' },  // 1er et 15 de chaque mois à 04:00 UTC
-    { path: '/api/cron/refresh-rpps', schedule: '0 4 1 * *' },  // 1st of each month at 04:00 UTC
-    { path: '/api/cron/enrich-persons', schedule: '0 7 * * *' },         // Daily 07:00 UTC — enrichit les entrées 'raw' de prospection_persons
+    { path: '/api/cron/enrich-persons-standard', schedule: '0 8 * * *' }, // Étape 2 — Pappers std + BODACC léger, 24h après insertion
+    { path: '/api/cron/enrich-persons', schedule: '0 9 * * *' },          // Étape 3 — deep enrichment Claude (prospects en suivi)
+    { path: '/api/cron/refresh-enrichment', schedule: '0 4 1,15 * *' },   // Refresh étape 3 — 1er et 15 à 04:00 UTC
+    { path: '/api/cron/refresh-rpps', schedule: '0 4 1 * *' },            // Refresh RPPS — 1er du mois à 04:00 UTC
   ],
 }
 
