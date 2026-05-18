@@ -37,8 +37,8 @@ run "Médecins SELAS/SELARL" scripts/ingest-medecins-selas.ts
 # 2. Pharmacies, dentistes SELAS, kinés SELAS (NAF 47.73Z, 86.23Z, 86.90E)
 run "AE Complémentaires (pharmacies, dentistes, kinés)" scripts/ingest-professions-ae-complement.ts
 
-# 3. Autres libéraux — 9 professions séquentielles
-for prof in huissiers courtiers_assurance conseillers_financiers agents_assurance osteopathes psychologues experts_judiciaires commissaires_priseurs agents_immo; do
+# 3. Autres libéraux — 13 professions séquentielles
+for prof in huissiers courtiers_assurance conseillers_financiers agents_assurance osteopathes psychologues experts_judiciaires commissaires_priseurs agents_immo greffiers cncpi commissaires_aux_comptes gestionnaires_patrimoine; do
   run "Autres libéraux — $prof" scripts/ingest-autres-liberaux.ts --profession "$prof"
 done
 

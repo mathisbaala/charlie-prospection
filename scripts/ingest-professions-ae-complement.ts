@@ -67,6 +67,13 @@ const NAF_CONFIGS: NafConfig[] = [
     personType: 'kiné',
     keywords: null, // 86.90E = rééducation fonctionnelle
   },
+  {
+    naf: '47.78A',
+    sourceId: 'ae_opticiens_fonds',
+    professionLibelle: 'Opticien-lunetier (propriétaire de fonds)',
+    personType: 'opticien',
+    keywords: ['opticien', 'lunetier', 'optique', 'lunetterie'],
+  },
 ]
 
 interface AEDirigeant {
