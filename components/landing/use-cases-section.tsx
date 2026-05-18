@@ -82,7 +82,6 @@ export function UseCasesSection({ onPick }: Props) {
               textAlign: 'left',
               background: 'var(--color-surface)',
               border: '1px solid var(--color-border)',
-              borderLeft: '2px solid var(--color-accent)',
               borderRadius: 2,
               padding: '20px 22px',
               cursor: 'pointer',
