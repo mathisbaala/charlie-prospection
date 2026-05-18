@@ -79,8 +79,8 @@ async function main() {
       }
 
       const { data: count, error: rpcErr } = await supabase.rpc(
-        'backfill_signals_for_prospect',
-        { p_prospect_id: p.id, p_org_id: p.org_id, p_siren: siren },
+        'backfill_signals_for_prospect_v2',
+        { p_prospect_id: p.id, p_org_id: p.org_id, p_sirens: [siren] },
       )
       if (rpcErr) {
         console.error(`[backfill-signals] RPC failed for ${p.id}:`, rpcErr.message)
