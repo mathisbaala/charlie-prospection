@@ -131,30 +131,28 @@ export function PipelineDetailPanel({ prospect, onStageChange, onDelete, onEdit 
                 )}
               </span>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flexShrink: 0 }}>
-                {onEdit && (
-                  <button
-                    type="button"
-                    onClick={onEdit}
-                    aria-label="Modifier ce prospect"
-                    title="Modifier"
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      width: 22,
-                      height: 22,
-                      background: 'transparent',
-                      color: 'var(--color-muted)',
-                      border: 'none',
-                      cursor: 'pointer',
-                      transition: 'color 100ms',
-                    }}
-                    onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--color-text)' }}
-                    onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--color-muted)' }}
-                  >
-                    <Pencil size={13} />
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={onEdit}
+                  aria-label="Modifier ce prospect"
+                  title="Modifier"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 22,
+                    height: 22,
+                    background: 'transparent',
+                    color: 'var(--color-muted)',
+                    border: 'none',
+                    cursor: 'pointer',
+                    transition: 'color 100ms',
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--color-text)' }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--color-muted)' }}
+                >
+                  <Pencil size={13} />
+                </button>
                 {onDelete && (
                   <button
                     type="button"
