@@ -13,7 +13,15 @@ export type PersonType =
   | 'autre_libéral'
   | 'autre'
 
-export type PersonEnrichmentLevel = 'raw' | 'standard' | 'dropped'
+// Modèle 3 étapes :
+//   raw      → collecte brute (ingest RPPS/AE/Sirene)
+//   standard → enrichi 24h après insertion (Pappers std + BODACC léger, sans Claude)
+//   deep     → enrichi complet pour prospects en suivi (Pappers premium + Claude)
+//   dropped  → écarté à la qualification (qualité insuffisante)
+//
+// Règle invariante : deep est persistant cross-org. Un profil deep ne peut pas
+// rétrograder vers standard ou raw.
+export type PersonEnrichmentLevel = 'raw' | 'standard' | 'deep' | 'dropped'
 
 export interface Person {
   id: string

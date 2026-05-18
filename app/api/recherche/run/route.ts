@@ -17,9 +17,12 @@ export const maxDuration = 60
 /**
  * POST /api/recherche/run — recherche dans la base interne de personnes.
  *
- * Modèle Push : la base prospection_persons est pré-alimentée par les
- * fondateurs (POST /api/admin/ingest/persons) et enrichie en continu par le
- * cron enrich-persons. Cette route ne fait AUCUN appel API externe.
+ * Modèle Push : la base prospection_persons est pré-alimentée par les scripts
+ * d'ingest (RPPS, AE, Sirene…) et enrichie en pipeline 3 étapes :
+ *   raw → standard (cron enrich-persons-standard, 24h après insertion)
+ *   standard → deep (suivi/add inline + refresh-enrichment 1er/15)
+ * Cette route ne fait AUCUN appel API externe — lecture seule dans prospection_persons.
+ * Seuls les profils 'standard' et 'deep' sont visibles (jamais 'raw').
  *
  * Body: { persona_id: string, limit?: number }
  * Response: { candidates: SearchCandidate[], quota_pappers? }

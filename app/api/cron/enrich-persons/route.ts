@@ -1,3 +1,14 @@
+// DÉSACTIVÉ DU PLANNING VERCEL (voir vercel.ts).
+//
+// Ce cron ciblait enrichment_level='raw' avec Claude + Pappers — ce qui est
+// maintenant géré par /api/cron/enrich-persons-standard (étape 2, sans Claude).
+// Le deep enrichment (étape 3) est déclenché inline par /api/suivi/add et
+// rafraîchi périodiquement par /api/cron/refresh-enrichment.
+//
+// La route reste disponible pour des appels manuels ad-hoc.
+// ATTENTION : elle cible encore 'raw' et set 'standard' — ne pas l'appeler
+// sur des profils déjà en suivi (utiliser /api/cron/refresh-enrichment à la place).
+
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { enrichProspect } from '@/lib/enrichment/enricher'
@@ -56,13 +67,15 @@ function personRowToRaw(row: PersonRow): RawProspect {
 }
 
 /**
- * GET /api/cron/enrich-persons
+ * GET /api/cron/enrich-persons — ROUTE MANUELLE UNIQUEMENT (non planifiée)
  *
- * Enrichit les entrées 'raw' de prospection_persons.
- * Sélectionne les BATCH_SIZE plus anciennes (FIFO), lance enrichProspect()
- * + scorePatrimony(), met à jour enrichment_level='standard'.
+ * Enrichit les entrées 'raw' de prospection_persons avec enrichProspect() + Claude.
+ * Met à jour enrichment_level='standard'.
  *
- * Appelé par le cron Vercel quotidiennement à 07:00 UTC.
+ * À ne pas confondre avec :
+ *   - /api/cron/enrich-persons-standard → étape 2 (quotidien, sans Claude, batch 50)
+ *   - /api/cron/refresh-enrichment → étape 3 refresh (1er/15, Pappers premium + Claude)
+ *   - /api/suivi/add → étape 3 déclenchement initial (inline, immédiat)
  */
 export async function GET(request: Request) {
   const authHeader = request.headers.get('authorization')

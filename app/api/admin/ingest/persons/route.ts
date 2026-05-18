@@ -15,7 +15,9 @@ export const maxDuration = 300
  * Max 500 personnes par batch.
  *
  * Les personnes sont insérées avec enrichment_level='raw'.
- * Le cron /api/cron/enrich-persons les enrichit de façon asynchrone.
+ * Le cron /api/cron/enrich-persons-standard les passe en 'standard' 24h après.
+ * Le deep enrichment (Pappers premium + Claude) n'est déclenché que pour les
+ * prospects explicitement ajoutés au suivi via /api/suivi/add.
  */
 export async function GET(request: Request) {
   const adminKey = request.headers.get('x-admin-key')
