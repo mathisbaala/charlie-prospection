@@ -196,20 +196,6 @@ export function PipelineDetailPanel({ prospect, onStageChange, onDelete, onEdit 
               {personName}
             </h2>
 
-            {age !== null && (
-              <p
-                style={{
-                  marginTop: 3,
-                  fontSize: 12,
-                  color: 'var(--color-muted)',
-                  fontFamily: 'var(--font-mono, monospace)',
-                  fontVariantNumeric: 'tabular-nums',
-                }}
-              >
-                {age} ans
-              </p>
-            )}
-
             <div
               className="flex items-center"
               style={{
