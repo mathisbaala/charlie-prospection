@@ -192,12 +192,16 @@ export async function POST(request: Request) {
         // Fire-and-forget : upgrade Premium+portfolio → base interne.
         // L'enrichissement profond remonte dans prospection_persons pour que
         // toutes les orgs bénéficient de ce score amélioré lors de la recherche.
+        // enrichment_level='deep' : une fois en suivi, le profil reste deep pour
+        // tous les CGPs — ni enrich-persons-standard ni aucun autre process ne
+        // peut rétrograder ce niveau.
         updatePersonEnrichment(
           serviceSupabase,
           candidate.raw.uid,
           currentEnrichment as Record<string, unknown>,
           upgradeScoring.score,
           upgradeScoring.raison_principale ?? null,
+          'deep',
         ).catch((err) => console.error('[suivi/add] persons store error:', err))
       } catch (e) {
         console.error('[suivi/add] upgrade enrichissement failed:', e)

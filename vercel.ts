@@ -48,7 +48,10 @@ export const config: VercelConfig = {
     { path: '/api/cron/bodacc-ingest', schedule: '0 6 * * *' },
     { path: '/api/cron/match-icps', schedule: '30 6 * * *' },
     { path: '/api/cron/enrich-persons-standard', schedule: '0 8 * * *' }, // Étape 2 — Pappers std + BODACC léger, 24h après insertion
-    { path: '/api/cron/enrich-persons', schedule: '0 9 * * *' },          // Étape 3 — deep enrichment Claude (prospects en suivi)
+    // Étape 3 deep — déclenché inline par /api/suivi/add (immédiat) et
+    // rafraîchi par /api/cron/refresh-enrichment (1er et 15). Le cron quotidien
+    // /api/cron/enrich-persons est désactivé : il ciblait raw génériquement,
+    // ce qui dupliquait l'étape 2 avec Claude. Appel manuel possible si besoin.
     { path: '/api/cron/refresh-enrichment', schedule: '0 4 1,15 * *' },   // Refresh étape 3 — 1er et 15 à 04:00 UTC
     { path: '/api/cron/refresh-rpps', schedule: '0 4 1 * *' },            // Refresh RPPS — 1er du mois à 04:00 UTC
   ],

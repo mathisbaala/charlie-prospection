@@ -195,12 +195,14 @@ async function runRefresh(): Promise<{
       }
 
       // Fire-and-forget : refresh → base interne (améliore le score visible à la recherche).
+      // 'deep' : un prospect en suivi reste deep dans prospection_persons pour toutes les orgs.
       updatePersonEnrichment(
         supabase,
         canonicalPersonKey(raw.dirigeant_prenom, raw.dirigeant_nom, raw.siren),
         fresh as Record<string, unknown>,
         scoring.score,
         scoring.raison_principale ?? null,
+        'deep',
       ).catch((err) => console.error('[refresh-enrichment] persons store error:', err))
 
       refreshed += 1
