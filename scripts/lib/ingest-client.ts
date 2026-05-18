@@ -129,7 +129,7 @@ export async function postBatch(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { error } = await supabase
           .from('prospection_persons')
-          .upsert(chunk as any[], { onConflict: 'canonical_key', ignoreDuplicates: false })
+          .upsert(chunk as any, { onConflict: 'canonical_key', ignoreDuplicates: false })
         if (error) {
           console.error(`\n[ingest] chunk erreur (attempt ${attempt}): ${error.message}`)
           if (attempt < 3) { await sleep(5_000 * attempt); continue }
