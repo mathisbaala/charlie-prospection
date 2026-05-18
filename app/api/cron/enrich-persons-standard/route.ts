@@ -20,7 +20,7 @@ import type { PersonType } from '@/lib/persons/types'
 export const maxDuration = 300
 export const dynamic = 'force-dynamic'
 
-const BATCH = 50
+const BATCH = 500
 
 type PersonRow = {
   canonical_key: string
