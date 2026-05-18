@@ -44,6 +44,18 @@ for prof in architectes veterinaires geometres; do
   run "Autres libéraux — $prof (refresh)" scripts/ingest-autres-liberaux.ts --profession "$prof"
 done
 
+# 2b. Nouvelles professions ajoutées après le lancement initial de after-rpps.sh
+#     Greffiers TC, CNCPI, CAC, gestionnaires de patrimoine (NAF 66.30Z)
+for prof in greffiers cncpi commissaires_aux_comptes gestionnaires_patrimoine; do
+  run "Nouvelles professions — $prof" scripts/ingest-autres-liberaux.ts --profession "$prof"
+done
+
+# 2c. 2ème passe conseillers financiers — ECONNRESET partiel possible sur 1ère passe
+run "Conseillers financiers (2ème passe)" scripts/ingest-autres-liberaux.ts --profession conseillers_financiers
+
+# 2d. Opticiens fonds de commerce (NAF 47.78A) — ajouté après le démarrage de la vague 2
+run "Opticiens-lunetiers (fonds — 2ème passe)" scripts/ingest-professions-ae-complement.ts --naf 47.78A
+
 # 3. RPPS complet — re-téléchargement local pour éviter l'ECONNRESET (~41min sur stream HTTP)
 #    Le fichier fait ~805MB ; curl reprend sur interruption (-C -).
 RPPS_LOCAL="/tmp/rpps-full.txt"
