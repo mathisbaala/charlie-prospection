@@ -108,7 +108,6 @@ export function ArrayTagEditor({
               }}
             >
               <Plus size={11} />
-              Suggestions
             </button>
 
             {suggestOpen && (
