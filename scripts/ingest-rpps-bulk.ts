@@ -9,6 +9,7 @@
  *   npx tsx scripts/ingest-rpps-bulk.ts
  *   npx tsx scripts/ingest-rpps-bulk.ts --dept 75          # filtre département
  *   npx tsx scripts/ingest-rpps-bulk.ts --dry-run          # log sans poster
+ *   npx tsx scripts/ingest-rpps-bulk.ts --file /tmp/rpps.txt  # lire depuis fichier local (évite ECONNRESET)
  *
  * Env :
  *   INGEST_BASE_URL  URL de l'app Next.js (défaut : http://localhost:3000)
@@ -152,15 +153,24 @@ async function main() {
   if (deptFilter) console.log(`  Filtre département : ${deptFilter}`)
   if (dryRun) console.log('  Mode dry-run : pas de POST')
 
-  console.log('Récupération URL dataset RPPS...')
-  const url = await getLatestRppsUrl()
-  console.log(`  URL : ...${url.slice(-60)}`)
+  const fileArg = args.includes('--file') ? args[args.indexOf('--file') + 1] : null
 
-  const res = await fetch(url)
-  if (!res.ok || !res.body) throw new Error(`Échec téléchargement RPPS : ${res.status}`)
-
-  const reader = res.body.getReader()
+  let reader: ReadableStreamDefaultReader<Uint8Array>
   const decoder = new TextDecoder('utf-8')
+
+  if (fileArg) {
+    console.log(`  Source locale : ${fileArg}`)
+    const { createReadStream } = await import('node:fs')
+    const { Readable } = await import('node:stream')
+    reader = Readable.toWeb(createReadStream(fileArg) as Parameters<typeof Readable.toWeb>[0]).getReader() as ReadableStreamDefaultReader<Uint8Array>
+  } else {
+    console.log('Récupération URL dataset RPPS...')
+    const url = await getLatestRppsUrl()
+    console.log(`  URL : ...${url.slice(-60)}`)
+    const res = await fetch(url)
+    if (!res.ok || !res.body) throw new Error(`Échec téléchargement RPPS : ${res.status}`)
+    reader = res.body.getReader()
+  }
 
   let buffer = ''
   let headers: string[] | null = null

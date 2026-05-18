@@ -52,6 +52,34 @@ log "  Quick-score bulk (scoring initial toutes personnes raw)"
 log "════════════════════════════════════════════"
 npx tsx scripts/quick-score-bulk.ts 2>&1 | tee -a "$LOG" || log "  ⚠️  quick-score non bloquant — continuera via cron enrich-persons"
 
+# 4. RPPS complet — re-téléchargement local pour éviter l'ECONNRESET (~41min sur stream HTTP)
+#    Le fichier fait ~805MB ; curl reprend sur interruption (-C -).
+RPPS_LOCAL="/tmp/rpps-full.txt"
+log ""
+log "════════════════════════════════════════════"
+log "  RPPS complet — téléchargement local"
+log "════════════════════════════════════════════"
+RPPS_URL=$(node -e "
+const r=require('https');
+const opts=new URL('https://www.data.gouv.fr/api/1/datasets/69025e6c73d1f9b79ca3c365/');
+r.get(opts,(res)=>{let d='';res.on('data',c=>d+=c);res.on('end',()=>{
+  const rs=JSON.parse(d).resources??[];
+  const c=rs.filter(x=>x.url?.includes('personne-activite')||x.url?.endsWith('.txt')||x.format?.toLowerCase()==='txt').sort((a,b)=>(b.filesize??0)-(a.filesize??0));
+  console.log(c[0]?.url??'');
+});});
+" 2>/dev/null)
+if [ -z "$RPPS_URL" ]; then
+  log "  ⚠️  Impossible de récupérer l'URL RPPS — étape ignorée"
+else
+  log "  URL: ...${RPPS_URL: -60}"
+  log "  Téléchargement vers $RPPS_LOCAL..."
+  curl -L -C - --retry 5 --retry-delay 10 -o "$RPPS_LOCAL" "$RPPS_URL" 2>&1 | tee -a "$LOG"
+  log "  Téléchargement terminé. Lancement ingest RPPS --file..."
+  run "RPPS complet (fichier local)" scripts/ingest-rpps-bulk.ts --file "$RPPS_LOCAL"
+  rm -f "$RPPS_LOCAL"
+  log "  Fichier temporaire supprimé."
+fi
+
 log ""
 log "╔══════════════════════════════════════╗"
 log "║  PIPELINE VAGUE 3 COMPLET — $(date '+%H:%M:%S')  ║"
