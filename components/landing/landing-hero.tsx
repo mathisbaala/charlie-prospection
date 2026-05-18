@@ -65,6 +65,7 @@ export const LandingHero = forwardRef<LandingHeroHandle, Props>(function Landing
           lineHeight: 1.08,
           letterSpacing: '-0.03em',
           textAlign: 'center',
+          textWrap: 'balance',
           color: 'var(--color-text)',
           marginBottom: 14,
         }}
