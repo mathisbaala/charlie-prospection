@@ -109,11 +109,14 @@ function quickScore(p: PersonRow): { score: number; raison: string } {
 }
 
 /**
- * POST /api/admin/quick-score
+ * POST /api/admin/quick-score — USAGE MANUEL UNIQUEMENT, non planifié.
  *
- * Calcule un score patrimonial rapide (sans API externe) pour les personnes
- * sans score. Met à jour patrimony_score + raison_principale sur BATCH entrées.
- * Conserve enrichment_level='raw' pour que le cron Claude les enrichisse ensuite.
+ * Calcule un score patrimonial rapide (sans API externe) sur des profils 'raw'.
+ * À utiliser uniquement pour des backfills d'urgence.
+ *
+ * Note architecture : dans le pipeline normal, les profils 'raw' n'ont PAS de
+ * score. Le score est calculé par enrich-persons-standard (étape 2) au moment
+ * où la personne passe en 'standard'. Ce endpoint ne change pas enrichment_level.
  */
 export async function POST(request: Request) {
   const key = request.headers.get('x-admin-key')
