@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { Building2, MapPin, Stethoscope, User, Check, Trash2 } from 'lucide-react'
+import { Building2, MapPin, Stethoscope, User, Check, Trash2, Pencil } from 'lucide-react'
 import { ProspectFicheContent } from './prospect-fiche-content'
 import { ProspectSignalsTimeline } from '@/components/suivi/prospect-signals-timeline'
 import { ProspectActesTab } from '@/components/suivi/prospect-actes-tab'
@@ -36,10 +36,8 @@ const STAGE_HINTS: Record<CrmStage, string> = {
 interface Props {
   prospect: Prospect
   onStageChange?: (stage: CrmStage) => void
-  /** Called when the user removes the prospect from /suivi (DELETE button).
-   *  Optional so the legacy /pipeline page (now a redirect shim) doesn't
-   *  need to wire it. */
   onDelete?: () => void
+  onEdit?: () => void
 }
 
 const STAGE_PILLS: CrmStage[] = ['new', 'to_contact', 'contacted', 'meeting', 'client', 'lost']
@@ -50,7 +48,7 @@ const STAGE_PILLS: CrmStage[] = ['new', 'to_contact', 'contacted', 'meeting', 'c
  * score-as-hero rule), CRM stage pills, two tabs (Fiche / Pipeline), and
  * either the shared `ProspectFicheContent` or a clickable stage timeline.
  */
-export function PipelineDetailPanel({ prospect, onStageChange, onDelete }: Props) {
+export function PipelineDetailPanel({ prospect, onStageChange, onDelete, onEdit }: Props) {
   const [tab, setTab] = useState<Tab>('fiche')
 
 
@@ -65,6 +63,8 @@ export function PipelineDetailPanel({ prospect, onStageChange, onDelete }: Props
 
   const score = prospect.patrimony_score
   const valuation = ed?.patrimoine_total_estime
+  const anneeNaissance = ed?.dirigeant_annee_naissance
+  const age = anneeNaissance ? new Date().getFullYear() - anneeNaissance : null
 
   // Premium payload count drives the badge on the Actes tab. Counted once per
   // render — cheap (arrays under 50 items typically).
@@ -130,35 +130,56 @@ export function PipelineDetailPanel({ prospect, onStageChange, onDelete }: Props
                   </>
                 )}
               </span>
-              {onDelete && (
-                <button
-                  type="button"
-                  onClick={onDelete}
-                  aria-label="Supprimer ce prospect du suivi"
-                  title="Retirer du suivi"
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: 22,
-                    height: 22,
-                    background: 'transparent',
-                    color: 'var(--color-muted)',
-                    border: 'none',
-                    cursor: 'pointer',
-                    transition: 'color 100ms',
-                    flexShrink: 0,
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.color = 'var(--color-error)'
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.color = 'var(--color-muted)'
-                  }}
-                >
-                  <Trash2 size={13} />
-                </button>
-              )}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flexShrink: 0 }}>
+                {onEdit && (
+                  <button
+                    type="button"
+                    onClick={onEdit}
+                    aria-label="Modifier ce prospect"
+                    title="Modifier"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: 22,
+                      height: 22,
+                      background: 'transparent',
+                      color: 'var(--color-muted)',
+                      border: 'none',
+                      cursor: 'pointer',
+                      transition: 'color 100ms',
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--color-text)' }}
+                    onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--color-muted)' }}
+                  >
+                    <Pencil size={13} />
+                  </button>
+                )}
+                {onDelete && (
+                  <button
+                    type="button"
+                    onClick={onDelete}
+                    aria-label="Supprimer ce prospect du suivi"
+                    title="Retirer du suivi"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: 22,
+                      height: 22,
+                      background: 'transparent',
+                      color: 'var(--color-muted)',
+                      border: 'none',
+                      cursor: 'pointer',
+                      transition: 'color 100ms',
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--color-error)' }}
+                    onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--color-muted)' }}
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                )}
+              </div>
             </div>
 
             <h2
@@ -174,6 +195,20 @@ export function PipelineDetailPanel({ prospect, onStageChange, onDelete }: Props
             >
               {personName}
             </h2>
+
+            {age !== null && (
+              <p
+                style={{
+                  marginTop: 3,
+                  fontSize: 12,
+                  color: 'var(--color-muted)',
+                  fontFamily: 'var(--font-mono, monospace)',
+                  fontVariantNumeric: 'tabular-nums',
+                }}
+              >
+                {age} ans
+              </p>
+            )}
 
             <div
               className="flex items-center"
@@ -198,6 +233,14 @@ export function PipelineDetailPanel({ prospect, onStageChange, onDelete }: Props
                   <span className="flex items-center" style={{ gap: 4 }}>
                     <MapPin size={11} />
                     {titleCase(ed.ville)}
+                  </span>
+                </>
+              )}
+              {age !== null && (
+                <>
+                  <span style={{ color: 'var(--color-border)' }}>·</span>
+                  <span style={{ fontFamily: 'var(--font-mono, monospace)', fontVariantNumeric: 'tabular-nums' }}>
+                    {age} ans
                   </span>
                 </>
               )}
