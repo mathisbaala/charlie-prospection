@@ -19,7 +19,7 @@
  *   ADMIN_API_KEY    Clé d'admin
  */
 
-import { getEnv, postBatch, sleep, DEPTS_FRANCE } from './lib/ingest-client'
+import { postBatch, sleep, DEPTS_FRANCE } from './lib/ingest-client'
 import type { PersonIngestInput } from '../lib/persons/types'
 
 const AE_BASE = 'https://recherche-entreprises.api.gouv.fr'
@@ -119,8 +119,6 @@ async function main() {
     ? [args[args.indexOf('--dept') + 1]]
     : DEPTS_FRANCE
 
-  const env = dryRun ? { baseUrl: '', apiKey: 'dry-run' } : getEnv()
-
   console.log('=== Ingest Notaires (Annuaire Entreprises NAF 69.10Z) ===')
   console.log(`  Départements : ${deptFilter.length === 1 ? deptFilter[0] : `${deptFilter.length} depts`}`)
   if (dryRun) console.log('  Mode dry-run : pas de POST')
@@ -158,7 +156,7 @@ async function main() {
 
           batch.push(person)
           if (batch.length >= BATCH_SIZE) {
-            const r = await postBatch(batch, env.baseUrl, env.apiKey)
+            const r = await postBatch(batch)
             totalUpserted += r.upserted
             totalErrors += r.errors
             batch = []
@@ -178,7 +176,7 @@ async function main() {
   }
 
   if (!dryRun && batch.length) {
-    const r = await postBatch(batch, env.baseUrl, env.apiKey)
+    const r = await postBatch(batch)
     totalUpserted += r.upserted
     totalErrors += r.errors
   }

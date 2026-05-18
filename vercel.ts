@@ -29,7 +29,7 @@ import { type VercelConfig } from '@vercel/config/v1'
  *    INPI RNE actes, Transparence Santé, Proxycurl, EUIPO marques, BALO dividendes,
  *    Societe.com, Crunchbase, Cadastre IGN, Foncier Innovant) + Claude Sonnet scoring.
  *    → enrichment_level='deep' (PERSISTANT cross-org — jamais rétrogradé)
- *    Refresh : /api/cron/refresh-enrichment (1er et 15 à 04:00 UTC, batch 30)
+ *    Refresh : /api/cron/refresh-enrichment (1er et 15 à 04:00 UTC, batch 20)
  *    Seulement les prospects en suivi (icp_id IS NOT NULL).
  *
  * ┌─────────────────────────────────────────────────────────────────────────┐

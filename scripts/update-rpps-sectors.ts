@@ -11,7 +11,7 @@
  *   Secteur 2 → +12 pts | Optam-CO → +10 pts | Secteur 3 → +8 pts | Optam → +6 pts
  *   Secteur 1 ou inconnu → aucun changement
  *
- * Prérequis : quick-score-bulk déjà terminé (patrimony_score IS NOT NULL)
+ * Prérequis : enrich-persons-standard déjà passé (patrimony_score IS NOT NULL)
  *
  * Usage :
  *   npx tsx scripts/update-rpps-sectors.ts

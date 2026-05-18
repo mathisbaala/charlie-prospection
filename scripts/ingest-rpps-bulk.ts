@@ -16,7 +16,7 @@
  *   ADMIN_API_KEY    Clé d'admin (x-admin-key header)
  */
 
-import { getEnv, postBatch, sleep } from './lib/ingest-client'
+import { postBatch, sleep } from './lib/ingest-client'
 import type { PersonIngestInput, PersonType } from '../lib/persons/types'
 
 const RPPS_DATASET_ID = '69025e6c73d1f9b79ca3c365'
@@ -147,8 +147,6 @@ async function main() {
     ? args[args.indexOf('--dept') + 1]
     : undefined
 
-  const env = dryRun ? { baseUrl: '', apiKey: 'dry-run' } : getEnv()
-
   console.log('=== Ingest RPPS bulk ===')
   if (deptFilter) console.log(`  Filtre département : ${deptFilter}`)
   if (dryRun) console.log('  Mode dry-run : pas de POST')
@@ -223,7 +221,7 @@ async function main() {
           seen.add(key)
           return true
         })
-        const r = await postBatch(deduped, env.baseUrl, env.apiKey)
+        const r = await postBatch(deduped)
         totalUpserted += r.upserted
         totalErrors += r.errors
         batch = []
@@ -249,7 +247,7 @@ async function main() {
       seen.add(key)
       return true
     })
-    const r = await postBatch(deduped, env.baseUrl, env.apiKey)
+    const r = await postBatch(deduped)
     totalUpserted += r.upserted
     totalErrors += r.errors
   }
