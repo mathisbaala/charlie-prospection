@@ -1,7 +1,6 @@
 'use client'
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
-import { Search } from 'lucide-react'
 import { PipelineDetailPanel } from './pipeline-detail-panel'
 import { titleCase, euros } from './_shared'
 import type { CrmStage, Prospect, ProspectEnrichmentData } from '@/lib/types'
@@ -25,7 +24,6 @@ interface Props {
  * name, company, or city. Selecting a row populates the right panel.
  */
 export function PipelineClient({ initialProspects }: Props) {
-  const [query, setQuery] = useState('')
   const [prospects, setProspects] = useState<Prospect[]>(initialProspects)
   const [selectedId, setSelectedId] = useState<string | null>(
     initialProspects[0]?.id ?? null,
@@ -45,24 +43,12 @@ export function PipelineClient({ initialProspects }: Props) {
         const profession = ed?.dirigeant_qualite ?? ed?.libelle_naf ?? ''
         const stage = p.crm_stage
         const score = p.patrimony_score
-        const haystack = `${personName} ${companyName} ${ville}`.toLowerCase()
-        return { prospect: p, personName, companyName, ville, profession, stage, score, haystack }
+        return { prospect: p, personName, companyName, ville, profession, stage, score }
       }),
     [prospects],
   )
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    if (!q) return rows
-    return rows.filter(r => r.haystack.includes(q))
-  }, [rows, query])
-
-  // If the current selection is filtered out, fall back to the first
-  // filtered row so the detail panel stays in sync with the visible list.
-  const selectedInFiltered = filtered.some(r => r.prospect.id === selectedId)
-  const selected = selectedInFiltered
-    ? prospects.find(p => p.id === selectedId) ?? null
-    : filtered[0]?.prospect ?? null
+  const selected = prospects.find(p => p.id === selectedId) ?? prospects[0] ?? null
 
   async function handleStageChange(stage: CrmStage) {
     if (!selected) return
@@ -118,7 +104,6 @@ export function PipelineClient({ initialProspects }: Props) {
         className="flex flex-col"
         style={{ minHeight: '100vh', background: 'var(--color-bg)' }}
       >
-        <TopBar query={query} onQuery={setQuery} disabled />
         <EmptyState />
       </div>
     )
@@ -129,8 +114,6 @@ export function PipelineClient({ initialProspects }: Props) {
       className="flex flex-col"
       style={{ height: '100vh', background: 'var(--color-bg)' }}
     >
-      <TopBar query={query} onQuery={setQuery} disabled={false} />
-
       <div className="flex-1 flex" style={{ minHeight: 0 }}>
         {/* ── LEFT: list ───────────────────────────────────────────── */}
         <aside
@@ -142,20 +125,8 @@ export function PipelineClient({ initialProspects }: Props) {
             overflowY: 'auto',
           }}
         >
-          {filtered.length === 0 ? (
-            <div
-              style={{
-                padding: '24px 16px',
-                fontSize: 12,
-                color: 'var(--color-muted)',
-                textAlign: 'center',
-              }}
-            >
-              Aucun prospect ne correspond à «&nbsp;{query}&nbsp;».
-            </div>
-          ) : (
-            <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-              {filtered.map(({ prospect, personName, companyName, ville, profession, stage, score }) => {
+          <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+              {rows.map(({ prospect, personName, companyName, ville, profession, stage, score }) => {
                 const active = prospect.id === selected?.id
                 return (
                   <li key={prospect.id}>
@@ -266,7 +237,6 @@ export function PipelineClient({ initialProspects }: Props) {
                 )
               })}
             </ul>
-          )}
         </aside>
 
         {/* ── RIGHT: detail panel ─────────────────────────────────── */}
@@ -289,103 +259,6 @@ export function PipelineClient({ initialProspects }: Props) {
         )}
       </div>
     </div>
-  )
-}
-
-// ── Top bar (wordmark + search) ──────────────────────────────────────
-
-function TopBar({
-  query,
-  onQuery,
-  disabled,
-}: {
-  query: string
-  onQuery: (q: string) => void
-  disabled: boolean
-}) {
-  return (
-    <header
-      className="flex items-center"
-      style={{
-        gap: 24,
-        padding: '14px 24px',
-        background: 'var(--color-surface)',
-        borderBottom: '1px solid var(--color-border)',
-        flexShrink: 0,
-      }}
-    >
-      {/* Wordmark: C ● Charlie · Prospection */}
-      <div className="flex items-center" style={{ gap: 8, flexShrink: 0 }}>
-        <span
-          className="font-display"
-          style={{
-            fontSize: 15,
-            fontWeight: 700,
-            color: 'var(--color-text)',
-            letterSpacing: '-0.01em',
-          }}
-        >
-          C
-        </span>
-        <span
-          aria-hidden="true"
-          style={{
-            width: 6,
-            height: 6,
-            borderRadius: '50%',
-            background: 'var(--color-accent)',
-            display: 'inline-block',
-          }}
-        />
-        <span
-          className="font-display"
-          style={{
-            fontSize: 15,
-            fontWeight: 600,
-            color: 'var(--color-text)',
-            letterSpacing: '-0.01em',
-          }}
-        >
-          Charlie
-        </span>
-        <span style={{ color: 'var(--color-muted)', fontWeight: 300 }}>·</span>
-        <span style={{ color: 'var(--color-muted)', fontSize: 13 }}>Prospection</span>
-      </div>
-
-      {/* Search */}
-      <div
-        className="flex items-center"
-        style={{
-          gap: 8,
-          flex: 1,
-          maxWidth: 480,
-          padding: '7px 12px',
-          background: 'var(--color-bg)',
-          border: '1px solid var(--color-border)',
-          borderRadius: 2,
-          opacity: disabled ? 0.5 : 1,
-        }}
-      >
-        <Search size={14} style={{ color: 'var(--color-muted)', flexShrink: 0 }} />
-        <input
-          type="search"
-          value={query}
-          onChange={e => onQuery(e.target.value)}
-          disabled={disabled}
-          placeholder="Filtrer par nom, société, ville…"
-          style={{
-            flex: 1,
-            border: 'none',
-            outline: 'none',
-            background: 'transparent',
-            fontSize: 13,
-            color: 'var(--color-text)',
-            fontFamily: 'inherit',
-          }}
-          aria-label="Filtrer le suivi"
-        />
-      </div>
-    </header>
   )
 }
 

@@ -105,63 +105,6 @@ export function SuiviPageClient({ personas, prospects, signalsByPersona, paginat
         onSelect={setSelectedTab}
       />
 
-      {/* Persona tabs row */}
-      {tabs.length > 1 && (
-        <nav
-          style={{
-            display: 'flex',
-            gap: 0,
-            padding: '0 32px',
-            borderBottom: '1px solid var(--color-border)',
-            background: 'var(--color-surface)',
-            overflowX: 'auto',
-          }}
-        >
-          {tabs.map((t) => {
-            const active = t.id === selectedTab
-            return (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => setSelectedTab(t.id)}
-                style={{
-                  padding: '14px 18px',
-                  background: 'transparent',
-                  border: 'none',
-                  borderBottom: active
-                    ? '2px solid var(--color-accent)'
-                    : '2px solid transparent',
-                  color: active ? 'var(--color-accent)' : 'var(--color-muted)',
-                  fontSize: 13,
-                  fontWeight: active ? 600 : 500,
-                  cursor: 'pointer',
-                  whiteSpace: 'nowrap',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 8,
-                }}
-              >
-                {t.name}
-                <span
-                  style={{
-                    fontSize: 10,
-                    fontWeight: 600,
-                    color: 'var(--color-muted)',
-                    background: 'var(--color-bg)',
-                    padding: '2px 6px',
-                    borderRadius: 2,
-                    fontFamily: 'var(--font-mono, monospace)',
-                    fontVariantNumeric: 'tabular-nums',
-                  }}
-                >
-                  {t.count}
-                </span>
-              </button>
-            )
-          })}
-        </nav>
-      )}
-
       {/* The existing PipelineClient — reused as-is. The persona-scoped slice
           of prospects is passed via initialProspects. The key forces a clean
           remount when switching personas (so the selected prospect state
