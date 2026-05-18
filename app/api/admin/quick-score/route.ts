@@ -12,6 +12,9 @@ type PersonRow = {
   profession_libelle: string | null
   departement: string | null
   naf_code: string | null
+  code_postal: string | null
+  siret: string | null
+  rpps_number: string | null
 }
 
 function quickScore(p: PersonRow): { score: number; raison: string } {
@@ -71,10 +74,36 @@ function quickScore(p: PersonRow): { score: number; raison: string } {
       score = 34; raison = 'Dirigeant'
   }
 
-  // Bonus géographie
+  // Bonus géographie — département
   const d = p.departement ?? ''
   if (['75', '92', '94', '78', '91', '95', '77', '93'].includes(d)) score += 8
   else if (['69', '13', '06', '31', '33', '44', '67', '59', '76'].includes(d)) score += 4
+
+  // Bonus code postal — intra-département (arrondissements/communes haut de gamme)
+  const cp = (p.code_postal ?? '').trim()
+  const CP_PREMIUM: Record<string, number> = {
+    // Paris arrondissements riches
+    '75008': 5, '75016': 5, '75017': 4, '75007': 4, '75006': 4,
+    '75001': 3, '75002': 3, '75009': 3, '75015': 2,
+    // Hauts-de-Seine communes riches
+    '92200': 5, '92100': 4, '92300': 4, '92400': 3, '92500': 3,
+    // Val-de-Marne / Essonne
+    '94300': 3, '94170': 3, '91300': 3,
+    // Lyon premium
+    '69006': 4, '69003': 3, '69008': 3,
+    // Bordeaux / Marseille premium
+    '33000': 3, '13008': 4, '13006': 3,
+    // Côte d'Azur
+    '06000': 3, '06400': 4, '06600': 3,
+    // Toulouse / Strasbourg / Nantes premium
+    '31000': 2, '67000': 2, '44000': 2,
+  }
+  score += CP_PREMIUM[cp] ?? 0
+
+  // Bonus structure professionnelle — SIRET ou numéro RPPS renseigné
+  // Indique une structure enregistrée ou un professionnel identifiable
+  if (p.siret) score += 3
+  else if (p.rpps_number) score += 2
 
   return { score: Math.min(score, 100), raison: `[quick] ${raison}` }
 }
@@ -99,7 +128,7 @@ export async function POST(request: Request) {
 
   const { data: persons, error } = await supabase
     .from('prospection_persons')
-    .select('canonical_key, person_type, profession_libelle, departement, naf_code')
+    .select('canonical_key, person_type, profession_libelle, departement, naf_code, code_postal, siret, rpps_number')
     .eq('enrichment_level', 'raw')
     .is('patrimony_score', null)
     .limit(BATCH)
