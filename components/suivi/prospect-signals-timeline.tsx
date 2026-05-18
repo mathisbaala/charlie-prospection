@@ -1,7 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { Loader2, Building2, FileText, AlertCircle, ArrowRightLeft, Banknote, UserCheck } from 'lucide-react'
-import type { SignalSource } from '@/lib/types'
 
 interface SignalRow {
   id: string
@@ -244,11 +243,13 @@ export function ProspectSignalsTimeline({ prospectId }: Props) {
               <div style={{ fontSize: 13, color: 'var(--color-text)', marginTop: 2 }}>
                 {libelle}
               </div>
-              <div style={{ fontSize: 11, color: 'var(--color-muted)', marginTop: 4 }}>
-                Source: {sourceLabel(s.source as SignalSource)}
-                {s.data?.code_naf ? ` · NAF ${s.data.code_naf}` : ''}
-                {s.data?.departement ? ` · Dépt ${s.data.departement}` : ''}
-              </div>
+              {(s.data?.code_naf || s.data?.departement) && (
+                <div style={{ fontSize: 11, color: 'var(--color-muted)', marginTop: 4 }}>
+                  {s.data?.code_naf ? `NAF ${s.data.code_naf}` : ''}
+                  {s.data?.code_naf && s.data?.departement ? ' · ' : ''}
+                  {s.data?.departement ? `Dépt ${s.data.departement}` : ''}
+                </div>
+              )}
             </div>
             <div
               style={{
@@ -271,18 +272,4 @@ export function ProspectSignalsTimeline({ prospectId }: Props) {
   )
 }
 
-function sourceLabel(src: SignalSource | string): string {
-  const map: Record<string, string> = {
-    bodacc: 'BODACC',
-    sirene: 'Sirene INSEE',
-    inpi: 'INPI RNE',
-    pappers: 'Pappers',
-    dvf: 'DVF',
-    rpps: 'RPPS',
-    jo: 'Journal Officiel',
-    linkedin: 'LinkedIn',
-    infogreffe: 'Infogreffe',
-  }
-  return map[src as string] ?? src
-}
 

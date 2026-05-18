@@ -1,5 +1,4 @@
 'use client'
-import { StrictToggle } from './strict-toggle'
 
 interface Props {
   label: string
@@ -7,9 +6,6 @@ interface Props {
   min: number | undefined
   max: number | undefined
   onChange: (next: { min: number | undefined; max: number | undefined }) => void
-  strict: boolean
-  onStrictChange: (next: boolean) => void
-  /** Optional formatter for the placeholder examples (e.g. 5_000_000 → "5 000 000"). */
   step?: number
 }
 
@@ -20,23 +16,10 @@ function parseValue(raw: string): number | undefined {
   return Number.isFinite(n) ? n : undefined
 }
 
-/**
- * Min/max numeric input with a strict toggle. Used for CA, effectif, age.
- * Empty input ↔ undefined (criterion not used).
- */
-export function NumericRangeField({
-  label,
-  unit,
-  min,
-  max,
-  onChange,
-  strict,
-  onStrictChange,
-  step,
-}: Props) {
+export function NumericRangeField({ label, unit, min, max, onChange, step }: Props) {
   return (
     <div>
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center mb-2">
         <p
           style={{
             fontSize: 11,
@@ -49,22 +32,11 @@ export function NumericRangeField({
           {label}
           {unit && <span style={{ marginLeft: 6, opacity: 0.6 }}>({unit})</span>}
         </p>
-        <StrictToggle active={strict} onToggle={() => onStrictChange(!strict)} />
       </div>
       <div className="flex items-center gap-2">
-        <NumInput
-          value={min}
-          placeholder="Min"
-          step={step}
-          onChange={(v) => onChange({ min: v, max })}
-        />
+        <NumInput value={min} placeholder="Min" step={step} onChange={(v) => onChange({ min: v, max })} />
         <span style={{ color: 'var(--color-muted)', fontSize: 12 }}>→</span>
-        <NumInput
-          value={max}
-          placeholder="Max"
-          step={step}
-          onChange={(v) => onChange({ min, max: v })}
-        />
+        <NumInput value={max} placeholder="Max" step={step} onChange={(v) => onChange({ min, max: v })} />
       </div>
     </div>
   )

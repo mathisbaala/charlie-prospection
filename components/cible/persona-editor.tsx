@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Sparkles, Loader2, Save, Trash2, RefreshCw } from 'lucide-react'
 import { CriteriaEditor } from './criteria-editor'
-import type { Icp, ParsedIcpCriteria, StrictFilters } from '@/lib/types'
+import type { Icp, ParsedIcpCriteria } from '@/lib/types'
 
 const EXAMPLES = [
   'Médecins généralistes installés depuis moins de 5 ans en Île-de-France',
@@ -33,7 +33,6 @@ export function PersonaEditor({ persona, onSaved }: Props) {
   const [criteria, setCriteria] = useState<ParsedIcpCriteria>(
     persona?.parsed_criteria ?? EMPTY_CRITERIA,
   )
-  const [strictFilters, setStrictFilters] = useState<StrictFilters>(persona?.strict_filters ?? {})
   const [parsing, setParsing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [reparsing, setReparsing] = useState(false)
@@ -90,7 +89,6 @@ export function PersonaEditor({ persona, onSaved }: Props) {
           name: name.trim() || undefined,
           raw_description: description,
           parsed_criteria: criteria,
-          strict_filters: strictFilters,
         }),
       })
       const data = await res.json()
@@ -265,17 +263,13 @@ export function PersonaEditor({ persona, onSaved }: Props) {
 
       {!isNew && (
         <Card>
-          <SectionHeading>Filtres extraits — ajustables à la main</SectionHeading>
-          <p style={{ fontSize: 12, color: 'var(--color-muted)', marginTop: 4, marginBottom: 20 }}>
-            Chaque filtre peut être marqué <strong>Strict</strong> — son poids dans le score sera renforcé. Le critère &laquo;&nbsp;100%&nbsp;&raquo; ne signifie pas exclusion, juste que le prospect est priorisé.
-          </p>
+          <SectionHeading>Filtres ajustables à la main</SectionHeading>
+          <div style={{ height: 20 }} />
           <CriteriaEditor
             criteria={criteria}
-            strictFilters={strictFilters}
-            onChange={({ criteria: c, strict_filters: s }) => {
+            onChange={(c) => {
               setJustSaved(false)
               setCriteria(c)
-              setStrictFilters(s)
             }}
           />
         </Card>

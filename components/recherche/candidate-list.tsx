@@ -104,7 +104,7 @@ export function CandidateList({ candidates, selected, onToggle, onSelectAll, onD
               onClick={() => !c.already_in_suivi && onToggle(c.uid)}
               style={{
                 display: 'grid',
-                gridTemplateColumns: '36px 80px 1fr auto auto',
+                gridTemplateColumns: '36px 44px 1fr auto auto',
                 gap: 16,
                 alignItems: 'center',
                 padding: '14px 16px',
@@ -131,39 +131,18 @@ export function CandidateList({ candidates, selected, onToggle, onSelectAll, onD
                 {isSelected && <Check size={12} color="#fff" strokeWidth={3} />}
               </div>
 
-              {/* Score (hero) — Fraunces serif echoes the 88px hero in the
-                  detail panel; niveau label below stays in body font for
-                  data discipline. */}
+              {/* Score — discret, donnée secondaire */}
               <div
                 style={{
                   textAlign: 'right',
+                  fontFamily: 'var(--font-mono, monospace)',
                   fontVariantNumeric: 'tabular-nums',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: NIVEAU_COLOR[c.niveau],
                 }}
               >
-                <div
-                  className="font-display"
-                  style={{
-                    fontSize: 26,
-                    fontWeight: 700,
-                    color: NIVEAU_COLOR[c.niveau],
-                    lineHeight: 0.95,
-                    letterSpacing: '-0.02em',
-                  }}
-                >
-                  {c.patrimony_score}
-                </div>
-                <div
-                  style={{
-                    fontSize: 9,
-                    fontWeight: 700,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.08em',
-                    color: 'var(--color-muted)',
-                    marginTop: 3,
-                  }}
-                >
-                  {NIVEAU_LABEL[c.niveau]}
-                </div>
+                {c.patrimony_score}
               </div>
 
               {/* Identity */}

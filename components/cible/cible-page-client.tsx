@@ -63,8 +63,8 @@ export function CiblePageClient({ initialPersonas }: Props) {
           </h1>
           <p style={{ fontSize: 13, color: 'var(--color-muted)', marginTop: 4 }}>
             {selected
-              ? 'Décrivez votre persona, ajustez les filtres à la main, enregistrez.'
-              : 'Décrivez un profil client en français. L\'IA extrait les filtres. Vous ajustez ensuite à la main.'}
+              ? 'Décrivez votre cible, ajustez les filtres à la main, enregistrez.'
+              : "Décrivez votre cible, ajustez les filtres à la main, enregistrez."}
           </p>
         </header>
         {/* key on persona.id forces a remount on switch — cleaner than syncing

@@ -1,10 +1,12 @@
 'use client'
-import { useState } from 'react'
+import { useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { RechercheLauncher } from './recherche-launcher'
 import { CandidateList } from './candidate-list'
 import { BulkAddBar } from './bulk-add-bar'
-import type { Icp, SearchCandidate } from '@/lib/types'
+import { SearchHistoryPanel } from './search-history-panel'
+import { useRecherche } from '@/lib/recherche/context'
+import type { Icp } from '@/lib/types'
 
 interface Props {
   personas: Icp[]
@@ -13,19 +15,33 @@ interface Props {
 export function RecherchePageClient({ personas }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
-  // Honor ?persona=<id> deeplink (used by signup/login post-create flow).
-  const initialPersonaId = searchParams.get('persona') ?? personas[0]?.id ?? null
 
-  const [selectedPersonaId, setSelectedPersonaId] = useState<string | null>(initialPersonaId)
-  const [candidates, setCandidates] = useState<SearchCandidate[]>([])
-  const [filteredCount, setFilteredCount] = useState<number>(0)
-  const [filterBreakdown, setFilterBreakdown] = useState<Record<string, number>>({})
-  const [selected, setSelected] = useState<Set<string>>(new Set())
-  const [loading, setLoading] = useState(false)
-  const [adding, setAdding] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [addedSummary, setAddedSummary] = useState<string | null>(null)
-  const [quotaPappers, setQuotaPappers] = useState<{ count: number; cap: number; remaining: number } | null>(null)
+  const {
+    selectedPersonaId, setSelectedPersonaId,
+    candidates, setCandidates,
+    filteredCount, setFilteredCount,
+    filterBreakdown, setFilterBreakdown,
+    selected, setSelected,
+    loading, setLoading,
+    adding, setAdding,
+    error, setError,
+    addedSummary, setAddedSummary,
+    setQuotaPappers,
+    history, addToHistory, restoreFromHistory,
+  } = useRecherche()
+
+  // Initialise le persona sélectionné une seule fois au montage.
+  // Un ?persona= URL param prend toujours le dessus (deeplink post-création).
+  // Si le context a déjà une valeur (retour d'un autre onglet), on la conserve.
+  useEffect(() => {
+    const urlPersona = searchParams.get('persona')
+    if (urlPersona) {
+      setSelectedPersonaId(urlPersona)
+    } else if (selectedPersonaId === null) {
+      setSelectedPersonaId(personas[0]?.id ?? null)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   async function handleLaunch() {
     if (!selectedPersonaId) return
@@ -40,24 +56,38 @@ export function RecherchePageClient({ personas }: Props) {
       const res = await fetch('/api/recherche/run', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          persona_id: selectedPersonaId,
-          limit: 30,
-        }),
+        body: JSON.stringify({ persona_id: selectedPersonaId, limit: 30 }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
-      setCandidates(data.candidates ?? [])
-      setFilteredCount(typeof data.filtered_count === 'number' ? data.filtered_count : 0)
-      setFilterBreakdown(
+
+      const newCandidates = data.candidates ?? []
+      const newFilteredCount = typeof data.filtered_count === 'number' ? data.filtered_count : 0
+      const newFilterBreakdown =
         data.filter_breakdown && typeof data.filter_breakdown === 'object'
           ? (data.filter_breakdown as Record<string, number>)
-          : {},
-      )
-      if (data.quota_pappers && typeof data.quota_pappers === 'object') {
-        const q = data.quota_pappers as { count: number; cap: number; remaining: number }
-        setQuotaPappers({ count: q.count, cap: q.cap, remaining: q.remaining })
-      }
+          : {}
+      const newQuota =
+        data.quota_pappers && typeof data.quota_pappers === 'object'
+          ? (data.quota_pappers as { count: number; cap: number; remaining: number })
+          : null
+
+      setCandidates(newCandidates)
+      setFilteredCount(newFilteredCount)
+      setFilterBreakdown(newFilterBreakdown)
+      if (newQuota) setQuotaPappers(newQuota)
+
+      // Sauvegarder dans l'historique
+      const persona = personas.find((p) => p.id === selectedPersonaId)
+      addToHistory({
+        personaId: selectedPersonaId,
+        personaName: persona?.name ?? selectedPersonaId,
+        candidateCount: newCandidates.length,
+        candidates: newCandidates,
+        filteredCount: newFilteredCount,
+        filterBreakdown: newFilterBreakdown,
+        quotaPappers: newQuota,
+      })
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur inconnue')
     } finally {
@@ -103,7 +133,6 @@ export function RecherchePageClient({ personas }: Props) {
       setAddedSummary(
         `${added.length} prospect${added.length > 1 ? 's' : ''} ajouté${added.length > 1 ? 's' : ''} au suivi (+${totalSignals} signaux backfillés sur 1 an).`,
       )
-      // Mark added candidates as "already in suivi" locally so the row greys out.
       const addedUids = new Set(toAdd.map((c) => c.uid))
       setCandidates((prev) =>
         prev.map((c) => (addedUids.has(c.uid) ? { ...c, already_in_suivi: true } : c)),
@@ -122,12 +151,7 @@ export function RecherchePageClient({ personas }: Props) {
       <header style={{ marginBottom: 24 }}>
         <h1
           className="font-display"
-          style={{
-            fontSize: 28,
-            fontWeight: 600,
-            color: 'var(--color-text)',
-            letterSpacing: '-0.02em',
-          }}
+          style={{ fontSize: 28, fontWeight: 600, color: 'var(--color-text)', letterSpacing: '-0.02em' }}
         >
           Recherche
         </h1>
@@ -146,50 +170,7 @@ export function RecherchePageClient({ personas }: Props) {
         disabled={adding}
       />
 
-      {quotaPappers && !loading && (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            marginBottom: 12,
-            marginTop: -12,
-            fontSize: 11,
-            color: 'var(--color-muted)',
-          }}
-        >
-          <span
-            style={{
-              width: 6,
-              height: 6,
-              borderRadius: '50%',
-              background: quotaPappers.remaining > 50 ? '#22A855' : quotaPappers.remaining > 0 ? '#E09A2A' : '#E05C2A',
-              display: 'inline-block',
-              flexShrink: 0,
-            }}
-          />
-          <span>
-            Pappers :{' '}
-            <span
-              style={{
-                fontFamily: 'var(--font-mono, monospace)',
-                fontVariantNumeric: 'tabular-nums',
-                color: 'var(--color-text)',
-                fontWeight: 600,
-              }}
-            >
-              {quotaPappers.count}
-            </span>
-            {' / '}
-            {quotaPappers.cap} crédits ce mois
-            {quotaPappers.remaining <= 50 && (
-              <span style={{ color: quotaPappers.remaining === 0 ? '#E05C2A' : '#E09A2A', marginLeft: 6 }}>
-                ({quotaPappers.remaining === 0 ? 'quota atteint — cache uniquement' : `${quotaPappers.remaining} restants`})
-              </span>
-            )}
-          </span>
-        </div>
-      )}
+      <SearchHistoryPanel history={history} onRestore={restoreFromHistory} />
 
       {error && (
         <div
@@ -229,27 +210,13 @@ export function RecherchePageClient({ personas }: Props) {
       )}
 
       {loading && (
-        <div
-          style={{
-            padding: 40,
-            textAlign: 'center',
-            color: 'var(--color-muted)',
-            fontSize: 13,
-          }}
-        >
+        <div style={{ padding: 40, textAlign: 'center', color: 'var(--color-muted)', fontSize: 13 }}>
           Recherche dans la base de personnes…
         </div>
       )}
 
       {!loading && candidates.length === 0 && filteredCount === 0 && !error && (
-        <div
-          style={{
-            padding: 40,
-            textAlign: 'center',
-            color: 'var(--color-muted)',
-            fontSize: 13,
-          }}
-        >
+        <div style={{ padding: 40, textAlign: 'center', color: 'var(--color-muted)', fontSize: 13 }}>
           Aucun résultat encore. Lance une recherche pour voir les prospects.
         </div>
       )}
@@ -304,11 +271,7 @@ export function RecherchePageClient({ personas }: Props) {
         onDeselectAll={deselectAll}
       />
 
-      <BulkAddBar
-        count={selected.size}
-        onAdd={handleAdd}
-        loading={adding}
-      />
+      <BulkAddBar count={selected.size} onAdd={handleAdd} loading={adding} />
     </div>
   )
 }

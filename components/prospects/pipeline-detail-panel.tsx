@@ -3,12 +3,11 @@ import { useState } from 'react'
 import { Building2, MapPin, Stethoscope, User, Check, Trash2 } from 'lucide-react'
 import { ProspectFicheContent } from './prospect-fiche-content'
 import { ProspectSignalsTimeline } from '@/components/suivi/prospect-signals-timeline'
-import { ProspectActivityLog } from '@/components/suivi/prospect-activity-log'
 import { ProspectActesTab } from '@/components/suivi/prospect-actes-tab'
 import { titleCase } from './_shared'
 import type { CrmStage, PappersPremiumData, Prospect, ProspectEnrichmentData } from '@/lib/types'
 
-type Tab = 'fiche' | 'signals' | 'actes' | 'interactions' | 'pipeline'
+type Tab = 'fiche' | 'signals' | 'actes' | 'suivi'
 
 // Stage history order — `lost` is intentionally excluded from the timeline
 // (it's a terminal "out" state, not part of forward progression).
@@ -30,7 +29,7 @@ const STAGE_HINTS: Record<CrmStage, string> = {
   contacted: 'Premier message envoyé',
   meeting: 'Rendez-vous planifié',
   client: 'Engagé en mission',
-  lost: 'Sorti du pipeline',
+  lost: 'Sorti du suivi',
   linkedin_404: 'URL LinkedIn 404 — profil conservé, à rechercher manuellement',
 }
 
@@ -53,6 +52,7 @@ const STAGE_PILLS: CrmStage[] = ['new', 'to_contact', 'contacted', 'meeting', 'c
  */
 export function PipelineDetailPanel({ prospect, onStageChange, onDelete }: Props) {
   const [tab, setTab] = useState<Tab>('fiche')
+
 
   const ld = prospect.linkedin_data as Record<string, string>
   const ed = prospect.enrichment_data as ProspectEnrichmentData
@@ -365,11 +365,8 @@ export function PipelineDetailPanel({ prospect, onStageChange, onDelete }: Props
             </span>
           )}
         </TabButton>
-        <TabButton active={tab === 'interactions'} onClick={() => setTab('interactions')}>
-          Interactions
-        </TabButton>
-        <TabButton active={tab === 'pipeline'} onClick={() => setTab('pipeline')}>
-          Pipeline
+        <TabButton active={tab === 'suivi'} onClick={() => setTab('suivi')}>
+          Suivi
         </TabButton>
       </div>
 
@@ -378,8 +375,7 @@ export function PipelineDetailPanel({ prospect, onStageChange, onDelete }: Props
         {tab === 'fiche' && <ProspectFicheContent prospect={prospect} />}
         {tab === 'signals' && <ProspectSignalsTimeline prospectId={prospect.id} />}
         {tab === 'actes' && <ProspectActesTab prospect={prospect} />}
-        {tab === 'interactions' && <ProspectActivityLog prospectId={prospect.id} />}
-        {tab === 'pipeline' && (
+        {tab === 'suivi' && (
           <PipelineTimeline currentStage={prospect.crm_stage} onStageChange={onStageChange} />
         )}
       </div>
@@ -475,7 +471,7 @@ function PipelineTimeline({
           marginBottom: 18,
         }}
       >
-        Étapes du pipeline
+        Étapes du suivi
         {clickable && (
           <span style={{ marginLeft: 10, fontWeight: 400, textTransform: 'none', letterSpacing: 0, fontStyle: 'italic' }}>
             cliquez pour avancer
