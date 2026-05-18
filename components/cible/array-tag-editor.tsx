@@ -1,6 +1,6 @@
 'use client'
 import { useState, useRef, useEffect, type KeyboardEvent } from 'react'
-import { X, Plus, Sparkles } from 'lucide-react'
+import { X, Plus } from 'lucide-react'
 
 interface Props {
   label: string
@@ -107,7 +107,7 @@ export function ArrayTagEditor({
                 padding: '2px 4px',
               }}
             >
-              <Sparkles size={11} />
+              <Plus size={11} />
               Suggestions
             </button>
 
