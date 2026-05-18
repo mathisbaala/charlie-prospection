@@ -42,11 +42,11 @@ export function PipelineClient({ initialProspects }: Props) {
         const personName = `${titleCase(prenom)} ${titleCase(nom)}`.trim() || 'Prospect'
         const companyName = ld?.entreprise ?? ed?.libelle_naf ?? ''
         const ville = ed?.ville ?? ''
-        const ca = ed?.chiffre_affaires_dernier
+        const profession = ed?.dirigeant_qualite ?? ed?.libelle_naf ?? ''
         const stage = p.crm_stage
         const score = p.patrimony_score
         const haystack = `${personName} ${companyName} ${ville}`.toLowerCase()
-        return { prospect: p, personName, companyName, ville, ca, stage, score, haystack }
+        return { prospect: p, personName, companyName, ville, profession, stage, score, haystack }
       }),
     [prospects],
   )
@@ -142,34 +142,6 @@ export function PipelineClient({ initialProspects }: Props) {
             overflowY: 'auto',
           }}
         >
-          <div
-            style={{
-              padding: '14px 16px 12px 16px',
-              borderBottom: '1px solid var(--color-border)',
-              fontSize: 10,
-              fontWeight: 700,
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
-              color: 'var(--color-muted)',
-              display: 'flex',
-              alignItems: 'baseline',
-              justifyContent: 'space-between',
-              gap: 8,
-            }}
-          >
-            <span>Pipeline</span>
-            <span
-              className="font-mono"
-              style={{
-                fontSize: 10,
-                fontVariantNumeric: 'tabular-nums',
-                letterSpacing: '0.04em',
-              }}
-            >
-              {filtered.length}/{rows.length}
-            </span>
-          </div>
-
           {filtered.length === 0 ? (
             <div
               style={{
@@ -183,7 +155,7 @@ export function PipelineClient({ initialProspects }: Props) {
             </div>
           ) : (
             <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-              {filtered.map(({ prospect, personName, companyName, ville, ca, stage, score }) => {
+              {filtered.map(({ prospect, personName, companyName, ville, profession, stage, score }) => {
                 const active = prospect.id === selected?.id
                 return (
                   <li key={prospect.id}>
@@ -260,24 +232,22 @@ export function PipelineClient({ initialProspects }: Props) {
                       </div>
                       <div
                         className="flex items-center"
-                        style={{ gap: 6, marginTop: 8, marginLeft: 42, flexWrap: 'wrap' }}
+                        style={{ gap: 6, marginTop: 6, marginLeft: 42, flexWrap: 'wrap' }}
                       >
-                        <span
-                          className="font-mono"
-                          style={{
-                            display: 'inline-flex',
-                            padding: '1px 6px',
-                            fontSize: 10,
-                            fontWeight: 600,
-                            background: 'var(--color-bg)',
-                            color: ca ? 'var(--color-text)' : 'var(--color-muted)',
-                            border: '1px solid var(--color-border)',
-                            borderRadius: 2,
-                            fontVariantNumeric: 'tabular-nums',
-                          }}
-                        >
-                          {ca ? `CA ${euros(ca)}` : 'CA —'}
-                        </span>
+                        {profession && (
+                          <span
+                            style={{
+                              fontSize: 10,
+                              color: 'var(--color-muted)',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                              maxWidth: 140,
+                            }}
+                          >
+                            {profession}
+                          </span>
+                        )}
                         <span
                           style={{
                             display: 'inline-flex',
@@ -412,7 +382,7 @@ function TopBar({
             color: 'var(--color-text)',
             fontFamily: 'inherit',
           }}
-          aria-label="Filtrer le pipeline"
+          aria-label="Filtrer le suivi"
         />
       </div>
     </header>
@@ -436,7 +406,7 @@ function EmptyState() {
           letterSpacing: '-0.01em',
         }}
       >
-        Aucun prospect dans le pipeline
+        Aucun prospect dans le suivi
       </p>
       <p
         style={{

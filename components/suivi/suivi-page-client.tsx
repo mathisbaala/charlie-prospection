@@ -1,7 +1,6 @@
 'use client'
 import { useState, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Download } from 'lucide-react'
 import { PipelineClient } from '@/components/prospects/pipeline-client'
 import { PersonaOverviewCards } from './persona-overview-cards'
 import type { Icp, Prospect } from '@/lib/types'
@@ -105,78 +104,6 @@ export function SuiviPageClient({ personas, prospects, signalsByPersona, paginat
         selectedId={selectedTab}
         onSelect={setSelectedTab}
       />
-
-      {/* Toolbar — total count + CSV export */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '10px 32px',
-          background: 'var(--color-bg)',
-          borderBottom: '1px solid var(--color-border)',
-          fontSize: 11,
-          color: 'var(--color-muted)',
-        }}
-      >
-        <span
-          style={{
-            fontVariantNumeric: 'tabular-nums',
-            letterSpacing: '0.01em',
-          }}
-        >
-          <strong
-            style={{
-              fontWeight: 700,
-              color: 'var(--color-text)',
-              fontFamily: 'var(--font-mono, monospace)',
-            }}
-          >
-            {pagination.total}
-          </strong>{' '}
-          prospect{pagination.total > 1 ? 's' : ''} en suivi
-          {selectedTab && selectedTab !== ORPHAN_TAB_ID && currentProspects.length !== pagination.total ? (
-            <>
-              {' '}
-              ·{' '}
-              <strong
-                style={{
-                  fontWeight: 700,
-                  color: 'var(--color-text)',
-                  fontFamily: 'var(--font-mono, monospace)',
-                }}
-              >
-                {currentProspects.length}
-              </strong>{' '}
-              dans cette cible
-            </>
-          ) : null}
-        </span>
-        <a
-          href={
-            selectedTab && selectedTab !== ORPHAN_TAB_ID
-              ? `/api/suivi/export?persona=${selectedTab}`
-              : '/api/suivi/export'
-          }
-          download
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 5,
-            padding: '4px 10px',
-            fontSize: 11,
-            fontWeight: 500,
-            color: 'var(--color-text)',
-            background: 'var(--color-surface)',
-            border: '1px solid var(--color-border)',
-            borderRadius: 2,
-            textDecoration: 'none',
-          }}
-        >
-          <Download size={11} />
-          Export CSV
-        </a>
-      </div>
 
       {/* Persona tabs row */}
       {tabs.length > 1 && (

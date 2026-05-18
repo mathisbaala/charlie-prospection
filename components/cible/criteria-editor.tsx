@@ -3,13 +3,7 @@ import type React from 'react'
 import { Building2, User, Users } from 'lucide-react'
 import { ArrayTagEditor } from './array-tag-editor'
 import { NumericRangeField } from './numeric-range-field'
-import { StrictToggle } from './strict-toggle'
-import type {
-  ParsedIcpCriteria,
-  StrictFilters,
-  TargetType,
-  SignalType,
-} from '@/lib/types'
+import type { ParsedIcpCriteria, TargetType, SignalType } from '@/lib/types'
 
 const TARGET_TYPE_CONFIG: Record<TargetType, { label: string; Icon: React.ElementType }> = {
   personne_morale: { label: 'Personne morale', Icon: Building2 },
@@ -37,41 +31,54 @@ const SIGNAL_LABELS: Record<SignalType, string> = {
   augmentation_capital: 'Augmentation capital',
 }
 
+const ROLE_SUGGESTIONS = [
+  'CEO', 'PDG', 'DG', 'Fondateur', 'Co-fondateur', 'Associé', 'Gérant',
+  'Président', 'Directeur général', 'DAF', 'Directeur associé',
+  'Médecin', 'Chirurgien', 'Chirurgien-dentiste', 'Spécialiste',
+  'Kinésithérapeute', 'Dentiste', 'Vétérinaire', 'Pharmacien',
+  'Avocat', 'Notaire', 'Expert-comptable', 'Commissaire aux comptes', 'Architecte',
+]
+
+const SECTOR_SUGGESTIONS = [
+  'Santé', 'Médical', 'Pharmacie', 'Immobilier', 'BTP', 'Construction',
+  'Industrie', 'Technologie', 'SaaS', 'Finance', 'Banque', 'Assurance',
+  'Commerce', 'Distribution', 'Conseil', 'Juridique',
+  'Agriculture', 'Énergie', 'Transport', 'Logistique', 'Éducation',
+]
+
+const LOCATION_SUGGESTIONS = [
+  'Paris', 'Lyon', 'Marseille', 'Bordeaux', 'Toulouse', 'Nantes',
+  'Strasbourg', 'Lille', 'Montpellier', 'Nice', 'Rennes', 'Grenoble',
+  'Île-de-France', 'PACA', 'Auvergne-Rhône-Alpes', 'Occitanie',
+  'Grand Est', 'Bretagne', 'Normandie', 'Hauts-de-France', 'Nouvelle-Aquitaine',
+  'France entière',
+]
+
+const KEYWORD_SUGGESTIONS = [
+  'Croissance', 'Levée de fonds', 'Cession', 'Acquisition', 'Fusion-acquisition',
+  'Export', 'International', 'Transformation digitale', 'Transmission',
+  'Holding', 'SCI', 'Patrimoine', 'Dividendes', 'Capital',
+  'Actionnaire majoritaire', 'Succession', 'Restructuration', 'Scale-up',
+]
+
+const SIGNAL_SUGGESTIONS = Object.keys(SIGNAL_LABELS) as SignalType[]
+
 interface Props {
   criteria: ParsedIcpCriteria
-  strictFilters: StrictFilters
-  onChange: (next: { criteria: ParsedIcpCriteria; strict_filters: StrictFilters }) => void
+  onChange: (criteria: ParsedIcpCriteria) => void
 }
 
-/**
- * Full editable filter UI for a persona. Every array is add+remove (via
- * ArrayTagEditor), every numeric range has min/max inputs, and every field
- * has a "Strict" toggle that flips its key in strict_filters.
- */
-export function CriteriaEditor({ criteria, strictFilters, onChange }: Props) {
+export function CriteriaEditor({ criteria, onChange }: Props) {
   function update(patch: Partial<ParsedIcpCriteria>) {
-    onChange({ criteria: { ...criteria, ...patch }, strict_filters: strictFilters })
+    onChange({ ...criteria, ...patch })
   }
-  function setStrict(field: keyof ParsedIcpCriteria, value: boolean) {
-    const next = { ...strictFilters }
-    if (value) next[field] = true
-    else delete next[field]
-    onChange({ criteria, strict_filters: next })
-  }
-  const isStrict = (field: keyof ParsedIcpCriteria) => !!strictFilters[field]
 
   return (
     <div className="space-y-6">
-      {/* Target type — radio + clear */}
+      {/* Type de cible */}
       <div>
-        <div className="flex items-center justify-between mb-2">
-          <p style={groupLabelStyle}>Type de cible</p>
-          <StrictToggle
-            active={isStrict('target_type')}
-            onToggle={() => setStrict('target_type', !isStrict('target_type'))}
-          />
-        </div>
-        <div className="flex gap-2 flex-wrap">
+        <p style={groupLabelStyle}>Type de cible</p>
+        <div className="flex gap-2 flex-wrap mt-2">
           {(Object.keys(TARGET_TYPE_CONFIG) as TargetType[]).map((tt) => {
             const cfg = TARGET_TYPE_CONFIG[tt]
             const Icon = cfg.Icon
@@ -81,12 +88,7 @@ export function CriteriaEditor({ criteria, strictFilters, onChange }: Props) {
                 key={tt}
                 type="button"
                 onClick={() => update({ target_type: active ? undefined : tt })}
-                style={{
-                  ...chipStyle(active),
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 6,
-                }}
+                style={{ ...chipStyle(active), display: 'inline-flex', alignItems: 'center', gap: 6 }}
               >
                 <Icon size={12} />
                 {cfg.label}
@@ -100,36 +102,32 @@ export function CriteriaEditor({ criteria, strictFilters, onChange }: Props) {
         label="Rôles"
         items={criteria.roles ?? []}
         onChange={(v) => update({ roles: v })}
-        strict={isStrict('roles')}
-        onStrictChange={(v) => setStrict('roles', v)}
         placeholder="ex. Médecin généraliste"
+        suggestions={ROLE_SUGGESTIONS}
       />
 
       <ArrayTagEditor
         label="Secteurs"
         items={criteria.sectors ?? []}
         onChange={(v) => update({ sectors: v })}
-        strict={isStrict('sectors')}
-        onStrictChange={(v) => setStrict('sectors', v)}
         placeholder="ex. Santé"
+        suggestions={SECTOR_SUGGESTIONS}
       />
 
       <ArrayTagEditor
         label="Localisations"
         items={criteria.locations ?? []}
         onChange={(v) => update({ locations: v })}
-        strict={isStrict('locations')}
-        onStrictChange={(v) => setStrict('locations', v)}
         placeholder="ex. Paris, Île-de-France"
+        suggestions={LOCATION_SUGGESTIONS}
       />
 
       <ArrayTagEditor
         label="Mots-clés"
         items={criteria.keywords ?? []}
         onChange={(v) => update({ keywords: v })}
-        strict={isStrict('keywords')}
-        onStrictChange={(v) => setStrict('keywords', v)}
         placeholder="ex. levée de fonds"
+        suggestions={KEYWORD_SUGGESTIONS}
       />
 
       <ArrayTagEditor
@@ -137,10 +135,9 @@ export function CriteriaEditor({ criteria, strictFilters, onChange }: Props) {
         items={criteria.signal_priorities ?? []}
         onChange={(v) => update({ signal_priorities: v as SignalType[] })}
         variant="accent"
-        strict={isStrict('signal_priorities')}
-        onStrictChange={(v) => setStrict('signal_priorities', v)}
         placeholder="ex. cession_entreprise"
         displayLabel={(v) => SIGNAL_LABELS[v as SignalType] ?? v}
+        suggestions={SIGNAL_SUGGESTIONS}
       />
 
       <NumericRangeField
@@ -149,12 +146,6 @@ export function CriteriaEditor({ criteria, strictFilters, onChange }: Props) {
         min={criteria.ca_min}
         max={criteria.ca_max}
         onChange={({ min, max }) => update({ ca_min: min, ca_max: max })}
-        strict={isStrict('ca_min') || isStrict('ca_max')}
-        onStrictChange={(v) => {
-          // Toggle both bounds together — they share semantics.
-          setStrict('ca_min', v)
-          setStrict('ca_max', v)
-        }}
       />
 
       <NumericRangeField
@@ -162,11 +153,6 @@ export function CriteriaEditor({ criteria, strictFilters, onChange }: Props) {
         min={criteria.effectif_min}
         max={criteria.effectif_max}
         onChange={({ min, max }) => update({ effectif_min: min, effectif_max: max })}
-        strict={isStrict('effectif_min') || isStrict('effectif_max')}
-        onStrictChange={(v) => {
-          setStrict('effectif_min', v)
-          setStrict('effectif_max', v)
-        }}
       />
 
       <NumericRangeField
@@ -175,23 +161,12 @@ export function CriteriaEditor({ criteria, strictFilters, onChange }: Props) {
         min={criteria.age_min}
         max={criteria.age_max}
         onChange={({ min, max }) => update({ age_min: min, age_max: max })}
-        strict={isStrict('age_min') || isStrict('age_max')}
-        onStrictChange={(v) => {
-          setStrict('age_min', v)
-          setStrict('age_max', v)
-        }}
       />
 
-      {/* Patrimony level — chip group */}
+      {/* Niveau patrimonial */}
       <div>
-        <div className="flex items-center justify-between mb-2">
-          <p style={groupLabelStyle}>Niveau patrimonial</p>
-          <StrictToggle
-            active={isStrict('patrimony_level')}
-            onToggle={() => setStrict('patrimony_level', !isStrict('patrimony_level'))}
-          />
-        </div>
-        <div className="flex gap-2 flex-wrap">
+        <p style={groupLabelStyle}>Niveau patrimonial</p>
+        <div className="flex gap-2 flex-wrap mt-2">
           {PATRIMONY_OPTIONS.map(({ value, label }) => {
             const active = criteria.patrimony_level === value
             return (
@@ -206,31 +181,6 @@ export function CriteriaEditor({ criteria, strictFilters, onChange }: Props) {
             )
           })}
         </div>
-      </div>
-
-      {/* Geo strict — checkbox-style toggle */}
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <p style={groupLabelStyle}>Géofiltrage</p>
-        </div>
-        <label
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 8,
-            cursor: 'pointer',
-            fontSize: 13,
-            color: 'var(--color-text)',
-          }}
-        >
-          <input
-            type="checkbox"
-            checked={!!criteria.geo_strict}
-            onChange={(e) => update({ geo_strict: e.target.checked })}
-            style={{ accentColor: 'var(--color-accent)' }}
-          />
-          N&apos;élargit pas aux départements adjacents (mode strict)
-        </label>
       </div>
     </div>
   )

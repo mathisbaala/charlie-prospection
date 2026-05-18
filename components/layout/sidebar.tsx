@@ -1,5 +1,6 @@
 'use client'
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { Search, Target, Kanban, Settings, LogOut, Send, Wifi, WifiOff } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -38,16 +39,14 @@ export function Sidebar() {
     >
       <div
         className="flex items-center gap-2"
-        style={{ padding: '20px 20px 18px', borderBottom: '1px solid var(--color-border)' }}
+        style={{ padding: '16px 20px 15px', borderBottom: '1px solid var(--color-border)' }}
       >
-        <span
-          style={{
-            width: 10,
-            height: 10,
-            borderRadius: '50%',
-            background: 'var(--color-accent)',
-            flexShrink: 0,
-          }}
+        <Image
+          src="/charlie-logo-mark.png"
+          alt="Charlie"
+          width={26}
+          height={26}
+          style={{ flexShrink: 0 }}
         />
         <span
           className="font-display"
