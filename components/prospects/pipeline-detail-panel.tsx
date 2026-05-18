@@ -140,16 +140,17 @@ export function PipelineDetailPanel({ prospect, onStageChange, onDelete, onEdit 
                     display: 'inline-flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    width: 22,
-                    height: 22,
+                    width: 28,
+                    height: 28,
                     background: 'transparent',
                     color: 'var(--color-muted)',
-                    border: 'none',
+                    border: '1px solid transparent',
+                    borderRadius: 2,
                     cursor: 'pointer',
-                    transition: 'color 100ms',
+                    transition: 'color 100ms, border-color 100ms',
                   }}
-                  onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--color-text)' }}
-                  onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--color-muted)' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--color-text)'; e.currentTarget.style.borderColor = 'var(--color-border)' }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--color-muted)'; e.currentTarget.style.borderColor = 'transparent' }}
                 >
                   <Pencil size={13} />
                 </button>
@@ -163,16 +164,17 @@ export function PipelineDetailPanel({ prospect, onStageChange, onDelete, onEdit 
                       display: 'inline-flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      width: 22,
-                      height: 22,
+                      width: 28,
+                      height: 28,
                       background: 'transparent',
                       color: 'var(--color-muted)',
-                      border: 'none',
+                      border: '1px solid transparent',
+                      borderRadius: 2,
                       cursor: 'pointer',
-                      transition: 'color 100ms',
+                      transition: 'color 100ms, border-color 100ms',
                     }}
-                    onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--color-error)' }}
-                    onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--color-muted)' }}
+                    onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--color-error)'; e.currentTarget.style.borderColor = 'var(--color-error)' }}
+                    onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--color-muted)'; e.currentTarget.style.borderColor = 'transparent' }}
                   >
                     <Trash2 size={13} />
                   </button>
