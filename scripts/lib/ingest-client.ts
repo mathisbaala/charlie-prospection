@@ -81,15 +81,8 @@ function getSupabase() {
 // Chunk size pour les upserts Supabase (5 rows = ~2-5s, safe sous le statement_timeout free tier)
 const CHUNK = 5
 
-export function getEnv(): { baseUrl: string; apiKey: string } {
-  // Conservé pour compatibilité avec dry-run (les valeurs ne sont plus utilisées)
-  return { baseUrl: '', apiKey: '' }
-}
-
 export async function postBatch(
   persons: PersonIngestInput[],
-  _baseUrl: string,
-  _apiKey: string,
 ): Promise<{ upserted: number; errors: number }> {
   if (!persons.length) return { upserted: 0, errors: 0 }
 
@@ -133,9 +126,10 @@ export async function postBatch(
     const chunk = rows.slice(i, i + CHUNK)
     for (let attempt = 1; attempt <= 3; attempt++) {
       try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { error } = await supabase
           .from('prospection_persons')
-          .upsert(chunk, { onConflict: 'canonical_key', ignoreDuplicates: false })
+          .upsert(chunk as any[], { onConflict: 'canonical_key', ignoreDuplicates: false })
         if (error) {
           console.error(`\n[ingest] chunk erreur (attempt ${attempt}): ${error.message}`)
           if (attempt < 3) { await sleep(5_000 * attempt); continue }

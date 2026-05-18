@@ -1,14 +1,13 @@
 #!/usr/bin/env node
 /**
- * enrich-bulk.ts — Déclenche l'enrichissement en masse de prospection_persons.
+ * enrich-bulk.ts — Déclenche manuellement l'enrichissement standard en masse.
  *
- * Appelle le cron /api/cron/enrich-persons en boucle, 20 personnes par passe,
- * jusqu'à épuisement des entrées 'raw' ou du quota Pappers.
+ * Appelle le cron /api/cron/enrich-persons-standard en boucle (étape 2 du pipeline),
+ * 50 personnes par passe, jusqu'à épuisement des entrées 'raw' de plus de 24h.
  *
- * Le cron réutilise toute la logique existante : Pappers + BODACC + DVF +
- * scoring patrimonial. Le quota Pappers est géré côté serveur — quand il est
- * épuisé, l'enrichissement continue avec les sources gratuites (BODACC, DVF,
- * RPPS) sans appel Pappers.
+ * Sources : Annuaire Entreprises (gratuit) + BODACC (gratuit) + score règles métier.
+ * Zéro Pappers, zéro Claude. À utiliser pour un backfill urgent entre deux runs
+ * du cron quotidien (08:00 UTC).
  *
  * Usage :
  *   npx tsx scripts/enrich-bulk.ts
@@ -24,7 +23,7 @@
 import * as fs from 'fs'
 import * as path from 'path'
 
-const BATCH_SIZE = 20
+const BATCH_SIZE = 50
 
 function loadEnv(): Record<string, string> {
   const envPath = path.join(process.cwd(), '.env.local')
@@ -51,19 +50,18 @@ async function countRaw(baseUrl: string, adminKey: string): Promise<number> {
 
 async function runEnrichPass(baseUrl: string, cronSecret: string): Promise<{
   enriched: number
-  dropped: number
+  errors: number
   done: boolean
 }> {
-  const res = await fetch(`${baseUrl}/api/cron/enrich-persons`, {
+  const res = await fetch(`${baseUrl}/api/cron/enrich-persons-standard`, {
     headers: { Authorization: `Bearer ${cronSecret}` },
   })
   if (!res.ok) {
     console.error(`  HTTP ${res.status}:`, await res.text())
-    return { enriched: 0, dropped: 0, done: true }
+    return { enriched: 0, errors: 0, done: true }
   }
-  const data = await res.json() as { ok: boolean; enriched: number; dropped: number }
-  const done = (data.enriched + data.dropped) < BATCH_SIZE
-  return { enriched: data.enriched, dropped: data.dropped, done }
+  const data = await res.json() as { enriched: number; errors: number; done: boolean }
+  return { enriched: data.enriched, errors: data.errors ?? 0, done: data.done }
 }
 
 async function sleep(ms: number): Promise<void> {
@@ -90,8 +88,9 @@ async function main() {
     process.exit(1)
   }
 
-  console.log('=== Bulk Enrichment ===')
+  console.log('=== Bulk Enrichment Standard (étape 2) ===')
   console.log(`  URL : ${baseUrl}`)
+  console.log(`  Sources : Annuaire Entreprises + BODACC (gratuit, zéro Pappers)`)
   console.log(`  Délai entre passes : ${delayMs}ms`)
   if (maxPersons !== Infinity) console.log(`  Max personnes : ${maxPersons}`)
   if (dryRun) console.log('  Mode dry-run')
@@ -103,23 +102,23 @@ async function main() {
   }
 
   let totalEnriched = 0
-  let totalDropped = 0
+  let totalErrors = 0
   let passes = 0
   const startAt = Date.now()
 
-  while (totalEnriched + totalDropped < maxPersons) {
+  while (totalEnriched + totalErrors < maxPersons) {
     passes++
-    const { enriched, dropped, done } = await runEnrichPass(baseUrl, cronSecret)
+    const { enriched, errors, done } = await runEnrichPass(baseUrl, cronSecret)
     totalEnriched += enriched
-    totalDropped += dropped
+    totalErrors += errors
 
     const elapsed = ((Date.now() - startAt) / 1000).toFixed(0)
     process.stdout.write(
-      `\r  Passe ${passes} | Enrichies: ${totalEnriched} | Ignorées: ${totalDropped} | ${elapsed}s   `
+      `\r  Passe ${passes} | Enrichies: ${totalEnriched} | Erreurs: ${totalErrors} | ${elapsed}s   `
     )
 
     if (done) {
-      console.log('\n  Queue épuisée ou quota Pappers atteint.')
+      console.log('\n  Queue épuisée (toutes les raw > 24h sont standard).')
       break
     }
 
@@ -128,7 +127,7 @@ async function main() {
 
   const elapsed = ((Date.now() - startAt) / 1000).toFixed(0)
   console.log(`\n\n=== Terminé ===`)
-  console.log(`  Passes : ${passes} | Enrichies : ${totalEnriched} | Ignorées : ${totalDropped}`)
+  console.log(`  Passes : ${passes} | Enrichies : ${totalEnriched} | Erreurs : ${totalErrors}`)
   console.log(`  Durée : ${elapsed}s`)
 }
 

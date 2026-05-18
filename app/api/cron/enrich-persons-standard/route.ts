@@ -246,7 +246,8 @@ export async function GET(request: NextRequest) {
           .eq('canonical_key', p.canonical_key)
 
         enriched++
-      } catch {
+      } catch (err) {
+        console.error('[enrich-standard] error on', p.canonical_key, err instanceof Error ? err.message : String(err))
         errors++
       }
     }),

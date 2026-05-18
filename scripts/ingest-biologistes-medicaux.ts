@@ -30,8 +30,7 @@
  *   ADMIN_API_KEY    Clé d'admin
  */
 
-import { createReadStream } from 'fs'
-import { getEnv, postBatch, sleep, DEPTS_FRANCE } from './lib/ingest-client'
+import { postBatch, sleep, DEPTS_FRANCE } from './lib/ingest-client'
 import type { PersonIngestInput, PersonType } from '../lib/persons/types'
 
 const AE_BASE = 'https://recherche-entreprises.api.gouv.fr'
@@ -116,7 +115,6 @@ function mapAEDirigeant(d: AEDirigeant, company: AEResult): PersonIngestInput | 
 
 async function ingestFromAE(
   depts: string[],
-  env: { baseUrl: string; apiKey: string },
   dryRun: boolean,
 ): Promise<{ upserted: number; errors: number }> {
   let batch: PersonIngestInput[] = []
@@ -150,7 +148,7 @@ async function ingestFromAE(
 
           batch.push(person)
           if (batch.length >= BATCH_SIZE) {
-            const r = await postBatch(batch, env.baseUrl, env.apiKey)
+            const r = await postBatch(batch)
             totalUpserted += r.upserted
             totalErrors += r.errors
             batch = []
@@ -170,7 +168,7 @@ async function ingestFromAE(
   }
 
   if (!dryRun && batch.length) {
-    const r = await postBatch(batch, env.baseUrl, env.apiKey)
+    const r = await postBatch(batch)
     totalUpserted += r.upserted
     totalErrors += r.errors
   }
@@ -263,7 +261,6 @@ function parseRppsLine(
 
 async function ingestFromRpps(
   deptFilter: string | undefined,
-  env: { baseUrl: string; apiKey: string },
   dryRun: boolean,
 ): Promise<{ upserted: number; errors: number }> {
   console.log('\n--- Source 2: RPPS (Biologiste Médical mode libéral) ---')
@@ -319,7 +316,7 @@ async function ingestFromRpps(
 
       batch.push(person)
       if (batch.length >= BATCH_SIZE) {
-        const r = await postBatch(batch, env.baseUrl, env.apiKey)
+        const r = await postBatch(batch)
         totalUpserted += r.upserted
         totalErrors += r.errors
         batch = []
@@ -333,7 +330,7 @@ async function ingestFromRpps(
   }
 
   if (!dryRun && batch.length) {
-    const r = await postBatch(batch, env.baseUrl, env.apiKey)
+    const r = await postBatch(batch)
     totalUpserted += r.upserted
     totalErrors += r.errors
   }
@@ -350,8 +347,6 @@ async function main() {
   const deptArg = args.includes('--dept') ? args[args.indexOf('--dept') + 1] : undefined
   const depts = deptArg ? [deptArg] : DEPTS_FRANCE
 
-  const env = dryRun ? { baseUrl: '', apiKey: 'dry-run' } : getEnv()
-
   console.log('=== Ingest Biologistes Médicaux ===')
   console.log(`  Départements : ${depts.length === 1 ? depts[0] : depts.length + ' depts'}`)
   if (sourceFilter) console.log(`  Source : ${sourceFilter}`)
@@ -361,14 +356,14 @@ async function main() {
   let grandTotal = 0
 
   if (!sourceFilter || sourceFilter === 'ae') {
-    const { upserted } = await ingestFromAE(depts, env, dryRun)
+    const { upserted } = await ingestFromAE(depts, dryRun)
     grandTotal += upserted
     console.log(`\n  AE terminé : ${upserted} biologistes ingérés`)
   }
 
   if (!sourceFilter || sourceFilter === 'rpps') {
     try {
-      const { upserted } = await ingestFromRpps(deptArg, env, dryRun)
+      const { upserted } = await ingestFromRpps(deptArg, dryRun)
       grandTotal += upserted
       console.log(`\n  RPPS terminé : ${upserted} biologistes ingérés`)
     } catch (e) {
