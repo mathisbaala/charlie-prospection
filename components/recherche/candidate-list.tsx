@@ -197,7 +197,7 @@ export function CandidateList({ candidates, selected, onToggle, onSelectAll, onD
                       maxWidth: 480,
                     }}
                   >
-                    {c.raison_principale}
+                    {c.raison_principale.replace(/^\[standard\]\s*/, '')}
                   </div>
                 )}
               </div>

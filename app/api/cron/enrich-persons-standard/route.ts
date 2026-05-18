@@ -252,7 +252,7 @@ export async function GET(request: NextRequest) {
           .from('prospection_persons')
           .update({
             patrimony_score: score,
-            raison_principale: `[standard] ${raison}`,
+            raison_principale: raison,
             extended_data: extended,
             enrichment_level: 'standard',
             enriched_at: now,

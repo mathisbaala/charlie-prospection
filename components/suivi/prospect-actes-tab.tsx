@@ -124,7 +124,7 @@ export function ProspectActesTab({ prospect }: Props) {
       </div>
 
       {showActes && premium.depots_actes && premium.depots_actes.length > 0 && (
-        <Section title="Actes juridiques" subtitle="OCR Pappers — dépôts au greffe">
+        <Section title="Actes juridiques">
           {premium.depots_actes.map((d, i) => (
             <DepotActeRow key={`d-${i}`} depot={d} prospectId={prospect.id} />
           ))}
@@ -132,7 +132,7 @@ export function ProspectActesTab({ prospect }: Props) {
       )}
 
       {showComptes && premium.comptes && premium.comptes.length > 0 && (
-        <Section title="Comptes annuels" subtitle="Liasses fiscales déposées au greffe">
+        <Section title="Comptes annuels">
           {premium.comptes.map((c, i) => (
             <CompteRow key={`c-${i}`} compte={c} prospectId={prospect.id} />
           ))}
