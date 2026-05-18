@@ -36,12 +36,15 @@ const PROFESSIONS_CIBLES: { match: string; type: PersonType }[] = [
   { match: 'Chirurgien-Dentiste', type: 'dentiste' },
   { match: 'Pharmacien', type: 'pharmacien' },
   { match: 'Masseur-Kinésithérapeute', type: 'kiné' },
-  { match: 'Sage-Femme', type: 'autre_libéral' },
-  { match: 'Infirmier', type: 'autre_libéral' },
-  { match: 'Orthophoniste', type: 'autre_libéral' },
-  { match: 'Pédicure-Podologue', type: 'autre_libéral' },
-  { match: 'Ergothérapeute', type: 'autre_libéral' },
-  { match: 'Opticien-Lunetier', type: 'autre_libéral' },
+  { match: 'Biologiste Médical', type: 'biologiste_médical' },
+  { match: 'Sage-Femme', type: 'sage_femme' },
+  { match: 'Infirmier', type: 'infirmier' },
+  { match: 'Orthophoniste', type: 'orthophoniste' },
+  { match: 'Pédicure-Podologue', type: 'podologue' },
+  { match: 'Ergothérapeute', type: 'ergothérapeute' },
+  { match: 'Opticien-Lunetier', type: 'opticien' },
+  { match: 'Orthoptiste', type: 'orthoptiste' },
+  { match: 'Audioprothésiste', type: 'audioprothésiste' },
 ]
 
 function personTypeFromProfession(libelle: string): PersonType {
