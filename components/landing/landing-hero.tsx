@@ -51,11 +51,10 @@ export const LandingHero = forwardRef<LandingHeroHandle, Props>(function Landing
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '48px 24px 80px',
+        padding: '80px 24px 64px',
         maxWidth: 660,
         margin: '0 auto',
         width: '100%',
-        minHeight: '70vh',
       }}
     >
       <h1
