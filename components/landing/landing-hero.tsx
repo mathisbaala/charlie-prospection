@@ -164,14 +164,14 @@ export const LandingHero = forwardRef<LandingHeroHandle, Props>(function Landing
               fontFamily: 'inherit',
               fontSize: 12.5,
               fontWeight: 500,
-              padding: '6px 13px',
+              padding: '10px 14px',
               border: '1px solid var(--color-border)',
               borderRadius: 2,
               background: 'transparent',
               color: 'var(--color-muted)',
               cursor: disabled ? 'not-allowed' : 'pointer',
               lineHeight: 1.3,
-              transition: 'all 100ms',
+              transition: 'border-color 100ms, color 100ms, background 100ms',
               opacity: disabled ? 0.5 : 1,
             }}
             onMouseEnter={e => {
