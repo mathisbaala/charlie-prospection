@@ -43,6 +43,7 @@ function baseScore(p: PersonRow): { score: number; raison: string } {
   let raison = 'Libéral'
 
   switch (p.person_type) {
+    // ── Santé — professions médicales ────────────────────────────────────────
     case 'médecin':
       if (/chirurg|anesthés|cardio|radiol|ophtalmol|orthop/.test(prof)) {
         score = 82; raison = 'Médecin spécialiste — plateau technique élevé'
@@ -52,27 +53,41 @@ function baseScore(p: PersonRow): { score: number; raison: string } {
         score = 56; raison = 'Médecin généraliste'
       }
       break
+    case 'biologiste_médical':   score = 80; raison = 'Biologiste médical — labo privé (SEL)'; break
     case 'dentiste':             score = 68; raison = 'Chirurgien-dentiste libéral'; break
-    case 'pharmacien':           score = 65; raison = 'Pharmacien titulaire'; break
-    case 'kiné':                 score = 48; raison = 'Masseur-kinésithérapeute'; break
+    case 'pharmacien':           score = 65; raison = 'Pharmacien titulaire d\'officine'; break
+    case 'kiné':                 score = 48; raison = 'Masseur-kinésithérapeute libéral'; break
+    case 'audioprothésiste':     score = 68; raison = 'Audioprothésiste — revenus élevés'; break
+    case 'opticien':             score = 55; raison = 'Opticien-lunetier — fonds de commerce'; break
+    case 'sage_femme':           score = 44; raison = 'Sage-femme libérale'; break
+    case 'infirmier':            score = 42; raison = 'Infirmier libéral'; break
+    case 'orthophoniste':        score = 44; raison = 'Orthophoniste libéral'; break
+    case 'podologue':            score = 42; raison = 'Podologue-pédicure libéral'; break
+    case 'ergothérapeute':       score = 40; raison = 'Ergothérapeute libéral'; break
+    case 'orthoptiste':          score = 42; raison = 'Orthoptiste libéral'; break
+    // ── Droit ────────────────────────────────────────────────────────────────
     case 'notaire':              score = 78; raison = 'Notaire — office libéral'; break
-    case 'avocat':               score = 60; raison = 'Avocat'; break
+    case 'huissier':             score = 70; raison = 'Commissaire de justice'; break
+    case 'greffier':             score = 72; raison = 'Greffier de tribunal de commerce'; break
+    case 'commissaire_priseur':  score = 76; raison = 'Commissaire-priseur — ventes aux enchères'; break
+    case 'expert_judiciaire':    score = 60; raison = 'Expert judiciaire'; break
+    case 'commissaire_aux_comptes': score = 68; raison = 'Commissaire aux comptes'; break
     case 'expert_comptable':     score = 63; raison = 'Expert-comptable'; break
+    case 'conseil_pi':           score = 65; raison = 'Conseil en propriété industrielle'; break
+    case 'avocat':               score = 60; raison = 'Avocat'; break
+    // ── Finance & assurance ──────────────────────────────────────────────────
     case 'conseiller_financier': score = 72; raison = 'Conseiller en gestion de patrimoine'; break
     case 'courtier_assurance':   score = 55; raison = 'Courtier / agent en assurance'; break
-    case 'huissier':             score = 70; raison = 'Commissaire de justice'; break
-    case 'autre_libéral':
-      if (/commissaire.priseur|enchères/.test(prof)) { score = 76; raison = 'Commissaire-priseur' }
-      else if (/vétérin/.test(prof))                 { score = 64; raison = 'Vétérinaire' }
-      else if (/architecte/.test(prof))              { score = 58; raison = 'Architecte' }
-      else if (/expert judiciaire/.test(prof))       { score = 64; raison = 'Expert judiciaire' }
-      else if (/géomètre/.test(prof))                { score = 58; raison = 'Géomètre-expert' }
-      else if (/ostéopath/.test(prof))               { score = 46; raison = 'Ostéopathe' }
-      else if (/psycholog/.test(prof))               { score = 44; raison = 'Psychologue' }
-      else if (/agent immobilier/.test(prof))        { score = 48; raison = 'Agent immobilier' }
-      else                                           { score = 44; raison = 'Autre libéral' }
-      break
-    default: score = 34; raison = 'Dirigeant'
+    // ── Libéraux divers ──────────────────────────────────────────────────────
+    case 'vétérinaire':          score = 64; raison = 'Vétérinaire libéral'; break
+    case 'architecte':           score = 58; raison = 'Architecte libéral'; break
+    case 'géomètre':             score = 58; raison = 'Géomètre-expert'; break
+    case 'ostéopathe':           score = 46; raison = 'Ostéopathe'; break
+    case 'psychologue':          score = 44; raison = 'Psychologue libéral'; break
+    case 'agent_immobilier':     score = 48; raison = 'Agent immobilier'; break
+    // ── Fallback ─────────────────────────────────────────────────────────────
+    case 'autre_libéral':        score = 44; raison = 'Libéral'; break
+    default:                     score = 34; raison = 'Dirigeant'
   }
 
   return { score, raison }

@@ -76,7 +76,14 @@ export async function POST(request: Request) {
     'Chirurgien-Dentiste': 'dentiste',
     Pharmacien: 'pharmacien',
     Kinesitherapeute: 'kiné',
-    'Sage-Femme': 'autre_libéral',
+    'Sage-Femme': 'sage_femme',
+    Infirmier: 'infirmier',
+    Orthophoniste: 'orthophoniste',
+    'Pédicure-Podologue': 'podologue',
+    Ergothérapeute: 'ergothérapeute',
+    'Opticien-Lunetier': 'opticien',
+    Orthoptiste: 'orthoptiste',
+    'Biologiste Médical': 'biologiste_médical',
   }
   const personTypes: PersonType[] | null = rppsProfession
     ? [RPPS_TO_PERSON_TYPE[rppsProfession] ?? 'autre_libéral']
