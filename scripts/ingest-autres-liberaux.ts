@@ -157,7 +157,7 @@ const PROFESSIONS: Record<string, ProfessionConfig> = {
     label: 'Mandataires en propriété industrielle (CNCPI)',
     sourceId: 'ae_cncpi',
     naf: '69.10Z',
-    personType: 'autre_libéral',
+    personType: 'conseil_pi',
     professionLibelle: 'Mandataire en propriété industrielle',
     keywords: ['propriété industrielle', 'brevet', 'marques et brevets', 'mandataire brevet'],
   },
