@@ -81,23 +81,7 @@ export async function IntelligenceStripV2() {
 
     if (!trackedCount || trackedCount === 0) return null
 
-    return (
-      <div
-        role="status"
-        style={{
-          background: 'var(--color-surface)',
-          color: 'var(--color-muted)',
-          fontSize: 11.5,
-          padding: '8px 24px',
-          letterSpacing: '0.01em',
-          borderBottom: '1px solid var(--color-border)',
-          textAlign: 'center',
-        }}
-      >
-        Aucun signal qualifié sur les {WINDOW_DAYS} derniers jours. Les nouveaux signaux
-        s&apos;affichent ici après le passage du firehose quotidien (06:30 UTC).
-      </div>
-    )
+    return null
   }
 
   // Group: personaId → { name, types[] }
